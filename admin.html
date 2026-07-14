@@ -303,6 +303,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .idle-warning-box .btn-login{width:100%}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
 </head>
 <body>
 
@@ -2213,27 +2214,52 @@ function renderLoginActivity(){
   });
   countEl.textContent = '('+filtered.length+' of '+loginActivity.length+' entries)';
   if(!filtered.length){
-    tbody.innerHTML = '';
+    tbody.replaceChildren();
     document.getElementById('la-table').style.display = 'none';
     emptyEl.style.display = 'block';
     return;
   }
   document.getElementById('la-table').style.display = '';
   emptyEl.style.display = 'none';
-  tbody.innerHTML = filtered.map(r => {
-    const resultBadge = r.success
-      ? `<span style="background:#d1fae5;color:#065f46;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500">${T('LA_SUCCESS')}</span>`
-      : `<span style="background:#fee2e2;color:#991b1b;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500">${T('LA_FAILED')}</span>`;
-    const ts = r.ts ? new Date(r.ts).toLocaleString() : '—';
-    return `<tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:10px;font-size:13px;font-family:var(--mono)">${ts}</td>
-      <td style="padding:10px;font-size:13px">${esc(r.email)||'—'}</td>
-      <td style="padding:10px">${resultBadge}</td>
-      <td style="padding:10px;font-size:12px;color:var(--text2)">${esc(r.reason)||'—'}</td>
-      <td style="padding:10px;font-size:12px;color:var(--text2);font-family:var(--mono)">${esc(r.ip_address)||'—'}</td>
-      <td style="padding:10px;font-size:12px;color:var(--text2);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.user_agent)}">${esc(r.user_agent)||'—'}</td>
-    </tr>`;
-  }).join('');
+
+  const rows = filtered.map(r => {
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid var(--border)';
+
+    const tdTs = document.createElement('td');
+    tdTs.style.cssText = 'padding:10px;font-size:13px;font-family:var(--mono)';
+    tdTs.textContent = r.ts ? new Date(r.ts).toLocaleString() : '—';
+
+    const tdEmail = document.createElement('td');
+    tdEmail.style.cssText = 'padding:10px;font-size:13px';
+    tdEmail.textContent = r.email || '—';
+
+    const tdResult = document.createElement('td');
+    tdResult.style.padding = '10px';
+    const badge = document.createElement('span');
+    badge.style.cssText = r.success
+      ? 'background:#d1fae5;color:#065f46;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500'
+      : 'background:#fee2e2;color:#991b1b;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500';
+    badge.textContent = T(r.success ? 'LA_SUCCESS' : 'LA_FAILED');
+    tdResult.appendChild(badge);
+
+    const tdReason = document.createElement('td');
+    tdReason.style.cssText = 'padding:10px;font-size:12px;color:var(--text2)';
+    tdReason.textContent = r.reason || '—';
+
+    const tdIp = document.createElement('td');
+    tdIp.style.cssText = 'padding:10px;font-size:12px;color:var(--text2);font-family:var(--mono)';
+    tdIp.textContent = r.ip_address || '—';
+
+    const tdUa = document.createElement('td');
+    tdUa.style.cssText = 'padding:10px;font-size:12px;color:var(--text2);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    tdUa.title = r.user_agent || '';
+    tdUa.textContent = r.user_agent || '—';
+
+    tr.append(tdTs, tdEmail, tdResult, tdReason, tdIp, tdUa);
+    return tr;
+  });
+  tbody.replaceChildren(...rows);
 }
 
 async function usersDelete(id){
@@ -2967,7 +2993,7 @@ function formatRatesSummary(pricing,rates){
   if(pricing==='ToU'){
     return 'Hi-season peak €'+(rates.hiPeakRate||0).toFixed(4)+' / off-peak €'+(rates.hiOffRate||0).toFixed(4)
       +'\nLo-season peak €'+(rates.loPeakRate||0).toFixed(4)+' / off-peak €'+(rates.loOffRate||0).toFixed(4)
-      +'\nHi season: month '+esc(rates.hiStart||'?')+' – '+esc(rates.hiEnd||'?');
+      +'\nHi season: month '+(rates.hiStart||'?')+' – '+(rates.hiEnd||'?');
   }
   if(pricing==='Dynamic'){
     return '×'+(rates.mult||1)+' DAM + €'+(rates.adder||0).toFixed(4)+'/kWh'
@@ -2975,7 +3001,7 @@ function formatRatesSummary(pricing,rates){
   }
   if(pricing==='Variable'){
     const ts=(rates.tiers||[]).map((t,i)=>
-      'Tier '+(i+1)+': '+(t.upTo!=null?'up to '+esc(t.upTo)+' kWh':'∞')+' @ €'+(Number(t.rate)||0).toFixed(4)+'/kWh'
+      'Tier '+(i+1)+': '+(t.upTo!=null?'up to '+t.upTo+' kWh':'∞')+' @ €'+(Number(t.rate)||0).toFixed(4)+'/kWh'
     ).join('\n');
     return 'Reset every '+(rates.resetMonths||2)+' month(s)\n'+ts;
   }
@@ -2996,71 +3022,127 @@ function openReview(id){
 
   const prof=profiles.find(p=>p.id===t.profileId);
 
-  function row(field,label,val,rawRates){
+  // Builds a <span> whose text is line-broken on '\n' using real <br> elements,
+  // instead of a raw HTML string with '\n'.replace(/\n/g,'<br>').
+  function multilineSpan(cls,text){
+    const span=document.createElement('span');
+    if(cls) span.className=cls;
+    String(text).split('\n').forEach((line,i)=>{
+      if(i>0) span.appendChild(document.createElement('br'));
+      span.appendChild(document.createTextNode(line));
+    });
+    return span;
+  }
+
+  function row(field,label,val){
     const isChanged=changedFields.has(field);
     const ch=changes.find(c=>c.field===field);
-    const prevDisplay=ch?(field==='rates'?formatRatesSummary(
-        (()=>{try{return JSON.parse(ch.from).pricing||t.pricing}catch(e){return t.pricing}})(),
-        (()=>{try{return JSON.parse(ch.from)}catch(e){return {}}})()):ch.from):'';
-    let html='<div class="review-row'+(isNew||isChanged?' changed':'')+'"><span class="review-lbl">'+label+'</span><span class="review-val">';
+
+    const rowEl=document.createElement('div');
+    rowEl.className='review-row'+(isNew||isChanged?' changed':'');
+    const lblEl=document.createElement('span');
+    lblEl.className='review-lbl';
+    lblEl.textContent=label;
+    const valEl=document.createElement('span');
+    valEl.className='review-val';
+    rowEl.append(lblEl,valEl);
+
     if(isNew){
-      html+='<span class="new-val">'+val+'</span>';
+      const newSpan=document.createElement('span');
+      newSpan.className='new-val';
+      newSpan.textContent=val;
+      valEl.appendChild(newSpan);
     } else if(isChanged && ch){
       if(field==='rates'){
-        const oldRates=(()=>{try{return JSON.parse(ch.from)}catch(e){return {}}})(  );
-        const newRates=(()=>{try{return JSON.parse(ch.to)}catch(e){return {}}})(  );
-        html+='<span class="prev-val">'+formatRatesSummary(t.pricing,oldRates).replace(/\n/g,'<br>')+'</span>'
-          +'<span class="change-arrow">→</span>'
-          +'<span class="new-val">'+formatRatesSummary(t.pricing,newRates).replace(/\n/g,'<br>')+'</span>';
+        const oldRates=(()=>{try{return JSON.parse(ch.from)}catch(e){return {}}})();
+        const newRates=(()=>{try{return JSON.parse(ch.to)}catch(e){return {}}})();
+        const arrow=document.createElement('span'); arrow.className='change-arrow'; arrow.textContent='→';
+        valEl.append(
+          multilineSpan('prev-val',formatRatesSummary(t.pricing,oldRates)),
+          arrow,
+          multilineSpan('new-val',formatRatesSummary(t.pricing,newRates)),
+        );
       } else {
-        html+='<span class="prev-val">'+esc(ch.from||'—')+'</span>'
-          +'<span class="change-arrow">→</span>'
-          +'<span class="new-val">'+esc(ch.to||'—')+'</span>';
+        const prevSpan=document.createElement('span'); prevSpan.className='prev-val'; prevSpan.textContent=ch.from||'—';
+        const arrow=document.createElement('span'); arrow.className='change-arrow'; arrow.textContent='→';
+        const newSpan=document.createElement('span'); newSpan.className='new-val'; newSpan.textContent=ch.to||'—';
+        valEl.append(prevSpan,arrow,newSpan);
       }
     } else {
       if(field==='rates'){
-        html+='<span class="rates-detail">'+val.replace(/\n/g,'<br>')+'</span>';
+        valEl.appendChild(multilineSpan('rates-detail',val));
       } else {
-        html+=val;
+        valEl.appendChild(document.createTextNode(val));
       }
     }
-    html+='</span></div>';
-    return html;
+    return rowEl;
   }
 
   const leVal=t.loadEntitlement==='lt70'?'< 70 kVA':t.loadEntitlement==='gt70'?'> 70 kVA':t.loadEntitlement==='any'?'Any':'—';
   const ts=latest?.ts?new Date(latest.ts).toLocaleString():'unknown';
 
-  const body=`
-    <div class="submission-banner">
-      ${isNew?'<strong>New tariff submission</strong>':'<strong>Edited tariff</strong>'}
-      &nbsp;·&nbsp; Submitted by <strong>${esc(t.supplier)}</strong>
-      &nbsp;·&nbsp; ${ts}
-    </div>
-    ${changes.length&&!isNew?`<div class="review-section">${changes.length} field(s) changed — highlighted below</div>`
-      :isNew?'<div class="review-section">All fields — new submission</div>'
-      :'<div class="review-section">No field changes recorded</div>'}
-    <div class="review-section" style="margin-top:${changes.length?'12px':'4px'}">Tariff details</div>
-    ${row('name','Name',esc(t.name)||'—')}
-    ${row('contract','Contract type',esc(t.contract)||'—')}
-    ${row('voltage','Voltage',esc(t.voltage)||'—')}
-    ${row('pricing','Pricing type',esc(t.pricing)||'—')}
-    ${row('standing','Standing charge','€'+(t.standing||0).toFixed(2)+'/month')}
-    ${(t.mdm||0)>0?row('mdm','MDM (Meter Data Management)','€'+(t.mdm||0).toFixed(2)+'/month'):''}
-    ${row('rates','Rates',formatRatesSummary(t.pricing,t.rates))}
-    ${row('fpaSource','FPA source',t.fpaSource==='global'?'Global (regulated)'
-        :t.fpaSource==='custom'?'Custom — €'+(t.fpaCustom||0).toFixed(4)+'/kWh':'None')}
-    ${row('durationMonths','Duration',t.durationMonths?t.durationMonths+' months (fixed term)':'Indefinite')}
-    ${row('loadEntitlement','Load entitlement',leVal||'—')}
-    ${row('profileId','Profile',prof?esc(prof.name)+' ('+esc(prof.id)+')':'None assigned')}
-    ${row('vulnerable','Vulnerable tariff',t.vulnerable?'Yes — eligible customers only':'No')}
-    ${row('discounts','Discounts',(t.discounts||[]).length?(t.discounts||[]).map(d=>esc(d.label)+(d.pct!=null?' ('+esc(d.pct)+'%)':'')+(d.euro!=null?' (€'+esc(d.euro)+')':'')).join(', '):'None')}
-  `;
+  const bodyEl=document.createElement('div');
+
+  const banner=document.createElement('div');
+  banner.className='submission-banner';
+  const bannerLabel=document.createElement('strong');
+  bannerLabel.textContent=isNew?'New tariff submission':'Edited tariff';
+  const supplierStrong=document.createElement('strong');
+  supplierStrong.textContent=t.supplier;
+  banner.append(bannerLabel,' ·  Submitted by ',supplierStrong,' ·  '+ts);
+  bodyEl.appendChild(banner);
+
+  const sectionLine=document.createElement('div');
+  sectionLine.className='review-section';
+  sectionLine.textContent=changes.length&&!isNew?`${changes.length} field(s) changed — highlighted below`
+    :isNew?'All fields — new submission'
+    :'No field changes recorded';
+  bodyEl.appendChild(sectionLine);
+
+  const detailsHeader=document.createElement('div');
+  detailsHeader.className='review-section';
+  detailsHeader.style.marginTop=changes.length?'12px':'4px';
+  detailsHeader.textContent='Tariff details';
+  bodyEl.appendChild(detailsHeader);
+
+  bodyEl.append(
+    row('name','Name',t.name||'—'),
+    row('contract','Contract type',t.contract||'—'),
+    row('voltage','Voltage',t.voltage||'—'),
+    row('pricing','Pricing type',t.pricing||'—'),
+    row('standing','Standing charge','€'+(t.standing||0).toFixed(2)+'/month'),
+  );
+  if((t.mdm||0)>0) bodyEl.appendChild(row('mdm','MDM (Meter Data Management)','€'+(t.mdm||0).toFixed(2)+'/month'));
+  bodyEl.append(
+    row('rates','Rates',formatRatesSummary(t.pricing,t.rates)),
+    row('fpaSource','FPA source',t.fpaSource==='global'?'Global (regulated)'
+        :t.fpaSource==='custom'?'Custom — €'+(t.fpaCustom||0).toFixed(4)+'/kWh':'None'),
+    row('durationMonths','Duration',t.durationMonths?t.durationMonths+' months (fixed term)':'Indefinite'),
+    row('loadEntitlement','Load entitlement',leVal||'—'),
+    row('profileId','Profile',prof?prof.name+' ('+prof.id+')':'None assigned'),
+    row('vulnerable','Vulnerable tariff',t.vulnerable?'Yes — eligible customers only':'No'),
+    row('discounts','Discounts',(t.discounts||[]).length
+      ?(t.discounts||[]).map(d=>d.label+(d.pct!=null?' ('+d.pct+'%)':'')+(d.euro!=null?' (€'+d.euro+')':'')).join(', ')
+      :'None'),
+  );
+
+  const docsHeader=document.createElement('div');
+  docsHeader.className='review-section';
+  docsHeader.style.marginTop='16px';
+  docsHeader.textContent='Supporting documents';
+  bodyEl.appendChild(docsHeader);
+
+  const docsListWrap=document.createElement('div');
+  docsListWrap.id='review-docs-list';
+  docsListWrap.style.cssText='padding:0 0 8px';
+  const loadingSpan=document.createElement('span');
+  loadingSpan.style.cssText='font-size:13px;color:var(--text3)';
+  loadingSpan.textContent='Loading…';
+  docsListWrap.appendChild(loadingSpan);
+  bodyEl.appendChild(docsListWrap);
 
   document.getElementById('review-title').textContent='Review: '+t.name;
-  document.getElementById('review-body').innerHTML=body
-    +'<div class="review-section" style="margin-top:16px">Supporting documents</div>'
-    +'<div id="review-docs-list" style="padding:0 0 8px"><span style="font-size:13px;color:var(--text3)">Loading…</span></div>';
+  document.getElementById('review-body').replaceChildren(bodyEl);
   document.getElementById('review-approve-btn').onclick=()=>setTariffStatus(id,'approved');
   document.getElementById('review-reject-btn').onclick=()=>showRejectPanel(id);
   cancelReject();
@@ -3279,16 +3361,26 @@ function renderChangelog(){
     if(countEl) countEl.textContent='('+filtered.length+' of '+changelog.length+' entries)';
   }
 }
+// Quotes a CSV cell (RFC4180 — doubles embedded quotes) and, if the value starts with
+// a character a spreadsheet app (Excel/Sheets/LibreOffice) would interpret as the start
+// of a formula (=, +, -, @, tab, CR), prefixes a leading ' so it's forced to plain text.
+// Tariff/supplier names and changelog diff values are attacker-controllable (via the
+// supplier portal), so this matters for exports containing them.
+function csvCell(v){
+  let s=String(v==null?'':v);
+  if(/^[=+\-@\t\r]/.test(s)) s="'"+s;
+  return '"'+s.replace(/"/g,'""')+'"';
+}
 function exportChangelog(){
   if(!changelog.length){alert('No changelog entries to export.');return;}
   let csv='Timestamp,Tariff,Supplier,Made by,Action,Field,From,To\n';
   changelog.forEach(function(e){
     const actor=e.actorRole==='admin'?'CERA Admin':(e.actorRole==='supplier'?'Supplier'+(e.actorEmail?' ('+e.actorEmail+')':''):'');
     if(!e.changes||!e.changes.length){
-      csv+='"'+fmtLocalTs(e.ts)+'","'+e.tariffName+'","'+e.supplier+'","'+actor+'","'+e.action+'","","",""\n';
+      csv+=[fmtLocalTs(e.ts),e.tariffName,e.supplier,actor,e.action,'','',''].map(csvCell).join(',')+'\n';
     } else {
       e.changes.forEach(function(c){
-        csv+='"'+fmtLocalTs(e.ts)+'","'+e.tariffName+'","'+e.supplier+'","'+actor+'","'+e.action+'","'+c.field+'","'+(c.from||'')+'","'+c.to+'"\n';
+        csv+=[fmtLocalTs(e.ts),e.tariffName,e.supplier,actor,e.action,c.field,c.from||'',c.to].map(csvCell).join(',')+'\n';
       });
     }
   });
@@ -4057,7 +4149,7 @@ function fmtHeading(editorId, tag){
   document.execCommand('formatBlock',false,tag);
 }
 function getNotices(){
-  const g=id=>document.getElementById(id)?.innerHTML||'';
+  const g=id=>DOMPurify.sanitize(document.getElementById(id)?.innerHTML||'');
   return {
     assumptions_en: g('assumptions-en'),
     assumptions_el: g('assumptions-el'),
@@ -4069,7 +4161,7 @@ function getNotices(){
 }
 function setNotices(n){
   if(!n) return;
-  const s=(id,val)=>{ const el=document.getElementById(id); if(el&&val!==undefined) el.innerHTML=val; };
+  const s=(id,val)=>{ const el=document.getElementById(id); if(el&&val!==undefined) el.innerHTML=DOMPurify.sanitize(val); };
   s('assumptions-en', n.assumptions_en||n.assumptions||'');
   s('assumptions-el', n.assumptions_el||'');
   s('legal-en', n.legal_en||n.legal||'');
@@ -4609,13 +4701,33 @@ async function buildDashboard(){
   titleEl.classList.toggle('has-pending',pending.length>0);
   if(!pending.length){
     titleEl.textContent=T('DASH_ALL_CAUGHT_UP');
-    pendEl.innerHTML='<div class="empty-state">'+T('DASH_NOTHING_PENDING')+'</div>';
+    const emptyDiv=document.createElement('div');
+    emptyDiv.className='empty-state';
+    emptyDiv.textContent=T('DASH_NOTHING_PENDING');
+    pendEl.replaceChildren(emptyDiv);
   }else{
     titleEl.textContent=`${pending.length} ${T('DASH_AWAITING_REVIEW')}`;
-    pendEl.innerHTML=pending.slice(0,10).map(t=>
-      `<div class="dash-row"><span class="dash-row-main">${esc(t.name)} — ${esc(t.supplier)}</span>`+
-      `<button class="btn btn-sm btn-review" onclick="openReview('${t.id}')">Review</button></div>`
-    ).join('')+(pending.length>10?`<div class="dash-row-sub" style="padding-top:8px">+${pending.length-10} more…</div>`:'');
+    const rows=pending.slice(0,10).map(t=>{
+      const row=document.createElement('div');
+      row.className='dash-row';
+      const main=document.createElement('span');
+      main.className='dash-row-main';
+      main.textContent=`${t.name} — ${t.supplier}`;
+      const btn=document.createElement('button');
+      btn.className='btn btn-sm btn-review';
+      btn.textContent='Review';
+      btn.addEventListener('click',()=>openReview(t.id));
+      row.append(main,btn);
+      return row;
+    });
+    if(pending.length>10){
+      const more=document.createElement('div');
+      more.className='dash-row-sub';
+      more.style.paddingTop='8px';
+      more.textContent=`+${pending.length-10} more…`;
+      rows.push(more);
+    }
+    pendEl.replaceChildren(...rows);
   }
 
   // Regulated/FPA freshness + unusual activity aren't part of the bulk config load — fetch separately

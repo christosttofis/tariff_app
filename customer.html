@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
 <style>
 :root{
   --bg:#eaeef4;--bg2:#fff;--bg3:#f1f4f8;--bg4:#e4e9f0;
@@ -1650,7 +1651,7 @@ function switchNoticesTab(tab){
   } else {
     html=(lang==='el'?n.legal_el:n.legal_en)||n.legal_en||n.legal_el||n.legal||'';
   }
-  body.innerHTML=html||(tab==='assumptions'
+  body.innerHTML=html?DOMPurify.sanitize(html):(tab==='assumptions'
     ?'<p style="color:var(--text3)">'+(lang==='el'?'Δεν έχουν εισαχθεί παραδοχές ακόμα.':'No assumptions have been added yet.')+'</p>'
     :'<p style="color:var(--text3)">'+(lang==='el'?'Δεν υπάρχουν νομικές ανακοινώσεις ακόμα.':'No legal notices have been added yet.')+'</p>');
 }
@@ -1692,7 +1693,7 @@ function openVulnerableModal(){
     :(notices.vulnerable_en||notices.vulnerable_el||'');
   if(!body) return;
   document.getElementById('vulnerable-modal-title').textContent=T('TITLE_VULNERABLE_MODAL');
-  document.getElementById('vulnerable-modal-body').innerHTML=body;
+  document.getElementById('vulnerable-modal-body').innerHTML=DOMPurify.sanitize(body);
   document.getElementById('vulnerable-overlay').style.display='flex';
 }
 function closeVulnerableModal(){

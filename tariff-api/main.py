@@ -90,6 +90,33 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Content-Security-Policy — permissive on script/style ('unsafe-inline') because the
+# frontend is ~hundreds of inline onclick="..." handlers plus inline <script> blocks;
+# blocking those without 'unsafe-inline' would require refactoring every handler to
+# addEventListener first (tracked separately). Still meaningfully restricts everything
+# else: no plugins/objects, no framing by other sites, no cross-origin form posts or
+# fetch/XHR, and scripts/styles/fonts only from this origin + the two CDN hosts actually
+# used (cdnjs for Chart.js/DOMPurify, fonts.googleapis.com/fonts.gstatic.com for Roboto).
+_CSP_POLICY = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+    "font-src 'self' https://fonts.gstatic.com; "
+    "img-src 'self' data:; "
+    "connect-src 'self'; "
+    "object-src 'none'; "
+    "base-uri 'self'; "
+    "form-action 'self'; "
+    "frame-ancestors 'self'"
+)
+
+
+@app.middleware("http")
+async def add_csp_header(request, call_next):
+    response = await call_next(request)
+    response.headers["Content-Security-Policy"] = _CSP_POLICY
+    return response
+
 # ── Scheduled notifications background loop ────────────────────────────────────
 # Single in-process loop — assumes one running app instance (true for the
 # current Basic B1 App Service / local dev setup). Scaling to multiple
