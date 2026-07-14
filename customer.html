@@ -1,0 +1,2561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Electricity Cost Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root{
+  --bg:#eaeef4;--bg2:#fff;--bg3:#f1f4f8;--bg4:#e4e9f0;
+  --border:#e2e7ef;--border2:#c2cad7;
+  --text:#15202e;--text2:#54606f;--text3:#8893a3;
+  --accent:#1a3a5e;--accent-deep:#11283f;--accent-light:#e9eef4;
+  --accent2:#b06c2c;--accent2-deep:#8d551e;--accent2-light:#f7efe2;
+  --green:#1f7a4d;--red:#b03f38;
+  --font:'Roboto',sans-serif;--serif:'Roboto',sans-serif;--mono:'Consolas','Liberation Mono','Menlo','Courier New',monospace;
+  --radius:8px;--radius-sm:4px;
+  --shadow:0 1px 2px rgba(16,33,55,.04),0 2px 8px rgba(16,33,55,.05);
+  --shadow-md:0 6px 22px rgba(16,33,55,.09);
+  --shadow-lg:0 24px 60px rgba(16,33,55,.22);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh}
+.wrapper{max-width:900px;margin:0 auto;padding:40px 24px 80px}
+.lang-toggle{position:fixed;top:16px;right:20px;z-index:100;display:flex;gap:0;border:1px solid var(--border2);border-radius:2px;overflow:hidden;box-shadow:var(--shadow)}
+.lang-btn{padding:5px 12px;font-size:12px;font-weight:500;font-family:var(--mono);cursor:pointer;border:none;background:var(--bg2);color:var(--text2);transition:all .12s}
+.lang-btn:hover{background:var(--bg3);color:var(--text)}
+.lang-btn.active{background:var(--accent);color:#fff}
+.header{margin-bottom:32px;padding-bottom:18px;border-bottom:2px solid var(--accent);display:flex;align-items:flex-start;gap:20px}
+.header-logo{height:100px;width:auto;flex-shrink:0}
+.header-text{flex:1}
+.eyebrow{font-size:11px;font-family:var(--mono);color:var(--accent2);letter-spacing:.12em;margin-bottom:8px;font-weight:600}
+.header h1{font-family:var(--serif);font-size:27px;font-weight:600;line-height:1.25;color:var(--accent)}
+.header p{font-size:14px;color:var(--text2);margin-top:8px;line-height:1.6;max-width:560px}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card-title{font-size:10px;font-family:var(--mono);font-weight:600;color:var(--accent);letter-spacing:.12em;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.filter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+
+/* Customer type tabs */
+.ctype-tabs{display:flex;gap:0;margin-bottom:20px;border:1px solid var(--border);border-radius:2px;overflow:hidden;width:fit-content}
+.ctype-tab{padding:10px 28px;font-size:14px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text2);font-family:var(--font);transition:all .12s}
+.ctype-tab.active{background:var(--accent);color:#fff}
+.ctype-tab:not(.active):hover{background:var(--bg3);color:var(--text)}
+/* Load entitlement radio */
+.le-group{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+.le-option{display:flex;align-items:center;gap:7px;padding:8px 14px;border:1px solid var(--border);border-radius:2px;cursor:pointer;font-size:13px;color:var(--text2);transition:all .12s;user-select:none}
+.le-option:hover{border-color:var(--border2);color:var(--text)}
+.le-option.active{border-color:var(--accent);background:var(--accent-light);color:var(--accent);font-weight:500}
+.le-option input[type=radio]{accent-color:var(--accent)}
+.ff{display:flex;flex-direction:column;gap:5px}
+.ff label{font-size:11px;font-family:var(--mono);color:var(--text3);letter-spacing:.07em}
+.ff select,.ff input[type=number]{background:var(--bg3);border:1px solid var(--border);border-radius:2px;color:var(--text);font-size:13px;font-family:var(--font);padding:8px 10px;outline:none;cursor:pointer;transition:border-color .12s;width:100%}
+.ff select:focus,.ff input:focus{border-color:var(--accent)}
+/* Toggle */
+.mode-toggle{display:flex;gap:0;margin-bottom:20px;border:1px solid var(--border);border-radius:2px;overflow:hidden;width:fit-content}
+.mode-btn{padding:8px 20px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text2);font-family:var(--font);transition:all .12s}
+.mode-btn.active{background:var(--accent);color:#fff}
+.mode-btn:not(.active):hover{background:var(--bg3);color:var(--text)}
+/* Shared input */
+.kwh-input-wrap{display:flex;align-items:center;max-width:320px}
+.kwh-input{background:var(--bg3);border:1px solid var(--border);border-radius:2px;color:var(--text);font-size:20px;font-weight:500;font-family:var(--mono);padding:10px 14px;outline:none;transition:border-color .12s;width:100%}
+.kwh-input:focus{border-color:var(--accent);background:var(--bg2)}
+.kwh-unit{background:var(--bg4);border:1px solid var(--border);border-left:none;border-radius:0 2px 2px 0;padding:10px 12px;font-size:13px;font-family:var(--mono);color:var(--text3);white-space:nowrap}
+/* Annual mode info */
+.annual-note{font-size:12px;color:var(--text2);margin-top:10px;padding:10px 12px;background:var(--accent-light);border-radius:2px;border-left:3px solid var(--accent);line-height:1.6}
+/* Monthly mode */
+.monthly-input-wrap{display:flex;flex-direction:column;gap:8px}
+.monthly-equiv{font-size:12px;color:var(--text2);margin-top:4px;font-family:var(--mono)}
+.monthly-equiv span{font-weight:600;color:var(--text)}
+
+.hint{font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:8px;line-height:1.6}
+.savings-bar{background:var(--accent2-light);border:1px solid var(--border);border-left:3px solid var(--accent2);border-radius:2px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.savings-text{font-size:13px;color:var(--text);font-weight:500}
+.savings-sub{font-size:12px;color:var(--text2);font-family:var(--mono)}
+.results-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px}
+.results-title{font-size:14px;font-weight:600}
+.results-sub{font-size:12px;color:var(--text2);font-family:var(--mono);margin-top:2px}
+.fbadge{font-size:11px;padding:3px 9px;border-radius:2px;font-family:var(--mono);background:var(--bg3);border:1px solid var(--border2);color:var(--text2)}
+.ranked-list{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+.rank-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);transition:box-shadow .15s}
+.rank-card.rank-1{border-color:var(--accent2);box-shadow:0 0 0 1.5px var(--accent2)}
+.rank-header{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;cursor:pointer;user-select:none}
+.rank-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;font-family:var(--mono);flex-shrink:0;margin-top:2px}
+.rank-1 .rank-num{background:var(--accent2);color:#fff}
+.rank-card:not(.rank-1) .rank-num{background:var(--bg3);color:var(--text2);border:1px solid var(--border2)}
+.rank-info{flex:1;min-width:0}
+.rank-supplier{font-size:15px;font-weight:600;font-family:var(--serif);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.rank-name{font-size:14px;font-weight:600;font-family:var(--serif);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rank-name-row{display:flex;align-items:baseline;gap:8px;min-width:0}
+.rank-name-row .rank-name{flex-shrink:1}
+.rank-sup-dash{font-size:14px;font-weight:600;font-family:var(--serif);color:var(--text3);flex-shrink:0}
+.rank-sup-pill{font-size:14px;font-weight:600;font-family:var(--serif);color:var(--accent);background:var(--accent-light,rgba(37,99,235,.08));border:1px solid var(--border2);border-radius:4px;padding:1px 9px;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:background .12s,border-color .12s}
+.rank-sup-pill:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.rank-meta{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;align-items:center}
+.badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:2px;font-family:var(--mono);font-weight:500}
+.badge-sup{background:rgba(139,92,246,.12);color:#7c3aed}
+.badge-Fixed{background:#ecfdf5;color:#059669;border:1px solid #a7f3d0}
+.badge-ToU{background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe}
+.badge-Dynamic{background:#fffbeb;color:#d97706;border:1px solid #fde68a}
+.badge-Variable{background:#f0fdfa;color:#0d9488;border:1px solid #99f6e4}
+.badge-prof{background:rgba(16,185,129,.1);color:#047857;font-size:10px;padding:2px 6px;border-radius:2px;font-family:var(--mono)}
+.badge-fallback{background:rgba(245,158,11,.1);color:#92400e;font-size:10px;padding:2px 6px;border-radius:2px;font-family:var(--mono)}
+.best-tag{font-size:10px;font-weight:600;padding:2px 8px;border-radius:2px;background:var(--accent2);color:#fff;margin-left:6px;vertical-align:middle}
+.rank-cost-col{flex-shrink:0;width:265px;border-left:1px solid var(--border);padding-left:14px;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.rank-annual-val{font-size:22px;font-weight:600;font-family:var(--mono);text-align:right;color:var(--accent)}
+.rank-annual-lbl{font-size:11px;color:var(--text3);font-family:var(--mono);text-align:right}
+.rank-toggle{color:var(--text3);font-size:12px;transition:transform .2s;margin-top:auto;padding-top:8px;align-self:flex-end}
+.rank-toggle.open{transform:rotate(180deg)}
+.rank-detail{display:grid;grid-template-rows:0fr;transition:grid-template-rows .32s cubic-bezier(.4,0,.2,1)}
+.rank-detail.open{grid-template-rows:1fr}
+.rank-detail-inner{overflow:hidden;min-height:0;opacity:0;transition:opacity .25s ease .04s}
+.rank-detail.open .rank-detail-inner{opacity:1}
+.rank-detail-pad{padding:16px;border-top:1px solid var(--border)}
+@keyframes cardIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes savingsIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.ranked-list.intro>.rank-card{animation:cardIn .5s cubic-bezier(.22,.7,.25,1) backwards}
+.ranked-list.intro>.rank-card:nth-child(1){animation-delay:.04s}
+.ranked-list.intro>.rank-card:nth-child(2){animation-delay:.1s}
+.ranked-list.intro>.rank-card:nth-child(3){animation-delay:.16s}
+.ranked-list.intro>.rank-card:nth-child(4){animation-delay:.22s}
+.ranked-list.intro>.rank-card:nth-child(5){animation-delay:.28s}
+.ranked-list.intro>.rank-card:nth-child(6){animation-delay:.34s}
+.ranked-list.intro>.rank-card:nth-child(n+7){animation-delay:.4s}
+.savings-bar.intro{animation:savingsIn .45s ease backwards}
+@media (prefers-reduced-motion:reduce){.ranked-list.intro>.rank-card,.savings-bar.intro{animation:none}.rank-detail,.rank-detail-inner{transition:none}}
+.contact-card{background:var(--bg3);border-radius:2px;padding:12px 14px;margin-bottom:12px}
+.contact-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px}
+.contact-details{display:flex;flex-direction:column;gap:4px}
+.contact-line{font-size:12px;color:var(--text2);font-family:var(--mono);display:flex;align-items:center;gap:8px}
+.contact-line a{color:var(--accent);text-decoration:none}
+.contact-line a:hover{text-decoration:underline}
+.calc-note{font-size:11px;font-family:var(--mono);color:var(--text3);padding:7px 11px;background:var(--bg3);border-radius:2px;border-left:2px solid var(--border2);margin-bottom:12px;line-height:1.6}
+.mo-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px}
+.mo-table th{text-align:left;padding:5px 8px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.07em;white-space:nowrap}
+.mo-table td{padding:6px 8px;border-bottom:1px solid var(--border);font-family:var(--mono);color:var(--text2);white-space:nowrap}
+.mo-table th:first-child,.mo-table td:first-child{width:100%}
+.mo-table th:not(:first-child){text-align:right}
+.mo-table td:not(:first-child){text-align:right}
+.mo-table tr:last-child td{border-bottom:none;font-weight:600;color:var(--text);background:var(--bg3)}
+.mo-table tbody tr:not(:last-child):hover td{background:var(--bg3)}
+.cost-col{color:var(--text)!important;font-weight:500}
+.chart-wrap{position:relative;width:100%;height:200px}
+.chart-wrap-lg{position:relative;width:100%;height:260px;margin-top:8px}
+.no-results{text-align:center;padding:40px 24px;color:var(--text2)}
+.no-config{text-align:center;padding:60px 24px;color:var(--text2)}
+.discount-toggle{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-family:var(--mono);cursor:pointer;user-select:none}
+.discount-toggle input{accent-color:var(--accent);cursor:pointer}
+.discount-line{color:var(--green)}
+.discount-line.disabled{color:var(--text3);text-decoration:line-through}
+.prompt-card{text-align:center;padding:32px;color:var(--text3);font-size:13px}
+
+/* Supplier contact modal */
+.sup-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
+.sup-modal-box{background:var(--bg2);border-radius:2px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden}
+.sup-modal-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.sup-modal-head h2{font-size:15px;font-weight:600}
+.sup-modal-body{padding:18px 20px;display:flex;flex-direction:column;gap:10px}
+.sup-contact-row{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text2)}
+.sup-contact-row a{color:var(--accent);text-decoration:none}
+.sup-contact-row a:hover{text-decoration:underline}
+.sup-contact-icon{width:20px;text-align:center;flex-shrink:0}
+.sup-name-link{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
+.sup-name-link:hover{color:var(--accent)}
+
+/* Regulated charge info popup */
+.reg-info-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
+.reg-info-box{background:var(--bg2);border-radius:2px;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.reg-info-head{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.reg-info-head h3{font-size:14px;font-weight:600;color:var(--text);margin:0}
+.reg-info-body{padding:16px 18px;font-size:13px;line-height:1.7;color:var(--text2)}
+
+/* Notices modal */
+.notices-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
+.notices-box{background:var(--bg2);border-radius:2px;width:100%;max-width:640px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden}
+.notices-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.notices-head h2{font-size:15px;font-weight:600}
+.notices-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);flex-shrink:0}
+.notices-tab{padding:10px 20px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text2);border-bottom:2px solid transparent;transition:all .12s;font-family:var(--font)}
+.notices-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.notices-body{padding:20px;overflow-y:auto;flex:1;font-size:13px;line-height:1.8;color:var(--text2)}
+.notices-body h3{font-size:14px;font-weight:600;color:var(--text);margin:14px 0 6px}
+.notices-body ul,.notices-body ol{padding-left:20px;margin:6px 0}
+.notices-body li{margin:3px 0}
+.notices-body strong{color:var(--text);font-weight:600}
+.notices-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:2px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);font-size:12px;font-family:var(--font);cursor:pointer;transition:all .12s}
+.notices-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
+.page-footer{margin-top:48px;padding-top:24px;border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+.footer-col{font-size:12px;line-height:1.8;color:var(--text2);font-family:var(--mono)}
+.footer-col-title{font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.08em;margin-bottom:8px}
+.footer-col a{color:var(--text2);text-decoration:none}
+.footer-col a:hover{color:var(--accent);text-decoration:underline}
+@media(max-width:600px){.page-footer{grid-template-columns:1fr}}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   REFINEMENT LAYER — modern/premium pass over the same structure.
+   Tokens above do most of the work; these rules tune type, depth, spacing,
+   component treatments and full responsive behaviour. CERA identity intact.
+   ═══════════════════════════════════════════════════════════════════════ */
+html{font-size:14px;-webkit-text-size-adjust:100%}
+body{
+  background:
+    radial-gradient(1200px 600px at 50% -200px, #f3f6fb 0%, rgba(243,246,251,0) 60%),
+    var(--bg);
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  letter-spacing:.002em;
+}
+.wrapper{max-width:940px;padding:48px 24px 96px}
+
+/* Language toggle — refined pill */
+.lang-toggle{border-color:var(--border);border-radius:999px;box-shadow:var(--shadow);background:var(--bg2)}
+.lang-btn{padding:6px 14px;font-size:11px;letter-spacing:.04em;border-radius:999px}
+.lang-btn.active{background:var(--accent);box-shadow:inset 0 0 0 1px var(--accent-deep)}
+
+/* Header — premium lockup */
+.header{align-items:center;gap:22px;margin-bottom:30px;padding-bottom:22px;
+  border-bottom:1px solid var(--border);position:relative}
+.header::after{content:"";position:absolute;left:0;bottom:-1px;width:64px;height:3px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:3px}
+.header-logo{height:100px}
+.eyebrow{font-size:10.5px;letter-spacing:.16em;color:var(--accent2-deep);margin-bottom:9px}
+.header h1{font-size:30px;font-weight:600;letter-spacing:-.01em;line-height:1.18;color:var(--accent)}
+.header p{font-size:14px;color:var(--text2);margin-top:9px;line-height:1.65}
+.cera-mark{display:flex;align-items:center;gap:13px;flex-shrink:0}
+.cera-mark .cera-emblem{width:60px;height:60px;border-radius:13px;flex-shrink:0;
+  background:linear-gradient(155deg,var(--accent),var(--accent-deep));
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 6px 18px rgba(17,40,63,.28),inset 0 1px 0 rgba(255,255,255,.12)}
+.cera-mark .cera-emblem span{font-family:var(--serif);font-weight:700;font-size:25px;color:#fff;letter-spacing:.01em}
+.cera-mark .cera-wm{display:flex;flex-direction:column;line-height:1.2}
+.cera-mark .cera-wm b{font-family:var(--serif);font-size:16px;font-weight:700;color:var(--accent);letter-spacing:.01em}
+.cera-mark .cera-wm small{font-size:9.5px;font-family:var(--mono);letter-spacing:.1em;color:var(--text3);text-transform:uppercase}
+
+/* Cards — soft elevation */
+.card{padding:22px 24px;margin-bottom:16px;border-color:var(--border);box-shadow:var(--shadow)}
+.card-title{font-size:10px;letter-spacing:.14em;color:var(--accent);
+  padding-bottom:10px;margin-bottom:18px;border-bottom:1px solid var(--border)}
+
+/* Segmented controls — premium */
+.ctype-tabs,.mode-toggle{border-color:var(--border);border-radius:10px;background:var(--bg3);padding:3px;gap:3px;box-shadow:inset 0 1px 2px rgba(16,33,55,.04)}
+.ctype-tab,.mode-btn{border-radius:7px;transition:all .15s ease}
+.ctype-tab.active,.mode-btn.active{background:var(--accent);box-shadow:0 1px 3px rgba(17,40,63,.25)}
+
+/* Form fields — bigger touch targets, premium focus */
+.ff label{font-size:10.5px;letter-spacing:.08em;color:var(--text3)}
+.ff select,.ff input[type=number]{background:var(--bg2);border-color:var(--border2);
+  border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;min-height:42px}
+.ff select:focus,.ff input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-light)}
+.le-option{border-radius:var(--radius-sm);padding:9px 14px;min-height:40px}
+.le-option.active{box-shadow:0 0 0 1px var(--accent) inset}
+
+/* Big kWh input */
+.kwh-input-wrap{max-width:340px}
+.kwh-input{background:var(--bg2);border-color:var(--border2);border-radius:var(--radius-sm) 0 0 var(--radius-sm);
+  font-size:22px;padding:12px 16px;min-height:52px}
+.kwh-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-light)}
+.kwh-unit{background:var(--bg3);border-color:var(--border2);border-radius:0 var(--radius-sm) var(--radius-sm) 0;color:var(--text2)}
+.annual-note{border-radius:var(--radius-sm);background:var(--accent-light);border-left-width:3px;border-left-color:var(--accent)}
+
+/* Savings bar — confident highlight */
+.savings-bar{border:1px solid var(--accent2);border-left-width:4px;border-radius:var(--radius);
+  background:linear-gradient(100deg,var(--accent2-light),rgba(247,239,226,.4));
+  padding:14px 18px;box-shadow:var(--shadow)}
+.savings-text{font-size:14px;color:var(--accent2-deep);font-weight:600}
+.savings-sub{color:var(--text2);margin-top:2px}
+
+/* Results header */
+.results-title{font-size:15px}
+.fbadge{border-radius:999px;border-color:var(--border2);background:var(--bg2);font-size:10.5px;padding:4px 11px}
+
+/* Ranked cards — depth + hover lift */
+.ranked-list{gap:12px}
+.rank-card{border-color:var(--border);box-shadow:var(--shadow);transition:box-shadow .18s ease,transform .18s ease,border-color .18s ease}
+.rank-card:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.rank-card.rank-1{border-color:var(--accent2);box-shadow:0 0 0 1px var(--accent2),0 8px 24px rgba(176,108,44,.16)}
+.rank-card.rank-1::before{content:"";display:block;height:3px;background:linear-gradient(90deg,var(--accent2),var(--accent2-deep))}
+.rank-header{padding:16px 18px;gap:14px}
+.rank-num{width:30px;height:30px;font-size:12px}
+.rank-card.rank-1 .rank-num{box-shadow:0 2px 8px rgba(176,108,44,.35)}
+.rank-name{font-size:15px;letter-spacing:-.005em}
+.rank-sup-pill{font-size:15px;letter-spacing:-.005em}
+.rank-sup-dash{font-size:15px}
+.rank-annual-val{font-size:25px;letter-spacing:-.01em}
+.best-tag{background:var(--accent2);border-radius:999px;letter-spacing:.04em;padding:3px 9px}
+
+/* Badges — consistent, crisp-but-soft */
+.badge{border-radius:var(--radius-sm);padding:3px 8px;font-weight:500}
+.badge-sup{background:var(--accent-light);color:var(--accent)}
+.sup-name-link{text-decoration-color:var(--accent2)}
+
+/* Tables */
+.mo-table th{font-size:10px;letter-spacing:.08em;padding:7px 8px}
+.mo-table td{padding:7px 8px}
+.mo-table tr:last-child td{background:var(--bg3)}
+.calc-note{border-radius:var(--radius-sm);border-left-color:var(--accent2);background:var(--accent2-light)}
+
+/* Charts get a touch more room */
+.chart-wrap{height:210px}
+.chart-wrap-lg{height:300px}
+
+/* Modals — soft, premium */
+.notices-box,.sup-modal-box,.reg-info-box{border-radius:var(--radius);box-shadow:var(--shadow-lg)}
+.notices-overlay,.sup-modal-overlay,.reg-info-overlay{backdrop-filter:blur(3px);background:rgba(17,40,63,.32)}
+.notices-tab.active{border-bottom-color:var(--accent);color:var(--accent)}
+.notices-btn{border-radius:999px;border-color:var(--border2)}
+
+/* Footer */
+.page-footer{margin-top:56px;padding-top:28px;border-top:1px solid var(--border)}
+.footer-col-title{letter-spacing:.1em;color:var(--accent);font-size:10.5px}
+
+/* ── Responsive ── */
+@media(max-width:680px){
+  .wrapper{padding:32px 16px 72px}
+  .header{flex-direction:column;align-items:flex-start;gap:14px}
+  .header-logo{height:72px}
+  .header h1{font-size:24px}
+  .lang-toggle{top:12px;right:12px}
+  .ctype-tab{padding:10px 16px;font-size:13px}
+  .rank-header{flex-wrap:wrap}
+  .rank-cost-col{width:100%;border-left:none;border-top:1px solid var(--border);padding-left:0;padding-top:12px;margin-top:10px;align-items:flex-start}
+  .rank-annual-lbl{text-align:left}
+  .rank-toggle{position:absolute;top:16px;right:16px;padding-top:0}
+  .rank-card{position:relative}
+  .rank-annual-val{font-size:23px}
+}
+
+/* ── Segmented controls: sliding pill ── */
+.ctype-tabs,.mode-toggle{position:relative;isolation:isolate;display:grid;grid-auto-flow:column;grid-auto-columns:1fr}
+.ctype-tabs::before,.mode-toggle::before{
+  content:"";position:absolute;z-index:0;top:3px;bottom:3px;left:3px;
+  width:calc((100% - 9px)/2);background:var(--accent);border-radius:7px;
+  box-shadow:0 1px 3px rgba(17,40,63,.25);
+  transition:transform .3s cubic-bezier(.4,0,.2,1)}
+.ctype-tabs:has(.ctype-tab:nth-child(2).active)::before,
+.mode-toggle:has(.mode-btn:nth-child(2).active)::before{transform:translateX(calc(100% + 3px))}
+.ctype-tab,.mode-btn{position:relative;z-index:1}
+.ctype-tab.active,.mode-btn.active{background:transparent;box-shadow:none}
+
+/* ── Language toggle: sliding pill ── */
+.lang-toggle{isolation:isolate;background:var(--bg2);width:92px}
+.lang-toggle::before{content:"";position:absolute;z-index:0;top:0;bottom:0;left:0;width:50%;
+  background:var(--accent);transition:transform .28s cubic-bezier(.4,0,.2,1)}
+.lang-toggle:has(.lang-btn:nth-child(2).active)::before{transform:translateX(100%)}
+.lang-btn{position:relative;z-index:1;background:transparent;flex:1 1 0;text-align:center}
+.lang-btn.active{background:transparent;color:#fff}
+.lang-btn:not(.active):hover{background:var(--bg3)}
+@media (prefers-reduced-motion:reduce){
+  .ctype-tabs::before,.mode-toggle::before,.lang-toggle::before{transition:none}
+}
+
+/* ── Progressive collapse of input cards ── */
+.cc-head{display:flex;align-items:center;gap:12px;cursor:pointer;user-select:none}
+.summary-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;flex:1;min-width:0}
+.conn-card:not(.collapsed) #conn-summary-chips{display:none}
+.card-full,.cons-full{display:grid;grid-template-rows:1fr;transition:grid-template-rows .32s cubic-bezier(.4,0,.2,1)}
+.conn-card.collapsed>.card-full,.cons-card.collapsed .cons-full{grid-template-rows:0fr}
+.collapse-inner{overflow:hidden;min-height:0;transition:opacity .25s ease}
+.card-full .collapse-inner{padding-top:14px}
+.conn-card.collapsed>.card-full .collapse-inner,.cons-card.collapsed .cons-full .collapse-inner{opacity:0}
+@media (prefers-reduced-motion:reduce){.card-full,.cons-full,.collapse-inner{transition:none}}
+.collapse-toggle{margin-left:auto;flex-shrink:0;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);border-radius:6px;cursor:pointer;font-size:11px;line-height:1;transition:transform .25s ease,border-color .12s,color .12s}
+.cc-head:hover .collapse-toggle{border-color:var(--accent);color:var(--accent)}
+.conn-card:not(.collapsed) .collapse-toggle{transform:rotate(180deg)}
+.cons-toggle{margin-left:0}
+.cons-card:not(.collapsed) .cons-toggle{transform:rotate(180deg)}
+#cons-summary-chips{display:none}
+.cons-card.collapsed #cons-summary-chips{display:flex}
+@media (prefers-reduced-motion:reduce){.collapse-toggle{transition:border-color .12s,color .12s}}
+
+/* ── Always-visible Notices button (mirrors language toggle) ── */
+.notices-fixed{position:fixed;top:16px;left:20px;z-index:100}
+.notices-fixed .notices-btn{box-shadow:var(--shadow);background:var(--bg2);white-space:nowrap;margin-bottom:0}
+@media(max-width:680px){.notices-fixed{top:12px;left:12px}}
+
+/* ── Consumption estimator modal ── */
+.est-overlay{position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
+.est-box{background:var(--bg2);border-radius:var(--radius);width:100%;max-width:480px;box-shadow:var(--shadow-lg);overflow:hidden;display:flex;flex-direction:column;max-height:90vh}
+.est-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.est-head h2{font-size:15px;font-weight:600;color:var(--text)}
+.est-body{padding:20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:16px}
+.est-desc{font-size:12px;color:var(--text2);line-height:1.6;padding:10px 12px;background:var(--accent-light);border-radius:2px;border-left:3px solid var(--accent)}
+.est-field{display:flex;flex-direction:column;gap:6px}
+.est-field label{font-size:11px;font-family:var(--mono);color:var(--text3);letter-spacing:.07em;font-weight:600}
+.est-field select,.est-field input[type=number]{background:var(--bg3);border:1px solid var(--border);border-radius:2px;color:var(--text);font-size:13px;font-family:var(--font);padding:9px 10px;outline:none;width:100%;transition:border-color .12s}
+.est-field select:focus,.est-field input[type=number]:focus{border-color:var(--accent)}
+.est-radio-group{display:flex;gap:8px;flex-wrap:wrap}
+.est-radio{display:flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--border);border-radius:2px;cursor:pointer;font-size:12px;color:var(--text2);transition:all .12s;user-select:none}
+.est-radio:hover{border-color:var(--border2);color:var(--text)}
+.est-radio.active{border-color:var(--accent);background:var(--accent-light);color:var(--accent);font-weight:500}
+.est-radio input[type=radio]{accent-color:var(--accent);display:none}
+.est-result{background:var(--bg3);border:1px solid var(--border2);border-left:3px solid var(--green);border-radius:2px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.est-result-val{font-size:22px;font-weight:600;font-family:var(--mono);color:var(--green)}
+.est-result-lbl{font-size:11px;font-family:var(--mono);color:var(--text3)}
+.est-note{font-size:11px;font-family:var(--mono);color:var(--text3);line-height:1.6;border-top:1px solid var(--border);padding-top:10px;margin-top:2px}
+.est-foot{padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-shrink:0}
+.est-btn-calc{padding:9px 20px;border-radius:2px;border:1px solid var(--accent);background:var(--accent);color:#fff;font-size:13px;font-weight:500;font-family:var(--font);cursor:pointer;transition:all .12s}
+.est-btn-calc:hover{background:var(--accent-deep)}
+.est-btn-use{padding:9px 20px;border-radius:2px;border:1px solid var(--accent2);background:var(--accent2);color:#fff;font-size:13px;font-weight:500;font-family:var(--font);cursor:pointer;transition:all .12s}
+.est-btn-use:hover{background:var(--accent2-deep)}
+.est-btn-sec{padding:9px 16px;border-radius:2px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);font-size:13px;font-family:var(--font);cursor:pointer;transition:all .12s}
+.est-btn-sec:hover{border-color:var(--accent);color:var(--accent)}
+.est-trigger-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 14px;border-radius:2px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);font-size:12px;font-family:var(--mono);cursor:pointer;transition:all .12s;white-space:nowrap;flex-shrink:0}
+.est-trigger-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
+.est-meth-link{display:inline-flex;align-items:center;gap:5px;margin-top:10px;font-size:11px;font-family:var(--mono);color:var(--text3);cursor:pointer;border:none;background:none;padding:0;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;transition:color .12s}
+.est-meth-link:hover{color:var(--accent)}
+.meth-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px}
+.meth-modal-box{background:var(--bg2);border-radius:var(--radius);width:100%;max-width:600px;max-height:85vh;display:flex;flex-direction:column;box-shadow:var(--shadow-lg);overflow:hidden}
+.meth-modal-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.meth-modal-head h2{font-size:15px;font-weight:600;color:var(--text)}
+.meth-modal-body{padding:20px;overflow-y:auto;flex:1}
+.est-meth-body{font-size:12px;line-height:1.7;color:var(--text2)}
+.est-meth-body p{margin-bottom:8px}
+.est-meth-body p:last-child{margin-bottom:0}
+.est-meth-body strong{color:var(--text);font-weight:600}
+.est-meth-body table{width:100%;border-collapse:collapse;margin:8px 0 10px;font-family:var(--mono);font-size:11px}
+.est-meth-body th{text-align:left;padding:4px 8px;border-bottom:1px solid var(--border);color:var(--text3);letter-spacing:.06em}
+.est-meth-body td{padding:4px 8px;border-bottom:1px solid var(--border);color:var(--text2);vertical-align:top}
+.est-meth-body tr:last-child td{border-bottom:none}
+.est-meth-body td:first-child{color:var(--text);font-weight:500}
+.est-meth-sources{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:11px;font-family:var(--mono);color:var(--text3)}
+.est-meth-sources a{color:var(--accent);text-decoration:none}
+.est-meth-sources a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="lang-toggle">
+  <button class="lang-btn" id="lang-btn-en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn active" id="lang-btn-el" onclick="setLang('el')">ΕΛ</button>
+</div>
+<div class="notices-fixed">
+  <button id="notices-open-btn" class="notices-btn" onclick="openNotices()">ℹ️ Notices &amp; Disclaimers</button>
+</div>
+<div class="wrapper">
+
+<div id="no-config" class="no-config" style="display:none">
+  <div style="font-size:48px;margin-bottom:16px">⚡</div>
+  <h2 id="no-config-title" style="font-size:17px;font-weight:500;color:var(--text);margin-bottom:8px">No configuration found</h2>
+  <p id="no-config-body" style="font-size:13px;line-height:1.6">Open <strong>admin.html</strong> in the same browser, set up your suppliers and tariffs, then click <em>Save &amp; publish</em>.</p>
+</div>
+
+<div id="app" style="display:none">
+  <div class="header">
+    <img src="Logo_Transparent.png" alt="CERA" class="header-logo" onerror="this.style.display='none';document.getElementById('cera-fallback').style.display='flex'">
+    <div id="cera-fallback" class="cera-mark" style="display:none">
+      <div class="cera-emblem"><span>C</span></div>
+      <div class="cera-wm"><b>CERA</b><small>ΡΑΕΚ · Energy Regulator</small></div>
+    </div>
+    <div class="header-text">
+      <div class="eyebrow" id="pg-eyebrow">Electricity cost calculator</div>
+      <h1 id="pg-title">Compare electricity tariffs</h1>
+      <p id="pg-desc">Enter your consumption and see all available tariffs ranked cheapest first, with supplier contact details.</p>
+    </div>
+  </div>
+
+  <div class="card conn-card" id="conn-card">
+    <div class="cc-head" onclick="toggleConn()">
+      <div class="card-title" style="margin-bottom:0" id="ct-connection">Your connection</div>
+      <div class="summary-chips" id="conn-summary-chips"></div>
+      <button class="collapse-toggle" aria-label="Collapse or expand">▼</button>
+    </div>
+    <div class="card-full">
+    <div class="collapse-inner">
+
+    <!-- Customer type tabs -->
+    <div class="ctype-tabs">
+      <button class="ctype-tab active" id="tab-domestic" onclick="setCustomerType('domestic');advanceFromConn()">🏠 Domestic</button>
+      <button class="ctype-tab" id="tab-ci" onclick="setCustomerType('ci')">🏢 Commercial / Industrial</button>
+    </div>
+
+    <!-- Commercial/Industrial options (hidden for domestic) -->
+    <div id="ci-options" style="display:none">
+      <div class="filter-grid" style="margin-bottom:12px">
+        <div class="ff"><label>Voltage level</label>
+          <select id="sel-voltage" onchange="onVoltageChange();advanceFromConn()">
+            <option value="LV" id="opt-lv">LV — Low Voltage</option>
+            <option value="MV" id="opt-mv">MV — Medium Voltage</option>
+            <option value="HV" id="opt-hv">HV — High Voltage</option>
+          </select>
+        </div>
+        <div class="ff" id="le-field">
+          <label id="lbl-load-ent">Load entitlement</label>
+          <div class="le-group">
+            <label class="le-option active" id="le-lt" onclick="setLoadEntitlement('lt70');advanceFromConn()">
+              <input type="radio" name="le" value="lt70" checked> &lt; 70 kVA
+            </label>
+            <label class="le-option" id="le-gt" onclick="setLoadEntitlement('gt70');advanceFromConn()">
+              <input type="radio" name="le" value="gt70"> &gt; 70 kVA
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pricing type (always visible) -->
+    <div class="ff" style="max-width:220px">
+      <label>Pricing type</label>
+      <select id="sel-pricing" onchange="applyFilters();advanceFromConn()">
+        <option value="All" id="opt-all">All types</option>
+        <option value="Fixed" id="opt-fixed">Fixed only</option>
+        <option value="ToU" id="opt-tou">Time-of-use only</option>
+        <option value="Dynamic" id="opt-variable">Dynamic only</option>
+        <option value="Variable">Variable (tiered) only</option>
+      </select>
+    </div>
+    </div>
+    </div>
+  </div>
+
+  <div class="card cons-card" id="cons-card">
+    <div class="card-title" id="ct-consumption" style="margin-bottom:16px">Your consumption</div>
+
+    <div>
+    <div>
+    <!-- Mode toggle -->
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="btn-annual" onclick="setMode('annual')" data-key="BTN_ANNUAL">Annual</button>
+      <button class="mode-btn" id="btn-monthly" onclick="setMode('monthly')" data-key="BTN_MONTHLY">Monthly</button>
+    </div>
+
+    <div style="display:flex;align-items:flex-end;gap:10px">
+      <div style="flex:1;min-width:0">
+        <!-- Annual mode -->
+        <div id="mode-annual">
+          <label style="font-size:12px;font-weight:500;color:var(--text2);display:block;margin-bottom:6px">Annual consumption</label>
+          <div class="kwh-input-wrap">
+            <input type="number" class="kwh-input" id="annual-kwh" placeholder="e.g. 6000" min="0" step="1" oninput="onAnnualInput()" onfocus="onConsumptionFocus()">
+            <span class="kwh-unit">kWh / year</span>
+          </div>
+          <div class="annual-note" id="annual-note" style="display:none"></div>
+        </div>
+
+        <!-- Monthly mode -->
+        <div id="mode-monthly" style="display:none">
+          <label id="monthly-kwh-label" style="font-size:12px;font-weight:500;color:var(--text2);display:block;margin-bottom:6px">Consumption per bill</label>
+          <div class="kwh-input-wrap">
+            <input type="number" class="kwh-input" id="monthly-kwh" placeholder="e.g. 500" min="0" step="1" oninput="onMonthlyInput()" onfocus="onConsumptionFocus()">
+            <span class="kwh-unit" id="monthly-kwh-unit">kWh / month</span>
+          </div>
+          <div style="margin-top:10px;margin-bottom:6px">
+            <div style="font-size:11px;font-family:var(--mono);color:var(--text3);letter-spacing:.07em;margin-bottom:5px" id="billing-cycle-lbl">BILLING CYCLE</div>
+            <div class="mode-toggle" style="margin-bottom:0">
+              <button class="mode-btn bp-btn active" data-p="1" onclick="setBillingPeriod(1)" id="bp-btn-1">Monthly</button>
+              <button class="mode-btn bp-btn" data-p="2" onclick="setBillingPeriod(2)" id="bp-btn-2">Bi-monthly</button>
+            </div>
+          </div>
+          <div class="monthly-equiv" id="monthly-equiv"></div>
+        </div>
+      </div>
+      <button class="est-trigger-btn" id="est-trigger-btn" onclick="openEstimator()">🧮 Estimate</button>
+    </div>
+
+    <div id="cons-extra">
+    <p class="hint" id="consumption-hint">Working days (Mon–Fri) vs non-working days (Sat–Sun + Cyprus public holidays) are counted per month using the current year's calendar to weight the EAC load profile correctly.</p>
+
+    <!-- Vulnerable eligibility row — only shown if at least one vulnerable tariff exists -->
+    <div id="vulnerable-row" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;user-select:none;flex:1">
+          <input type="checkbox" id="vulnerable-check" style="width:15px;height:15px;accent-color:#ec4899;flex-shrink:0" onchange="applyFilters()">
+          <span id="vulnerable-check-label" style="color:var(--text2)"></span>
+        </label>
+        <button id="vulnerable-info-btn" onclick="openVulnerableModal()"
+          style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 95px; border: 1px solid rgba(236,72,153,.3); background: rgba(236,72,153,.07); color: #ec4899; font-size: 11px; font-family: var(--mono); cursor: pointer; white-space: nowrap"
+          onmouseover="this.style.background='rgba(236,72,153,.15)'"
+          onmouseout="this.style.background='rgba(236,72,153,.07)'">
+          ⓘ <span id="vulnerable-info-label"></span>
+        </button>
+      </div>
+    </div>
+    </div>
+    </div>
+    </div>
+  </div>
+
+  <div id="results-area">
+    <div class="card prompt-card" id="prompt-enter" style="text-align:center;padding:32px;color:var(--text3);font-size:13px">${T('PROMPT_ENTER')}</div>
+  </div>
+</div>
+
+<footer class="page-footer">
+  <div class="footer-col">
+    <div class="footer-col-title" id="footer-org-name"></div>
+    <span id="footer-address"></span>
+  </div>
+  <div class="footer-col">
+    <div class="footer-col-title" id="footer-postal"></div>
+    <span id="footer-pobox-lbl"></span> 24936<br>
+    <span id="footer-pobox-city"></span>
+  </div>
+  <div class="footer-col">
+    <div class="footer-col-title" id="footer-contact-lbl"></div>
+    <span id="footer-phone-lbl"></span>: 00357 22 666363<br>
+    <span id="footer-fax-lbl"></span>: 00357 22 667763<br>
+    <span id="footer-email-lbl"></span>: <a href="mailto:regulator.cy@cera.org.cy">regulator.cy@cera.org.cy</a>
+  </div>
+</footer>
+
+<script>
+const LANG = {
+  en: {
+    PAGE_EYEBROW: "Electricity cost calculator",
+    PAGE_TITLE: "Compare electricity tariffs",
+    PAGE_DESC: "Enter your consumption and see all available tariffs ranked cheapest first, with supplier contact details.",
+    CARD_CONNECTION: "Your connection",
+    TAB_DOMESTIC: "🏠 Domestic",
+    TAB_CI: "🏢 Commercial / Industrial",
+    LBL_VOLTAGE: "Voltage level",
+    OPT_LV: "LV — Low Voltage",
+    OPT_MV: "MV — Medium Voltage",
+    OPT_HV: "HV — High Voltage",
+    LBL_LOAD_ENT: "Load entitlement",
+    LE_LT70: "< 70 kVA",
+    LE_GT70: "> 70 kVA",
+    LBL_PRICING: "Pricing type",
+    OPT_ALL: "All types",
+    OPT_FIXED: "Fixed only",
+    OPT_TOU: "Time-of-use only",
+    OPT_VARIABLE: "Dynamic only",
+    OPT_VARIABLE_TIERED: "Variable (tiered) only",
+    TAG_FIXED: "Fixed",
+    TAG_TOU: "ToU",
+    TAG_DYNAMIC: "Dynamic",
+    TAG_VARIABLE: "Variable",
+    TAG_LV: "LV",
+    TAG_MV: "MV",
+    TAG_HV: "HV",
+    TAG_DOMESTIC: "Domestic",
+    TAG_CI: "Commercial / Industrial",
+    CARD_CONSUMPTION: "Your consumption",
+    CARD_TARIFFS: "Available tariffs",
+    BTN_ANNUAL: "Annual",
+    BTN_MONTHLY: "Monthly",
+    LBL_ANNUAL_KWH: "Annual consumption",
+    UNIT_KWH_YEAR: "kWh / year",
+    LBL_MONTHLY_KWH: "Monthly consumption",
+    UNIT_KWH_MONTH: "kWh / month",
+    HINT_ANNUAL: "As per CERA's Power supply rules - Chapter 7.1.7 (a) all power suppliers are obliged to send to each consumer, at least once a year, their total consumption for the previous year, and the expected consumption for the current year.",
+    HINT_MONTHLY: "In monthly mode all 12 months use the same kWh. The annual estimate shown = monthly × 12. The profile is still used for intra-day (peak/off-peak) weighting.",
+    SAVINGS_TEXT: "Save up to {X}/year by choosing the cheapest tariff",
+    SAVINGS_TEXT_MONTH: "Save up to {X}/month by choosing the cheapest tariff",
+    SAVINGS_SUB: "supplier cost only · regulated charges shown separately per tariff",
+    RESULTS_SUB_ANNUAL: "cheapest supplier cost first · annual · profile-distributed · {YEAR} calendar",
+    RESULTS_SUB_MONTHLY: "cheapest bill first · {KWH} kWh per bill · {YEAR} calendar",
+    BADGE_BEST_PRICE: "BEST PRICE",
+    LBL_STANDING: "/mo standing",
+    LBL_NO_MIN: "No minimum period",
+    LBL_MIN_MONTHS: "{N}-month minimum",
+    LBL_NO_PROFILE: "no profile",
+    LBL_UPDATED: "Updated:",
+    LBL_INCL_DISC: "Price incl. promotional discounts.<br>Expand to review conditions.",
+    LBL_SUP_YEAR: "/ year",
+    LBL_SUP_MONTH: "/ month",
+    LBL_SUP_2MO: "/ 2 months",
+    BILLING_CYCLE: "Billing cycle",
+    BILLING_M1: "Monthly",
+    BILLING_M2: "Bi-monthly",
+    MONTHLY_CONS_LBL: "Consumption per bill",
+    MONTHLY_UNIT_1: "kWh / month",
+    MONTHLY_UNIT_2: "kWh / 2 mo.",
+    SAVINGS_TEXT_PERIOD: "Save up to {X} per bill by choosing the cheapest tariff",
+    BILL_BREAKDOWN_HDR: "Bill breakdown",
+    BILL_YEAR_NOTE: "× {N} bills/year ≈ €{X} / year (excl. VAT)",
+    NUDGE_ANNUAL: "💡 For a more accurate comparison based on your seasonal usage pattern, switch to Annual mode and enter your yearly consumption.",
+    LBL_VULNERABLE_CHECK: "I am eligible for a social / vulnerable consumer tariff",
+    LBL_VULNERABLE_INFO: "Who qualifies?",
+    TITLE_VULNERABLE_MODAL: "Vulnerable consumer / social tariff — eligible cases",
+    LBL_REGULATED: "regulated",
+    LBL_INCL_REGULATED: "+ {X} regulated charges",
+    LBL_WITHOUT_VAT: "Without VAT",
+    BTN_CONTACT: "📋 View contact details",
+    TH_MONTH: "Month",
+    TH_DAYS: "Days",
+    TH_KWH: "kWh",
+    TH_ENERGY: "Energy Cost",
+    TH_STANDING: "Standing",
+    TH_TOTAL: "Total",
+    ROW_SUP_TOTAL: "Supplier total",
+    ROW_TOTAL_REG: "Total (incl. regulated charges, without VAT)",
+    CHART_ANNUAL: "Annual cost comparison — all tariffs (competitive costs only)",
+    CHART_MONTHLY_COST: "Monthly cost",
+    VAR_NOTE_TITLE: "Dynamic tariffs — not shown in monthly view",
+    VAR_NOTE_BODY: "Dynamic (market-linked) tariffs depend on DAM prices that fluctuate throughout the year. A single month snapshot can be misleading — the selected month may be atypically cheap or expensive. Switch to Annual mode for an accurate comparison of variable tariffs.",
+    VAR_NOTE_ANNUAL: "Switch to Annual mode",
+    VAR_NO_DAM_TITLE: "Dynamic tariffs — DAM data missing",
+    VAR_ONLY_TITLE: "Dynamic tariffs require Annual mode",
+    VAR_ONLY_BODY: "A single month's DAM price does not represent the annual cost of a dynamic tariff accurately. Please switch to Annual mode to compare variable tariffs.",
+    NO_TARIFFS_TITLE: "No tariffs found",
+    NO_TARIFFS_SUB: "No tariffs configured for {VOLTAGE} · {CONTRACT}.",
+    NO_CONFIG_TITLE: "No configuration found",
+    NO_CONFIG_BODY: "Open <strong>admin.html</strong> in the same browser, set up your suppliers and tariffs, then click <em>Save &amp; publish</em>.",
+    PROMPT_ENTER: "Enter your consumption above to compare tariffs.",
+    CONTACT_NO_DETAILS: "No contact details available yet.",
+    DISC_HEADER: "🏷 Available discounts — uncheck if not applicable",
+    DISC_ENERGY_LABEL: "⚡ Energy discount",
+    DISC_STANDING_LABEL: "📋 Standing discount",
+    DISC_DURATION_FIRST: "for first <strong>{N} months</strong>",
+    DISC_DURATION_PERM: "permanent",
+    CALC_FALLBACK: "⚠ Fallback: hour-fraction method (no DSO profile assigned)",
+    CALC_DIST_FRACTIONS: "profile monthly fractions used for annual→month split",
+    CALC_DIST_FLAT: "flat monthly input — profile used for intra-day only",
+    CALC_TOU: "📊 DSO profile · {NOTE} · WD/NWD shapes → half-hourly rates · {PROFILE}",
+    CALC_DAM_SLOT: "📊 DSO profile × half-hourly DAM · {NOTE} · {PROFILE}",
+    CALC_DAM_AVG: "📊 DSO profile × monthly DAM avg · {NOTE} · {PROFILE}",
+    CALC_TIERED: "🔢 Tiered block · {N} month reset · {TIERS}",
+    TARIFFS_AVAILABLE_ONE: "{N} tariff available",
+    TARIFFS_AVAILABLE: "{N} tariffs available",
+    LBL_VIEW_CONTACT: "View contact details",
+    LBL_REGULATED_ROW: "regulated costs",
+    LBL_FIXED_ROW: "Fixed €{N}/month",
+    REGULATED_GRID: "Network Charge",
+    REGULATED_PSO: "Public Service Obligation (PSO)",
+    REGULATED_MDM: "Meter Data Management (MDM)",
+    REGULATED_RES: "RES & Energy Conservation Fund",
+    REG_GRID_DESC: "Distribution/Transmission system charge. Regulated charge.",
+    REG_PSO_DESC: "Tariff for the recovery of Public Service Obligation (PSO) costs. Regulated charge. Not subject to VAT.",
+    REG_RES_DESC: "Levy for the promotion of Renewable Energy Sources (RES) and energy conservation. Regulated charge. Applied per kWh consumed.",
+    REG_MDM_DESC: "Tariff for the recovery of metering costs incurred by the Distribution System Operator (DSO) (for users connected to the Distribution System). Regulated charge only for the dominant participant (EAC Supply).",
+    BTN_NOTICES: "ℹ️ Notices & Disclaimers",
+    NOTICES_TITLE: "Notices & Disclaimers",
+    NOTICES_TAB_ASSUMPTIONS: "Notices",
+    NOTICES_TAB_LEGAL: "Disclaimers",
+    FOOTER_ORG_NAME: "Cyprus Energy Regulatory Authority",
+    FOOTER_ADDRESS: "20 Agias Paraskevis,<br>2002 Strovolos,<br>Nicosia, Cyprus",
+    FOOTER_POBOX_CITY: "1305 Nicosia",
+    FOOTER_POSTAL: "Postal Address",
+    FOOTER_POBOX: "P.O. Box",
+    FOOTER_PHONE: "Phone",
+    FOOTER_FAX: "Fax",
+    FOOTER_EMAIL: "Email",
+    FOOTER_CONTACT: "Contact",
+    BTN_ESTIMATE: "🧮 Estimate",
+    EST_TITLE: "Estimate your consumption",
+    EST_DESC: "Answer a few questions to get a rough estimate of your annual electricity use in Cyprus.",
+    EST_DWELLING: "Dwelling type",
+    EST_D_STUDIO: "Studio / bedsit (< 40 m²)",
+    EST_D_APT1: "Small apartment — 1 bedroom (40–65 m²)",
+    EST_D_APT2: "Apartment — 2 bedrooms (65–90 m²)",
+    EST_D_APT3: "Apartment — 3 bedrooms (90–120 m²)",
+    EST_D_SEMI: "Semi-detached house",
+    EST_D_DET_S: "Detached house — small (140–200 m²)",
+    EST_D_DET_L: "Detached house / Villa (> 200 m²)",
+    EST_PERSONS: "Number of inhabitants",
+    EST_AC: "Air conditioning",
+    EST_AC_NONE: "None",
+    EST_AC_LIGHT: "Light — 1 unit, occasional use",
+    EST_AC_MOD: "Moderate — 2–3 units",
+    EST_AC_HEAVY: "Heavy — 3+ units, all summer",
+    EST_WATER: "Water heating",
+    EST_WATER_SOLAR: "Solar heater (electric backup)",
+    EST_WATER_ELEC: "Electric boiler",
+    EST_WATER_OTHER: "Gas / other",
+    EST_COOKING: "Electric cooker / oven",
+    EST_YES: "Yes",
+    EST_NO: "No",
+    EST_CALC: "Calculate",
+    EST_USE: "Use this estimate",
+    EST_RESULT_LBL: "Estimated annual consumption",
+    EST_RESULT_UNIT: "kWh / year",
+    EST_NOTE: "Indicative estimate only. For an accurate comparison, use the actual annual kWh figure from your electricity bill.",
+    EST_METH_TITLE: "Methodology & data sources",
+    EST_METH_BODY: `<p><strong>Disclaimer:</strong> This tool provides indicative estimates based on typical consumption patterns for Cyprus households. It does not reflect your actual meter readings, contract terms, or specific appliance efficiency. Actual consumption may differ significantly depending on insulation quality, occupant behaviour, appliance age, and seasonal variation. This tool does not constitute a commercial offer or energy advice.</p>
+<p><strong>Base consumption by dwelling size</strong> — derived from Eurostat household energy statistics (NRG_D_HHQ, Cyprus row) and EAC average billed kWh per domestic connection. The Cyprus household average of ~5,000–5,500 kWh/year is reproduced by a typical 2BR apartment + moderate AC + solar water heater in this model.</p>
+<table>
+<tr><th>Dwelling</th><th>Base kWh/yr</th><th>Basis</th></tr>
+<tr><td>Studio</td><td>1,200</td><td>Minimal load, 1 person implied, small area</td></tr>
+<tr><td>1BR apartment</td><td>1,800</td><td>Standard appliance base (lighting, fridge, TV, laundry)</td></tr>
+<tr><td>2BR apartment</td><td>2,600</td><td>EAC LV domestic billing averages by connection size</td></tr>
+<tr><td>3BR apartment</td><td>3,500</td><td>Larger circuit count, more occupant appliances</td></tr>
+<tr><td>Semi-detached</td><td>4,500</td><td>Additional floors, garden/outdoor lighting</td></tr>
+<tr><td>Small detached</td><td>6,000</td><td>EAC typical LV billing for 140–200 m²</td></tr>
+<tr><td>Large detached / villa</td><td>9,000</td><td>Pool pump, gate motors, larger common areas</td></tr>
+</table>
+<p><strong>Per additional person (+600 kWh):</strong> Personal electronics ~150, laundry ~100, cooking ~100, hot water demand ~150, lighting ~100 kWh/yr. Consistent with ODYSSEE-MURE per-capita residential end-use data for Cyprus.</p>
+<p><strong>Air conditioning</strong> — Cyprus has the highest cooling degree days in the EU. AC typically runs May–October (~150–180 days). Estimates assume 1.5 kW per unit: Light: 1 unit × 4 h/day × 120 days ≈ 700 kWh; Moderate: 2 units × 6 h/day × 140 days × 0.7 duty ≈ 1,800 kWh; Heavy: 3 units × 8 h/day × 150 days × 0.65 duty ≈ 3,500 kWh.</p>
+<p><strong>Water heating:</strong> Solar + backup: ~300 kWh (backup runs Oct–Mar on low-solar days, ~80% solar coverage). Electric boiler: ~1,200 kWh (80L tank, 2 kW element, ~2 hrs/day × ~220 days). Gas/other: no electricity contribution.</p>
+<p><strong>Electric cooking (+400 kWh):</strong> EU appliance studies (ADEME, Energy Saving Trust) cite 300–500 kWh/yr for typical household electric cooking. Midpoint used.</p>
+<div class="est-meth-sources"><strong>Sources:</strong> Eurostat NRG_D_HHQ · ODYSSEE-MURE CY residential · EAC Annual Report · CERA Energy Report · JRC Heating &amp; Cooling study (CY cooling degree days)</div>`,
+    MONTHS: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+  },
+  el: {
+    PAGE_EYEBROW: "Υπολογισμός κόστους ηλεκτρικής ενέργειας",
+    PAGE_TITLE: "Εργαλείο σύγκρισης διατιμήσεων προμηθευτών",
+    PAGE_DESC: "Συμπληρώστε την εκτιμώμενη κατανάλωση σας και δείτε όλες τις διαθέσιμες διατιμήσεις, με σειρά αυξανόμενου κόστους και τα στοιχεία των προμηθευτών.",
+    CARD_CONNECTION: "Τύπος σύνδεσης",
+    TAB_DOMESTIC: "🏠 Οικιακή",
+    TAB_CI: "🏢 Εμπορική/Βιομηχανική",
+    LBL_VOLTAGE: "Τάση Ρεύματος",
+    OPT_LV: "ΧΤ — Χαμηλή Τάση",
+    OPT_MV: "ΜΤ — Μεσαία Τάση",
+    OPT_HV: "ΥΤ — Υψηλή Τάση",
+    LBL_LOAD_ENT: "Εγκατεστημένη ισχύς",
+    LE_LT70: "< 70 kVA",
+    LE_GT70: "> 70 kVA",
+    LBL_PRICING: "Τύπος Διατίμησης",
+    OPT_ALL: "Όλοι",
+    OPT_FIXED: "Σταθερή μόνο",
+    OPT_TOU: "Χρόνου Χρήσης (ToU)",
+    OPT_VARIABLE: "Δυναμική μόνο",
+    OPT_VARIABLE_TIERED: "Κλιμακωτή μόνο",
+    TAG_FIXED: "Σταθερή",
+    TAG_TOU: "ToU",
+    TAG_DYNAMIC: "Δυναμική",
+    TAG_VARIABLE: "Κλιμακωτή",
+    TAG_LV: "ΧΤ",
+    TAG_MV: "ΜΤ",
+    TAG_HV: "ΥΤ",
+    TAG_DOMESTIC: "Οικιακή",
+    TAG_CI: "Εμπορική/Βιομηχανική",
+    CARD_CONSUMPTION: "Η κατανάλωσή σας",
+    CARD_TARIFFS: "Διαθέσιμες διατιμήσεις",
+    BTN_ANNUAL: "Ετήσια",
+    BTN_MONTHLY: "Μηνιαία",
+    LBL_ANNUAL_KWH: "Ετήσια κατανάλωση",
+    UNIT_KWH_YEAR: "kWh / έτος",
+    LBL_MONTHLY_KWH: "Μηνιαία κατανάλωση",
+    UNIT_KWH_MONTH: "kWh / μήνα",
+    HINT_ANNUAL: "Βάσει των Κανόνων Προμηθειας Ηλεκτρισμού Άρθρο 7.1.7 (α) της ΡΑΕΚ, όλοι οι προμηθευτές υποχρεούνται να ενημερώνουν τους πελάτες τους κατ' ελάχιστο μια φορά τον χρόνο, για την συνολική τους κατανάλωση κατά το προηγούμενο έτος καθώς επίσης και την εκτίμιση κατανάλωσης για το τρέχον έτος.",
+    HINT_MONTHLY: "Στον μηνιαίο υπολογισμό όλοι οι μήνες υπολογίζονται με την ίδια κατανάλωση. Ετήσια κατανάλωση = Μηνιαία × 12. Χρησιμοποιείται προφίλ για τον υπολογισμό κατανάλωσης εντός της ημέρας.",
+    SAVINGS_TEXT: "Εξοικονομίστε μέχρι και {X}/έτος επιλέγοντας την πιο συμφέρουσα διατίμηση.",
+    SAVINGS_TEXT_MONTH: "Εξοικονομίστε μέχρι και {X}/μήνα επιλέγοντας την πιο συμφέρουσα διατίμηση.",
+    SAVINGS_SUB: "Κόστος Ρεύματος. Οι ρυθμιζόμενες χρεώσεις δείνονται ξεχωριστά ανά διατίμηση.",
+    RESULTS_SUB_ANNUAL: "Φθηνότερος προμηθευτής πρώτα · Ετήσια · Κατανομή-προφίλ · {YEAR}",
+    RESULTS_SUB_MONTHLY: "Φθηνότερος λογαριασμός πρώτα · {KWH} kWh ανά λογαριασμό · {YEAR}",
+    BADGE_BEST_PRICE: "ΠΙΟ ΣΥΜΦΕΡΟΥΣΑ",
+    LBL_STANDING: "/μήνα πάγιο",
+    LBL_NO_MIN: "Αορίστου χρόνου",
+    LBL_MIN_MONTHS: "{N} μήνες ελάχιστο",
+    LBL_NO_PROFILE: "Χωρίς προφίλ",
+    LBL_UPDATED: "Ενημερώθηκε:",
+    LBL_INCL_DISC: "Τιμή με εκπτώσεις.<br>Αναπτύξτε για λεπτομέρειες.",
+    LBL_SUP_YEAR: "/έτος",
+    LBL_SUP_MONTH: "/μήνα",
+    LBL_SUP_2MO: "/ 2 μήνες",
+    BILLING_CYCLE: "Κύκλος τιμολόγησης",
+    BILLING_M1: "Μηνιαία",
+    BILLING_M2: "Διμηνιαία",
+    MONTHLY_CONS_LBL: "Κατανάλωση ανά λογαριασμό",
+    MONTHLY_UNIT_1: "kWh / μήνα",
+    MONTHLY_UNIT_2: "kWh / 2 μήν.",
+    SAVINGS_TEXT_PERIOD: "Εξοικονομίστε μέχρι και {X} ανά λογαριασμό επιλέγοντας την πιο συμφέρουσα διατίμηση.",
+    BILL_BREAKDOWN_HDR: "Ανάλυση λογαριασμού",
+    BILL_YEAR_NOTE: "× {N} λογ./έτος ≈ €{X} / έτος (χωρίς ΦΠΑ)",
+    NUDGE_ANNUAL: "💡 Για πιο ακριβή σύγκριση βάσει εποχικής κατανάλωσης, επιλέξτε Ετήσια σύγκριση και εισάγετε την ετήσια κατανάλωσή σας.",
+    LBL_VULNERABLE_CHECK: "Δικαιούμαι κοινωνική / ευπαθή διατίμηση",
+    LBL_VULNERABLE_INFO: "Ποιοι δικαιούνται;",
+    TITLE_VULNERABLE_MODAL: "Κοινωνική διατίμηση / ευπαθείς καταναλωτές — επιλέξιμες περιπτώσεις",
+    LBL_REGULATED: "ρυθμιζόμενα",
+    LBL_INCL_REGULATED: "+ {X} ρυθμιζόμενες χρεώσεις",
+    LBL_WITHOUT_VAT: "Χωρίς ΦΠΑ",
+    BTN_CONTACT: "📋 Στοιχεία Επικοινωνίας",
+    TH_MONTH: "Μήνας",
+    TH_DAYS: "Μέρες",
+    TH_KWH: "kWh",
+    TH_ENERGY: "Κόστος Ενέργειας",
+    TH_STANDING: "Πάγιο",
+    TH_TOTAL: "Ολικό",
+    ROW_SUP_TOTAL: "Ολικό Προμηθευτή",
+    ROW_TOTAL_REG: "Ολικό (συμπ. ρυθμιζόμενες χρεώσεις, χωρίς ΦΠΑ)",
+    CHART_ANNUAL: "Σύγκριση ετήσιου κόστους — ανταγωνιστικές χρεώσεις μόνο",
+    CHART_MONTHLY_COST: "Μηνιαίο κόστος",
+    VAR_NOTE_TITLE: "Δυναμικές διατιμήσεις — δεν δίνονται για μηνιαία σύγκριση",
+    VAR_NOTE_BODY: "Οι δυναμικές διατιμήσεις εξαρτώνται από τιμές ΠΗΑ που μεταβάλλονται καθ\'όλη τη διάρκεια του έτους. Ένας μεμονωμένος μήνας μπορεί να είναι παραπλανητικός — ο επιλεγμένος μήνας μπορεί να είναι ασυνήθιστα φθηνός ή ακριβός. Επιλέξτε ετήσια σύγκριση για ακριβή αποτελέσματα.",
+    VAR_NOTE_ANNUAL: "Αλλαγή σε ετήσια σύγκριση",
+    VAR_NO_DAM_TITLE: "Δυναμική διατίμηση — Δεν υπάρχουν δεδομένα ΠΗΑ",
+    VAR_ONLY_TITLE: "Οι δυναμικές διατιμήσεις είναι μόνο στην ετήσια σύγκριση",
+    VAR_ONLY_BODY: "Οι τιμές ΠΗΑ ενός μεμονωμένου μήνα δεν αντιπροσωπεύουν ορθά όλο το έτος για τη δυναμική τιμολόγηση. Παρακαλώ επιλέξτε ετήσια σύγκριση για να συγκρίνετε και δυναμικές τιμολογήσεις.",
+    NO_TARIFFS_TITLE: "Δεν υπάρχουν διατιμήσεις.",
+    NO_TARIFFS_SUB: "Δεν υπάρχουν διατιμήσεις για {VOLTAGE} · {CONTRACT}.",
+    NO_CONFIG_TITLE: "Δεν βρέθηκε σχετική ρύθμιση",
+    NO_CONFIG_BODY: "Ανοίξτε το αρχείο <strong>admin.html</strong> στο ίδιο πρόγραμμα περιήγησης, ρυθμίστε τους προμηθευτές και τις τιμές, και κάντε κλικ στην επιλογή <em>Αποθήκευση &amp; δημοσίευση</em>.",
+    PROMPT_ENTER: "Εισάγετε την κατανάλωση σας πιο πάνω για σύγκριση διατιμήσεων.",
+    CONTACT_NO_DETAILS: "Δεν υπάρχουν στοιχεία επικοινωνίας ακόμα.",
+    DISC_HEADER: "🏷 Διαθέσιμες εκπτώσεις — επιλέξτε ότι ισχύει",
+    DISC_ENERGY_LABEL: "⚡ Έκπτωση στην ενέργεια",
+    DISC_STANDING_LABEL: "📋 Έκπτωση στο Πάγιο",
+    DISC_DURATION_FIRST: "για τους πρώτους <strong>{N} μήνες</strong>",
+    DISC_DURATION_PERM: "μόνιμα",
+    CALC_FALLBACK: "⚠ Εφεδρική μέθοδος (δεν έχει αντιστοιχιστεί σε προφίλ ΔΣΔ)",
+    CALC_DIST_FRACTIONS: "μηνιαία προφίλ που χρησιμοποιούνται για ετήσια→μηνιαία κατανάλωση",
+    CALC_DIST_FLAT: "σταθερή μηνιαία είσοδος — προφίλ που χρησιμοποιείται μόνο για ενδοημερήσια χρήση",
+    CALC_TOU: "📊 Προφίλ ΔΣΔ · {NOTE} · Χωρισμένο σε εργάσιμες/μη εργάσιμες → ημιωριαίες τιμές · {PROFILE}",
+    CALC_DAM_SLOT: "📊 Προφίλ ΔΣΔ × ημιωριαία τιμή ΠΗΑ · {NOTE} · {PROFILE}",
+    CALC_DAM_AVG: "📊 Προφίλ ΔΣΔ × μηνιαίος μέσος όρος τιμής ΠΗΑ · {NOTE} · {PROFILE}",
+    CALC_TIERED: "🔢 Κλιμακωτό μπλοκ · {N} επαναφορά μήνα · {TIERS}",
+    TARIFFS_AVAILABLE_ONE: "{N} διατίμηση διαθέσιμη",
+    TARIFFS_AVAILABLE: "{N} διατιμήσεις διαθέσιμες",
+    LBL_VIEW_CONTACT: "Στοιχεία προμηθευτή",
+    LBL_REGULATED_ROW: "ρυθμιζόμενα κόστη",
+    LBL_FIXED_ROW: "Σταθερό €{N}/μήνα",
+    REGULATED_GRID: "Κόστος Δικτύου",
+    REGULATED_PSO: "Υποχρεώσεις Δημόσιας Ωφέλειας (ΥΔΩ)",
+    REGULATED_MDM: "Κόστος Διαχείρισης Μετρητικών Δεδομένων",
+    REGULATED_RES: "Ταμείο ΑΠΕ & ΕΞΕ",
+    REG_GRID_DESC: "Διατίμηση χρήσης του Συστήματος Διανομής/Μεταφοράς. Ρυθμιζόμενη χρέωση.",
+    REG_PSO_DESC: "Διατίμηση για την ανάκτηση των δαπανών των Υπηρεσιών Δημοσίας Ωφέλειας (ΥΔΩ). Ρυθμιζόμενη χρέωση.",
+    REG_RES_DESC: "Εισφορά για το Ταμείο Ανανεώσιμων Πηγών Ενέργειας (ΑΠΕ) και Εξοικονόμησης Ενέργειας (ΕΞΕ) του Υπουργείου Ενέργειας, Εμπορίου και Βιομηχανίας. Το ειδικό τέλος χρεώνεται σε όλους τους πελάτες με βάση τις μονάδες (kWh) που καταναλώνουν. Δεν υπόκειται σε ΦΠΑ.",
+    REG_MDM_DESC: "Διατίμηση για την ανάκτηση των δαπανών μετρήσεων που ανακύπτουν από το Διαχειριστή του Συστήματος Διανομής (ΔΣΔ) (για χρήστες που συνδέονται στο Σύστημα Διανομής). Ρυθμιζόμενη χρέωση μόνο για τον δεσπόζων συμμετέχοντα (ΑΗΚ Προμήθεια).",
+    BTN_NOTICES: "ℹ️ Σημειώσεις & Αποποιήσεις Ευθυνών",
+    NOTICES_TITLE: "Σημειώσεις & Αποποιήσεις Ευθυνών",
+    NOTICES_TAB_ASSUMPTIONS: "Σημειώσεις/Παραδοχές",
+    NOTICES_TAB_LEGAL: "Αποποιήσεις Ευθυνών",
+    FOOTER_ORG_NAME: "Ρυθμιστική Αρχή Ενέργειας Κύπρου",
+    FOOTER_ADDRESS: "Αγίας Παρασκευής 20,<br>2002 Στρόβολος,<br>Λευκωσία, Κύπρος",
+    FOOTER_POBOX_CITY: "1305 ΛΕΥΚΩΣΙΑ",
+    FOOTER_POSTAL: "Ταχυδρομική Διεύθυνση",
+    FOOTER_POBOX: "Ταχ. Θυρ.",
+    FOOTER_PHONE: "Τηλέφωνο",
+    FOOTER_FAX: "Φαξ",
+    FOOTER_EMAIL: "Ηλ. Ταχυδρομείο",
+    FOOTER_CONTACT: "Επικοινωνία",
+    BTN_ESTIMATE: "🧮 Εκτίμηση",
+    EST_TITLE: "Εκτίμηση κατανάλωσης",
+    EST_DESC: "Απαντήστε μερικές ερωτήσεις για να λάβετε μια κατά προσέγγιση εκτίμηση της ετήσιας ηλεκτρικής σας κατανάλωσης.",
+    EST_DWELLING: "Τύπος κατοικίας",
+    EST_D_STUDIO: "Studio / γκαρσονιέρα (< 40 τ.μ.)",
+    EST_D_APT1: "Μικρό διαμέρισμα — 1 υπνοδωμάτιο (40–65 τ.μ.)",
+    EST_D_APT2: "Διαμέρισμα — 2 υπνοδωμάτια (65–90 τ.μ.)",
+    EST_D_APT3: "Διαμέρισμα — 3 υπνοδωμάτια (90–120 τ.μ.)",
+    EST_D_SEMI: "Ημιανεξάρτητη κατοικία",
+    EST_D_DET_S: "Μονοκατοικία — μικρή (140–200 τ.μ.)",
+    EST_D_DET_L: "Μονοκατοικία / Βίλα (> 200 τ.μ.)",
+    EST_PERSONS: "Αριθμός ενοίκων",
+    EST_AC: "Κλιματισμός",
+    EST_AC_NONE: "Κανένας",
+    EST_AC_LIGHT: "Ελαφρύς — 1 κλιματιστικό, περιστασιακή χρήση",
+    EST_AC_MOD: "Μέτριος — 2–3 κλιματιστικά",
+    EST_AC_HEAVY: "Έντονος — 3+ κλιματιστικά, όλο το καλοκαίρι",
+    EST_WATER: "Θέρμανση νερού",
+    EST_WATER_SOLAR: "Ηλιακός θερμοσίφωνας (ηλεκτρικό backup)",
+    EST_WATER_ELEC: "Ηλεκτρικός θερμοσίφωνας",
+    EST_WATER_OTHER: "Αέριο / άλλο",
+    EST_COOKING: "Ηλεκτρική κουζίνα / φούρνος",
+    EST_YES: "Ναι",
+    EST_NO: "Όχι",
+    EST_CALC: "Υπολογισμός",
+    EST_USE: "Χρήση εκτίμησης",
+    EST_RESULT_LBL: "Εκτιμώμενη ετήσια κατανάλωση",
+    EST_RESULT_UNIT: "kWh / έτος",
+    EST_NOTE: "Ενδεικτική εκτίμηση μόνο. Για ακριβέστερη σύγκριση, χρησιμοποιήστε την πραγματική ετήσια κατανάλωσή σας από τον λογαριασμό ρεύματος.",
+    EST_METH_TITLE: "Μεθοδολογία & πηγές δεδομένων",
+    EST_METH_BODY: `<p><strong>Αποποίηση ευθύνης:</strong> Το εργαλείο παρέχει ενδεικτικές εκτιμήσεις βάσει τυπικών προτύπων κατανάλωσης κυπριακών νοικοκυριών. Δεν αντικατοπτρίζει τις πραγματικές ενδείξεις του μετρητή, τους όρους συμβολαίου ή την ενεργειακή απόδοση των συγκεκριμένων συσκευών σας. Η πραγματική κατανάλωση μπορεί να διαφέρει σημαντικά ανάλογα με τη θερμομόνωση, τη συμπεριφορά των ενοίκων, την ηλικία των συσκευών και τις εποχιακές διακυμάνσεις. Το εργαλείο δεν αποτελεί εμπορική προσφορά ή ενεργειακή συμβουλή.</p>
+<p><strong>Βασική κατανάλωση ανά τύπο κατοικίας</strong> — προκύπτει από στατιστικά στοιχεία νοικοκυριών της Eurostat (NRG_D_HHQ, Κύπρος) και μέσες χρεώσεις ΑΗΚ ανά οικιακή σύνδεση. Ο κυπριακός μέσος όρος ~5.000–5.500 kWh/έτος αναπαράγεται από τυπικό διαμέρισμα 2 υπνοδωματίων + μέτριος κλιματισμός + ηλιακός θερμοσίφωνας.</p>
+<table>
+<tr><th>Κατοικία</th><th>Βάση kWh/έτος</th><th>Βάση εκτίμησης</th></tr>
+<tr><td>Studio</td><td>1.200</td><td>Ελάχιστο φορτίο, 1 άτομο, μικρή επιφάνεια</td></tr>
+<tr><td>Διαμ. 1 ΥΔ</td><td>1.800</td><td>Βασικές συσκευές (φωτισμός, ψυγείο, TV, πλυντήριο)</td></tr>
+<tr><td>Διαμ. 2 ΥΔ</td><td>2.600</td><td>Μέσες χρεώσεις ΑΗΚ ανά μέγεθος σύνδεσης</td></tr>
+<tr><td>Διαμ. 3 ΥΔ</td><td>3.500</td><td>Περισσότερα κυκλώματα, περισσότερες συσκευές</td></tr>
+<tr><td>Ημιανεξάρτητη</td><td>4.500</td><td>Επιπλέον όροφοι, εξωτερικός φωτισμός</td></tr>
+<tr><td>Μονοκατοικία μικρή</td><td>6.000</td><td>Τυπικές χρεώσεις ΑΗΚ για 140–200 τ.μ.</td></tr>
+<tr><td>Μονοκατοικία / Βίλα</td><td>9.000</td><td>Αντλία πισίνας, ηλεκτρικές πύλες, κοινόχρηστοι χώροι</td></tr>
+</table>
+<p><strong>Ανά επιπλέον άτομο (+600 kWh):</strong> Ηλεκτρονικές συσκευές ~150, πλυντήριο ~100, μαγειρική ~100, ζεστό νερό ~150, φωτισμός ~100 kWh/έτος. Συνάδει με τα δεδομένα ODYSSEE-MURE για κατά κεφαλήν κατανάλωση κυπριακού νοικοκυριού.</p>
+<p><strong>Κλιματισμός</strong> — η Κύπρος έχει τις υψηλότερες βαθμοημέρες ψύξης στην ΕΕ. Ο κλιματισμός λειτουργεί συνήθως Μάιο–Οκτώβριο (~150–180 ημέρες). Υποθέτουμε 1,5 kW ανά μονάδα: Ελαφρύς: 1 μον. × 4 ώρ./ημ. × 120 ημ. ≈ 700 kWh· Μέτριος: 2 μον. × 6 ώρ./ημ. × 140 ημ. × 0,7 ≈ 1.800 kWh· Έντονος: 3 μον. × 8 ώρ./ημ. × 150 ημ. × 0,65 ≈ 3.500 kWh.</p>
+<p><strong>Θέρμανση νερού:</strong> Ηλιακός + backup: ~300 kWh (ηλεκτρικό backup Οκτ–Μαρ, κάλυψη ηλιακού ~80%). Ηλεκτρικός θερμοσίφωνας: ~1.200 kWh (δεξαμενή 80L, αντίσταση 2 kW, ~2 ώρ./ημ. × ~220 ημ.). Αέριο/άλλο: χωρίς συμβολή στην ηλεκτρική κατανάλωση.</p>
+<p><strong>Ηλεκτρική κουζίνα (+400 kWh):</strong> Ευρωπαϊκές μελέτες (ADEME, Energy Saving Trust) αναφέρουν 300–500 kWh/έτος για τυπική οικιακή ηλεκτρική μαγειρική. Χρησιμοποιείται ο μέσος όρος.</p>
+<div class="est-meth-sources"><strong>Πηγές:</strong> Eurostat NRG_D_HHQ · ODYSSEE-MURE CY οικιακός τομέας · Ετήσια Έκθεση ΑΗΚ · Ετήσια Έκθεση ΡΑΕΚ · JRC μελέτη Θέρμανσης &amp; Ψύξης (βαθμοημέρες ψύξης Κύπρος)</div>`,
+    MONTHS: ["Ιαν","Φεβ","Μαρ","Απρ","Μαι","Ιουν","Ιουλ","Αυγ","Σεπ","Οκτ","Νοε","Δεκ"]
+  }
+};
+let lang = 'el'; // default Greek
+function T(key, vars){
+  const s=(LANG[lang]||LANG.en)[key]||(LANG.en)[key]||key;
+  if(!vars) return s;
+  return Object.entries(vars).reduce((a,[k,v])=>a.replaceAll('{'+k+'}',v),s);
+}
+function pricingTag(p){
+  const map={Fixed:'TAG_FIXED',ToU:'TAG_TOU',Dynamic:'TAG_DYNAMIC',Variable:'TAG_VARIABLE'};
+  return map[p]?T(map[p]):p;
+}
+
+const DAYS_IN_MONTH=[31,28,31,30,31,30,31,31,30,31,30,31];
+// MONTHS is language-aware — defined after LANG
+function getMonths(){ return (LANG[lang]||LANG.en).MONTHS; }
+
+function setLang(l){
+  lang=l;
+  document.getElementById('lang-btn-en').classList.toggle('active',l==='en');
+  document.getElementById('lang-btn-el').classList.toggle('active',l==='el');
+  renderPage();
+  if(connCollapsed) updateConnSummary();
+  if(document.getElementById('notices-overlay').style.display!=='none')
+    switchNoticesTab(_noticesTab);
+}
+
+const PALETTE=[
+  '#1a3a5e','#b06c2c','#2f6f8f','#5b7a52','#8a5a83',
+  '#a85438','#3f6f6a','#7a6a4f','#4a5a8a','#6a8f3f',
+  '#9f6a2e','#2e7a6a','#705a8f','#3f7a52','#9f4a52'
+];
+// Shared Chart.js styling — premium, governmental, legible
+const CHART_FONT_MONO="'Roboto'";
+const CHART_FONT_SANS="'Roboto'";
+const CHART_GRID='rgba(21,32,46,0.055)';
+const CHART_TICK='#8893a3';
+function chartTooltip(){
+  return {
+    backgroundColor:'#11283f',titleColor:'#ffffff',bodyColor:'#d6e2f0',
+    padding:11,cornerRadius:8,boxPadding:5,
+    borderColor:'rgba(255,255,255,.10)',borderWidth:1,
+    titleFont:{family:CHART_FONT_SANS,weight:'600',size:12},
+    bodyFont:{family:CHART_FONT_MONO,size:11.5},
+    usePointStyle:true,
+    callbacks:{label:ctx=>' '+(ctx.dataset.label||'')+': €'+(ctx.parsed.y??0).toFixed(2)}
+  };
+}
+if(window.Chart){
+  Chart.defaults.font.family=CHART_FONT_MONO;
+  Chart.defaults.color=CHART_TICK;
+}
+// Line dash patterns — cycles independently so same-colour lines are still distinguishable
+const DASH_PATTERNS=[[],[5,3],[10,3],[3,3],[8,3,2,3]];
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+// Only allow http(s) URLs in href — blocks javascript:/data: scheme injection via supplier-entered website fields.
+function safeUrl(u){ u=String(u==null?'':u).trim(); return /^https?:\/\//i.test(u) ? esc(u) : '#'; }
+let cfg=null, openCards=new Set(), _resultsVisible=false;
+const chartRegistry={};
+function destroyAllCharts(){
+  Object.keys(chartRegistry).forEach(k=>{
+    try{ chartRegistry[k].destroy(); }catch(e){}
+    delete chartRegistry[k];
+  });
+}
+let inputMode='annual'; // 'annual' | 'monthly'
+let _billingPeriod=1; // billing period in months: 1=monthly, 2=bimonthly, 3=quarterly
+let customerType='domestic'; // 'domestic' | 'ci'
+let loadEntitlement='lt70';  // 'lt70' | 'gt70'
+
+function setCustomerType(type){
+  customerType=type;
+  document.getElementById('tab-domestic').classList.toggle('active',type==='domestic');
+  document.getElementById('tab-ci').classList.toggle('active',type==='ci');
+  document.getElementById('ci-options').style.display=type==='ci'?'':'none';
+  document.getElementById('tab-domestic').innerHTML=T('TAB_DOMESTIC');
+  document.getElementById('tab-ci').innerHTML=T('TAB_CI');
+  // Update load entitlement labels
+  const leHdr=document.getElementById('lbl-load-ent');
+  if(leHdr) leHdr.textContent=T('LBL_LOAD_ENT');
+  const llLt=document.querySelector('#le-lt');
+  const llGt=document.querySelector('#le-gt');
+  if(llLt) llLt.innerHTML=`<input type="radio" name="le" value="lt70" ${loadEntitlement==='lt70'?'checked':''}> ${T('LE_LT70')}`;
+  if(llGt) llGt.innerHTML=`<input type="radio" name="le" value="gt70" ${loadEntitlement==='gt70'?'checked':''}> ${T('LE_GT70')}`;
+  // Update voltage/pricing labels
+  const vLabel=document.querySelector('#ci-options .ff label');
+  if(vLabel) vLabel.textContent=T('LBL_VOLTAGE');
+  const pLabel=document.querySelector('[for="sel-pricing"]');
+  const allLabels=document.querySelectorAll('.ff label');
+  allLabels.forEach(l=>{ if(l.textContent.trim()==='Pricing type'||l.textContent.trim()===T('LBL_PRICING')) l.textContent=T('LBL_PRICING'); });
+  applyFilters();
+}
+
+function onVoltageChange(){
+  const v=document.getElementById('sel-voltage').value;
+  // Hide load entitlement for HV
+  document.getElementById('le-field').style.display=(v==='HV')?'none':'';
+  applyFilters();
+}
+
+function setLoadEntitlement(val){
+  loadEntitlement=val;
+  document.getElementById('le-lt').classList.toggle('active',val==='lt70');
+  document.getElementById('le-gt').classList.toggle('active',val==='gt70');
+  applyFilters();
+}
+
+function getFilterParams(){
+  if(customerType==='domestic'){
+    return {voltage:'LV', contracts:['Domestic'], le:null};
+  } else {
+    const v=document.getElementById('sel-voltage')?.value||'LV';
+    const le=v==='HV'?null:loadEntitlement;
+    return {voltage:v, contracts:['Commercial','Industrial'], le};
+  }
+}
+
+/* ── Mode toggle ── */
+function setMode(mode){
+  inputMode=mode;
+  document.getElementById('btn-annual').classList.toggle('active',mode==='annual');
+  document.getElementById('btn-monthly').classList.toggle('active',mode==='monthly');
+  document.getElementById('mode-annual').style.display=mode==='annual'?'':'none';
+  document.getElementById('mode-monthly').style.display=mode==='monthly'?'':'none';
+  document.getElementById('btn-annual').textContent=T('BTN_ANNUAL');
+  document.getElementById('btn-monthly').textContent=T('BTN_MONTHLY');
+  const hint=document.getElementById('consumption-hint');
+  if(hint) hint.textContent=T(mode==='annual'?'HINT_ANNUAL':'HINT_MONTHLY');
+  // Update input labels
+  const annLabel=document.querySelector('#mode-annual label');
+  if(annLabel) annLabel.textContent=T('LBL_ANNUAL_KWH');
+  const moLabel=document.getElementById('monthly-kwh-label');
+  if(moLabel) moLabel.textContent=T('MONTHLY_CONS_LBL');
+  const units=document.querySelectorAll('.kwh-unit');
+  if(units[0]) units[0].textContent=T('UNIT_KWH_YEAR');
+  const moUnit=document.getElementById('monthly-kwh-unit');
+  if(moUnit) moUnit.textContent=T('MONTHLY_UNIT_'+_billingPeriod);
+  const bcLbl=document.getElementById('billing-cycle-lbl');
+  if(bcLbl) bcLbl.textContent=T('BILLING_CYCLE');
+  const bpKeys=['BILLING_M1','BILLING_M2'];
+  [1,2].forEach((p,i)=>{ const b=document.getElementById('bp-btn-'+p); if(b) b.textContent=T(bpKeys[i]); });
+  applyFilters();
+}
+
+function onAnnualInput(){applyFilters();}
+function onMonthlyInput(){
+  const raw=parseFloat(document.getElementById('monthly-kwh').value)||0;
+  const eq=document.getElementById('monthly-equiv');
+  if(raw>0){
+    const mo=raw/_billingPeriod;
+    const yr=mo*12;
+    eq.innerHTML=_billingPeriod>1
+      ?`<span style="color:var(--text2)">${mo.toFixed(0)} kWh/month · ${yr.toLocaleString(undefined,{maximumFractionDigits:0})} kWh/year</span>`
+      :`<span>${yr.toLocaleString()} kWh/year</span>`;
+  } else {
+    eq.innerHTML='';
+  }
+  applyFilters();
+}
+function setBillingPeriod(n){
+  _billingPeriod=n;
+  [1,2].forEach(p=>{ const b=document.getElementById('bp-btn-'+p); if(b) b.classList.toggle('active',p===n); });
+  const moUnit=document.getElementById('monthly-kwh-unit');
+  if(moUnit) moUnit.textContent=T('MONTHLY_UNIT_'+n);
+  onMonthlyInput();
+}
+function periodCost(annualCost){ return annualCost*_billingPeriod/12; }
+function periodCostLabel(){
+  if(_billingPeriod===1) return T('LBL_SUP_MONTH');
+  return T('LBL_SUP_2MO');
+}
+
+/* ── Progressive collapse: connection only ── */
+let connCollapsed=false;
+function setConnCollapsed(v){
+  connCollapsed=v;
+  const c=document.getElementById('conn-card');
+  if(c) c.classList.toggle('collapsed',v);
+  if(v) updateConnSummary();
+}
+function toggleConn(){ setConnCollapsed(!connCollapsed); }
+// Collapse connection once the user makes a choice or moves to consumption.
+function advanceFromConn(){ setConnCollapsed(true); }
+function onConsumptionFocus(){ setConnCollapsed(true); }
+function updateConnSummary(){
+  const chips=[];
+  const ct=document.querySelector('.ctype-tab.active');
+  if(ct) chips.push(ct.textContent.trim());
+  if(customerType==='ci'){
+    const v=document.querySelector('#sel-voltage option:checked');
+    if(v) chips.push(v.textContent.trim());
+    const le=document.querySelector('.le-option.active');
+    if(le) chips.push(le.textContent.replace(/\s+/g,' ').trim());
+  }
+  const pr=document.querySelector('#sel-pricing option:checked');
+  if(pr) chips.push(pr.textContent.trim());
+}
+function onConsumptionBlur(){}
+
+/* ── Derive monthly kWh array for a tariff ── */
+function getMonthlyKwhForTariff(tariff){
+  if(inputMode==='monthly'){
+    const v=(parseFloat(document.getElementById('monthly-kwh').value)||0)/_billingPeriod;
+    return new Array(12).fill(v);
+  }
+  // Annual mode — distribute using tariff's profile monthlyFractions
+  const annual=parseFloat(document.getElementById('annual-kwh').value)||0;
+  if(annual<=0) return new Array(12).fill(0);
+  const prof=getProfile(tariff);
+  if(prof&&prof.monthlyFractions&&prof.monthlyFractions.length===12){
+    return prof.monthlyFractions.map(f=>f*annual);
+  }
+  // Fallback: distribute by days in month
+  const totalDays=DAYS_IN_MONTH.reduce((a,x)=>a+x,0);
+  return DAYS_IN_MONTH.map(d=>(d/totalDays)*annual);
+}
+
+/* ── Annual note showing profile-based monthly split ── */
+function updateAnnualNote(tariff){
+  const note=document.getElementById('annual-note');
+  if(!note) return;
+  const annual=parseFloat(document.getElementById('annual-kwh').value)||0;
+  if(annual<=0){note.style.display='none';return;}
+  const monthly=getMonthlyKwhForTariff(tariff);
+  const prof=getProfile(tariff);
+  const method=prof&&prof.monthlyFractions?`profile "${esc(prof.name)}"`:'day-proportional fallback';
+  note.style.display='';
+  note.innerHTML=`Distribution method: ${method}<br>`
+    +getMonths().map((m,i)=>`<span style="font-family:var(--mono);font-size:11px">${m}: <strong>${monthly[i].toFixed(0)}</strong></span>`).join(' · ');
+}
+
+// Cyprus holidays
+function easterDate(y){
+  const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25);
+  const g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7;
+  const m=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*m+114)/31)-1,dy=((h+l-7*m+114)%31)+1;
+  return new Date(y,mo,dy);
+}
+function getCyprusHolidays(y){
+  const fixed=[[1,1],[1,6],[3,25],[4,1],[5,1],[8,15],[10,1],[10,28],[12,25],[12,26]]
+    .map(([mo,d])=>`${y}${String(mo).padStart(2,'0')}${String(d).padStart(2,'0')}`);
+  const e=easterDate(y),add=(dt,n)=>{const r=new Date(dt);r.setDate(r.getDate()+n);return r;};
+  const fmt=dt=>`${dt.getFullYear()}${String(dt.getMonth()+1).padStart(2,'0')}${String(dt.getDate()).padStart(2,'0')}`;
+  return new Set([...fixed,fmt(add(e,-48)),fmt(add(e,-2)),fmt(add(e,1)),fmt(add(e,49))]);
+}
+function getDayCounts(year){
+  const h=getCyprusHolidays(year),isLeap=year%4===0&&(year%100!==0||year%400===0);
+  return Array.from({length:12},(_,mi)=>{
+    const dim=mi===1?(isLeap?29:28):DAYS_IN_MONTH[mi];
+    let w=0,nw=0;
+    for(let d=1;d<=dim;d++){
+      const dow=new Date(year,mi,d).getDay();
+      const key=`${year}${String(mi+1).padStart(2,'0')}${String(d).padStart(2,'0')}`;
+      if(dow===0||dow===6||h.has(key)) nw++; else w++;
+    }
+    return {working:w,nonWorking:nw};
+  });
+}
+
+// ─── EAC HHFF COST ENGINE ───────────────────────────────────────────────────
+// Slot s covers [s*30, (s+1)*30) minutes. Start hour = Math.floor(s*30/60)
+// Correct slot order: slot 0 = 00:00-00:30 (label 00:30), slot 47 = 23:30-00:00 (label 00:00)
+
+const CALC_YEAR = 2026; // year used for WD/NWD day counts in HHFF normalisation
+
+function getProfile(t){return t.profileId?cfg.profiles.find(p=>p.id===t.profileId)||null:null;}
+
+// Apply tiered block rates to a kWh amount
+function applyTiers(tiers, kwh){
+  if(!tiers||!tiers.length||isNaN(kwh)||kwh<=0) return 0;
+  let cost=0, prev=0;
+  for(let i=0;i<tiers.length;i++){
+    const tier=tiers[i];
+    const cap=tier.upTo!=null?tier.upTo:Infinity;
+    const band=Math.min(kwh-prev, cap-prev);
+    if(band<=0) break;
+    cost+=band*(parseFloat(tier.rate)||0);
+    prev=cap;
+    if(tier.upTo==null||kwh<=cap) break;
+  }
+  return cost;
+}
+
+/* ── Regulated costs ── */
+// Helper to get supplier object from cfg
+function getSupplierObj(name){
+  const arr=(cfg.suppliers||[]).map(s=>typeof s==='string'?{name:s}:s);
+  return arr.find(s=>s.name===name)||{name};
+}
+
+function getRegulated(){ 
+  const r=cfg.regulated||{};
+  return {
+    lv:r.lv||0, mv:r.mv||0, hv:r.hv||0,
+    fpaLV:r.fpaLV||r.fpa||0,  // backwards compat
+    fpaMV:r.fpaMV||r.fpa||0,
+    fpaHV:r.fpaHV||r.fpa||0,
+    pso:r.pso||0,
+    res:r.res||0
+  };
+}
+
+function getTariffFpa(t){
+  const src=t.fpaSource||'global';
+  if(src==='none') return 0;
+  if(src==='custom') return t.fpaCustom||0;
+  // 'global' — pick rate matching tariff's voltage
+  const r=getRegulated();
+  const vol=t.voltage||'LV';
+  return vol==='LV'?r.fpaLV:vol==='MV'?r.fpaMV:r.fpaHV;
+}
+
+/* ── Discount helpers ── */
+// Returns active discounts for a tariff (customer may have toggled some off)
+function getActiveDiscounts(tariffId){
+  return window._discountState&&window._discountState[tariffId]
+    ? window._discountState[tariffId]
+    : null; // null means use tariff defaults (all active)
+}
+
+// Get discount factor for a given month (1-indexed) and type
+// Returns {energyFactor, standingFactor} where 1.0 = no discount
+// Compute annual cost with NO discounts (for strikethrough display)
+function annualCostNoDiscount(t, dc){
+  // Temporarily set ALL discounts to inactive using false sentinel
+  const saved=window._discountState;
+  const override={};
+  (t.discounts||[]).forEach((_,i)=>{ override[t.id+'_disc_'+i]=false; });
+  window._discountState={[t.id]:override};
+  const bd=monthlyBreakdown(t,dc);
+  window._discountState=saved;
+  if(!bd||bd.every(v=>v===null)) return null;
+  return bd.reduce((sum,v)=>sum+(v?v.total:0),0);
+}
+
+function getDiscountFactors(t, monthIdx1){
+  const discounts=t.discounts||[];
+  if(!discounts.length) return {energyFactor:1,standingFactor:1};
+  const state=getActiveDiscounts(t.id)||{};
+  let energyDisc=0, standingDisc=0;
+  discounts.forEach((d,i)=>{
+    // Check if customer toggled this off
+    const key=t.id+'_disc_'+i;
+    const active=state[key]!==false; // default active
+    if(!active) return;
+    // Check if month is within discount duration
+    const inPeriod=!d.durationMonths||(monthIdx1<=d.durationMonths);
+    if(!inPeriod) return;
+    if(d.type==='energy') energyDisc+=d.percentage||0;
+    if(d.type==='standing') standingDisc+=d.percentage||0;
+  });
+  return {
+    energyFactor:Math.max(0,1-energyDisc/100),
+    standingFactor:Math.max(0,1-standingDisc/100)
+  };
+}
+
+function regulatedAnnual(voltage, annualKwh, mdm){
+  const r=getRegulated();
+  const gridRate=voltage==='LV'?r.lv:voltage==='MV'?r.mv:r.hv;
+  return annualKwh*(gridRate+r.pso+r.res) + (mdm||0)*12;
+}
+
+function regulatedBreakdown(voltage, annualKwh, mdm){
+  const r=getRegulated();
+  const gridRate=voltage==='LV'?r.lv:voltage==='MV'?r.mv:r.hv;
+  const mdmVal=mdm||0;
+  return {
+    grid:  {label:T('REGULATED_GRID'), annual:annualKwh*gridRate, rate:gridRate, perKwh:true},
+    pso:   {label:T('REGULATED_PSO'),  annual:annualKwh*r.pso,    rate:r.pso,    perKwh:true},
+    res:   {label:T('REGULATED_RES'),  annual:annualKwh*r.res,    rate:r.res,    perKwh:true},
+    mdm:   {label:T('REGULATED_MDM'),  annual:mdmVal*12,           rate:mdmVal,   perKwh:false},
+    total: annualKwh*(gridRate+r.pso+r.res)+mdmVal*12
+  };
+}
+
+/**
+ * Compute the annual HHFF total for a profile using actual day counts.
+ * annualHHFF = Σ(m) Σ(s) [ HHFF_WD[m][s] * WD_days[m] + HHFF_NWD[m][s] * NWD_days[m] ]
+ */
+function computeAnnualHHFF(profile, dc){
+  let total=0;
+  for(let m=0;m<12;m++){
+    const pm=profile.months[m];
+    if(!pm) continue;
+    const wd=dc[m].working, nwd=dc[m].nonWorking;
+    for(let s=0;s<48;s++){
+      total += (pm.W[s]||0)*wd + (pm.NW[s]||0)*nwd;
+    }
+  }
+  return total;
+}
+
+/**
+ * Get slot kWh array for a given month using EAC HHFF formula.
+ * kWh[s] = annualKwh * (HHFF_WD[m][s]*WD_days + HHFF_NWD[m][s]*NWD_days) / annualHHFF
+ * Returns Float64Array(48) or null if no profile.
+ */
+function getSlotKwh(profile, mi, annualKwh, dc, annualHHFF){
+  if(!profile||!annualHHFF||annualHHFF===0) return null;
+  const pm=profile.months[mi];
+  if(!pm) return null;
+  const wd=dc[mi].working, nwd=dc[mi].nonWorking;
+  const slots=new Float64Array(48);
+  for(let s=0;s<48;s++){
+    slots[s]=annualKwh*((pm.W[s]||0)*wd+(pm.NW[s]||0)*nwd)/annualHHFF;
+  }
+  return slots;
+}
+
+/**
+ * For a given slot index, return the start hour (0-23).
+ * Slot s covers [s*30, (s+1)*30) minutes from midnight.
+ */
+function slotStartHour(s){ return Math.floor(s*30/60); }
+
+/**
+ * Compute annual cost for a tariff.
+ * In ANNUAL mode: uses HHFF profile to distribute annual kWh across all slots.
+ * In MONTHLY mode: uses flat monthly kWh with profile for intra-day weighting only.
+ */
+function annualCostForTariff(t, dc){
+  // Use monthlyBreakdown which now returns {energy,fpa,standing,total} objects
+  const bd=monthlyBreakdown(t,dc);
+  if(!bd||bd.every(v=>v===null)) return null;
+  let total=0;
+  for(let m=0;m<12;m++){
+    if(bd[m]===null) return null;
+    total+=bd[m].total;
+  }
+  return total;
+}
+
+
+function monthlyBreakdown(t, dc){
+  // Returns array of 12 objects: {energy, fpa, standing, total} or null
+  const prof=getProfile(t);
+  const isMonthly=inputMode==='monthly';
+  const monthlyKwhFlat=(parseFloat(document.getElementById('monthly-kwh').value)||0)/_billingPeriod;
+  const annualKwh=isMonthly
+    ? monthlyKwhFlat*12
+    : (parseFloat(document.getElementById('annual-kwh').value)||0);
+
+  if(annualKwh<=0) return new Array(12).fill(null);
+  const fpaRate=getTariffFpa(t);
+  const standing=parseFloat(t.standing)||0;
+
+  // In monthly mode every month has exactly monthlyKwhFlat kWh (flat, no profile distribution)
+  function mKwhForMonth(m){
+    if(isMonthly) return monthlyKwhFlat;
+    if(prof){
+      const annualHHFF=computeAnnualHHFF(prof,dc);
+      let mHHFF=0;
+      const pm=prof.months[m];
+      if(pm) for(let s=0;s<48;s++) mHHFF+=(pm.W[s]||0)*dc[m].working+(pm.NW[s]||0)*dc[m].nonWorking;
+      return annualHHFF>0?annualKwh*(mHHFF/annualHHFF):annualKwh/12;
+    }
+    return annualKwh/12;
+  }
+
+  function pack(energy,fpa){
+    if(energy===null) return null;
+    return {energy,fpa,standing,total:energy+fpa+standing};
+  }
+
+  if(t.pricing==='Fixed'){
+    return Array.from({length:12},(_,m)=>{
+      const mKwh=mKwhForMonth(m);
+      const df=getDiscountFactors(t,m+1);
+      const baseEnergy=mKwh*t.rates.rate;
+      const baseFpa=mKwh*fpaRate;
+      return {
+        energy:baseEnergy*df.energyFactor,
+        fpa:baseFpa*df.energyFactor,
+        standing:standing*df.standingFactor,
+        total:baseEnergy*df.energyFactor+baseFpa*df.energyFactor+standing*df.standingFactor,
+        energyFull:baseEnergy,fpaFull:baseFpa,standingFull:standing,
+        energyDisc:baseEnergy*(1-df.energyFactor),
+        standingDisc:standing*(1-df.standingFactor)
+      };
+    });
+  }
+
+  if(t.pricing==='ToU'){
+    const r=t.rates;
+    const annualHHFF=prof?computeAnnualHHFF(prof,dc):0;
+    return Array.from({length:12},(_,m)=>{
+      const isHigh=(m+1)>=r.hiStart&&(m+1)<=r.hiEnd;
+      const ps=isHigh?r.hiPeakStart:r.loPeakStart;
+      const pe=isHigh?r.hiPeakEnd  :r.loPeakEnd;
+      const pr=isHigh?r.hiPeakRate :r.loPeakRate;
+      const or=isHigh?r.hiOffRate  :r.loOffRate;
+      // In monthly mode use flat kWh split by time-of-use fraction (no profile slots)
+      const slots=(!isMonthly&&prof)?getSlotKwh(prof,m,annualKwh,dc,annualHHFF):null;
+      const df=getDiscountFactors(t,m+1);
+      if(slots){
+        let energy=0,fpaTotal=0;
+        for(let s=0;s<48;s++){
+          const h=slotStartHour(s);
+          energy+=slots[s]*(h>=ps&&h<pe?pr:or);
+          fpaTotal+=slots[s]*fpaRate;
+        }
+        return {
+          energy:energy*df.energyFactor,fpa:fpaTotal*df.energyFactor,
+          standing:standing*df.standingFactor,
+          total:energy*df.energyFactor+fpaTotal*df.energyFactor+standing*df.standingFactor,
+          energyFull:energy,fpaFull:fpaTotal,standingFull:standing,
+          energyDisc:energy*(1-df.energyFactor),standingDisc:standing*(1-df.standingFactor)
+        };
+      } else {
+        const mKwh=mKwhForMonth(m);
+        const pf=Math.max(0,Math.min(24,pe-ps))/24;
+        const energy=mKwh*pf*pr+mKwh*(1-pf)*or;
+        const fpaTotal=mKwh*fpaRate;
+        return {
+          energy:energy*df.energyFactor,fpa:fpaTotal*df.energyFactor,
+          standing:standing*df.standingFactor,
+          total:energy*df.energyFactor+fpaTotal*df.energyFactor+standing*df.standingFactor,
+          energyFull:energy,fpaFull:fpaTotal,standingFull:standing,
+          energyDisc:energy*(1-df.energyFactor),standingDisc:standing*(1-df.standingFactor)
+        };
+      }
+    });
+  }
+
+  if(t.pricing==='Dynamic'){
+    const r=t.rates;
+    if(!prof) return new Array(12).fill(null);
+    const annualHHFF=computeAnnualHHFF(prof,dc);
+    const isLeap=CALC_YEAR%4===0&&(CALC_YEAR%100!==0||CALC_YEAR%400===0);
+    const dims=[31,isLeap?29:28,31,30,31,30,31,31,30,31,30,31];
+    const holidays=getCyprusHolidays(CALC_YEAR);
+
+    return Array.from({length:12},(_,m)=>{
+      const pm=prof.months[m];
+      if(!pm) return null;
+      const wd=dc[m].working, nwd=dc[m].nonWorking;
+      const damSlotAvg=cfg.damBySlot&&cfg.damBySlot[m]?cfg.damBySlot[m]:new Array(48).fill(null);
+      const damAvg=cfg.damMonthly[m];
+      const dailyData=cfg.damDailyData&&cfg.damDailyData[m]?cfg.damDailyData[m]:[];
+
+      // In monthly mode: each month has monthlyKwhFlat kWh distributed by HHFF shape
+      // so slot kWh proportions are preserved but total = monthlyKwhFlat
+      const mKwh=mKwhForMonth(m);
+      // Compute this month's HHFF total for normalisation within the month
+      let mHHFF=0;
+      for(let s=0;s<48;s++) mHHFF+=(pm.W[s]||0)*wd+(pm.NW[s]||0)*nwd;
+
+      let energy=0,fpaTotal=0;
+
+      for(let d=1;d<=dims[m];d++){
+        const dateStr=`${CALC_YEAR}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const dateKey=dateStr.replace(/-/g,'');
+        const dow=new Date(CALC_YEAR,m,d).getDay();
+        const isNonWork=dow===0||dow===6||holidays.has(dateKey);
+        const hhffArr=isNonWork?pm.NW:pm.W;
+        const dayDam=dailyData.find(x=>x.dateStr===dateStr);
+
+        for(let s=0;s<48;s++){
+          const hhff=hhffArr[s]||0;
+          // Annual mode: use global annualHHFF normalisation
+          // Monthly mode: use per-month mHHFF so total kWh = mKwh
+          const kWhSlot=isMonthly
+            ? (mHHFF>0?mKwh*(hhff*1)/mHHFF:mKwh/(dims[m]*48))
+            : annualKwh*(hhff*1)/annualHHFF;
+
+          let damRaw=null;
+          if(dayDam&&dayDam.slots[s]!=null) damRaw=dayDam.slots[s];
+          else if(damSlotAvg[s]!=null) damRaw=damSlotAvg[s];
+          else if(damAvg!=null) damRaw=damAvg;
+
+          if(damRaw==null||isNaN(damRaw)) return null;
+          const effPrice=Math.max(damRaw, r.damFloor||0);
+          const mult=parseFloat(r.mult)||1;
+          const adder=parseFloat(r.adder)||0;
+          energy+=kWhSlot*(effPrice*mult+adder);
+          fpaTotal+=kWhSlot*fpaRate;
+        }
+      }
+      const df=getDiscountFactors(t,m+1);
+      return {
+        energy:energy*df.energyFactor,fpa:fpaTotal*df.energyFactor,
+        standing:standing*df.standingFactor,
+        total:energy*df.energyFactor+fpaTotal*df.energyFactor+standing*df.standingFactor,
+        energyFull:energy,fpaFull:fpaTotal,standingFull:standing,
+        energyDisc:energy*(1-df.energyFactor),standingDisc:standing*(1-df.standingFactor)
+      };
+    });
+  }
+
+  if(t.pricing==='Variable'){
+    const r=t.rates;
+    const tiers=r.tiers||[];
+    const reset=r.resetMonths||1;
+    const result=new Array(12).fill(null);
+    for(let periodStart=0;periodStart<12;periodStart+=reset){
+      const periodEnd=Math.min(periodStart+reset,12);
+      const periodLen=periodEnd-periodStart;
+      const monthKwhs=[];
+      for(let m=periodStart;m<periodEnd;m++) monthKwhs.push(mKwhForMonth(m));
+      const periodKwh=monthKwhs.reduce((a,b)=>a+b,0);
+      // Energy cost from tier rates
+      const periodEnergyCost=applyTiers(tiers,periodKwh);
+      const periodFpaCost=periodKwh*fpaRate;
+      // Fixed charges: cumulative sum of fixedCharge for all tiers reached
+      let periodFixedCost=0;
+      let prev=0;
+      for(let i=0;i<tiers.length;i++){
+        const tier=tiers[i];
+        const cap=tier.upTo!=null?tier.upTo:Infinity;
+        if(periodKwh>prev){
+          // This tier was reached
+          periodFixedCost+=parseFloat(tier.fixedCharge)||0;
+        }
+        prev=cap;
+        if(tier.upTo==null||periodKwh<=cap) break;
+      }
+      // Split energy and fixed equally across months in period
+      const monthEnergy=periodEnergyCost/periodLen;
+      const monthFpa=periodFpaCost/periodLen;
+      const monthTierFixed=periodFixedCost/periodLen; // split per-period fixed across months
+      for(let mi=periodStart;mi<periodEnd;mi++){
+        const df=getDiscountFactors(t,mi+1);
+        // Standing = regular monthly standing + tier fixed (split)
+        // Tier fixed charge treated as part of standing for discount purposes
+        const monthStanding=(standing+monthTierFixed)*df.standingFactor;
+        const monthStandingFull=standing+monthTierFixed;
+        result[mi]={
+          energy:monthEnergy*df.energyFactor,
+          fpa:monthFpa*df.energyFactor,
+          standing:monthStanding,
+          total:monthEnergy*df.energyFactor+monthFpa*df.energyFactor+monthStanding,
+          energyFull:monthEnergy,fpaFull:monthFpa,standingFull:monthStandingFull,
+          energyDisc:monthEnergy*(1-df.energyFactor),
+          standingDisc:monthStandingFull*(1-df.standingFactor)
+        };
+      }
+    }
+    return result;
+  }
+
+  return new Array(12).fill(null);
+}
+
+// Monthly kWh for display in table
+function monthlyKwhDisplay(t,dc){
+  if(inputMode==='monthly'){
+    const v=(parseFloat(document.getElementById('monthly-kwh').value)||0)/_billingPeriod;
+    return new Array(12).fill(v);
+  }
+  const prof=getProfile(t);
+  const annualKwh=parseFloat(document.getElementById('annual-kwh').value)||0;
+  if(!prof||annualKwh<=0) return new Array(12).fill(annualKwh/12);
+  const annualHHFF=computeAnnualHHFF(prof,dc);
+  return Array.from({length:12},(_,m)=>{
+    let mHHFF=0;
+    const pm=prof.months[m];
+    if(pm) for(let s=0;s<48;s++) mHHFF+=(pm.W[s]||0)*dc[m].working+(pm.NW[s]||0)*dc[m].nonWorking;
+    return annualHHFF>0?annualKwh*(mHHFF/annualHHFF):annualKwh/12;
+  });
+}
+
+/* Notices modal */
+let _noticesTab='assumptions';
+function openNotices(){
+  if(!cfg.notices) return;
+  switchNoticesTab('assumptions');
+  document.getElementById('notices-overlay').style.display='flex';
+}
+function closeNotices(){
+  document.getElementById('notices-overlay').style.display='none';
+}
+function openRegInfo(titleKey,descKey){
+  document.getElementById('reg-info-title').textContent=T(titleKey);
+  document.getElementById('reg-info-body').textContent=T(descKey);
+  document.getElementById('reg-info-overlay').style.display='flex';
+}
+function closeRegInfo(){
+  document.getElementById('reg-info-overlay').style.display='none';
+}
+function switchNoticesTab(tab){
+  _noticesTab=tab;
+  document.getElementById('ntab-assumptions').classList.toggle('active',tab==='assumptions');
+  document.getElementById('ntab-legal').classList.toggle('active',tab==='legal');
+  const body=document.getElementById('notices-body');
+  const n=cfg.notices||{};
+  let html='';
+  if(tab==='assumptions'){
+    html=(lang==='el'?n.assumptions_el:n.assumptions_en)||n.assumptions_en||n.assumptions_el||n.assumptions||'';
+  } else {
+    html=(lang==='el'?n.legal_el:n.legal_en)||n.legal_en||n.legal_el||n.legal||'';
+  }
+  body.innerHTML=html||(tab==='assumptions'
+    ?'<p style="color:var(--text3)">'+(lang==='el'?'Δεν έχουν εισαχθεί παραδοχές ακόμα.':'No assumptions have been added yet.')+'</p>'
+    :'<p style="color:var(--text3)">'+(lang==='el'?'Δεν υπάρχουν νομικές ανακοινώσεις ακόμα.':'No legal notices have been added yet.')+'</p>');
+}
+
+/* Supplier contact modal */
+function openSupContact(name){
+  const s=cfg.supplierDetails?.find(x=>x.name===name)||(cfg.suppliers||[]).map(x=>typeof x==='string'?{name:x}:x).find(x=>x.name===name);
+  if(!s){return;}
+  document.getElementById('sup-contact-name').textContent=s.name;
+  const rows=[];
+  // Licence is internal — not shown to customers
+  if(s.address) rows.push(`<div class="sup-contact-row"><span class="sup-contact-icon">📍</span><span>${esc(s.address)}</span></div>`);
+  if(s.tel) rows.push(`<div class="sup-contact-row"><span class="sup-contact-icon">📞</span><a href="tel:${esc(s.tel)}">${esc(s.tel)}</a></div>`);
+  if(s.email) rows.push(`<div class="sup-contact-row"><span class="sup-contact-icon">✉️</span><a href="mailto:${esc(s.email)}">${esc(s.email)}</a></div>`);
+  if(s.website) rows.push(`<div class="sup-contact-row"><span class="sup-contact-icon">🌐</span><a href="${safeUrl(s.website)}" target="_blank" rel="noopener">${esc(s.website)}</a></div>`);
+  if(!rows.length) rows.push('<div style="font-size:13px;color:var(--text3)">No contact details available yet.</div>');
+  document.getElementById('sup-contact-body').innerHTML=rows.join('');
+  document.getElementById('sup-contact-overlay').style.display='flex';
+}
+function closeSupContact(){
+  document.getElementById('sup-contact-overlay').style.display='none';
+}
+
+function updateVulnerableRow(){
+  const hasVulnerable=(cfg.tariffs||[]).some(t=>t.vulnerable);
+  const row=document.getElementById('vulnerable-row');
+  if(row) row.style.display=hasVulnerable?'':'none';
+  // Also show/hide info button based on whether cases text exists
+  const infoBtn=document.getElementById('vulnerable-info-btn');
+  if(infoBtn){
+    const hasText=cfg.notices&&(cfg.notices.vulnerable_en||cfg.notices.vulnerable_el);
+    infoBtn.style.display=hasText?'':'none';
+  }
+}
+function openVulnerableModal(){
+  const notices=cfg.notices||{};
+  const body=lang==='el'
+    ?(notices.vulnerable_el||notices.vulnerable_en||'')
+    :(notices.vulnerable_en||notices.vulnerable_el||'');
+  if(!body) return;
+  document.getElementById('vulnerable-modal-title').textContent=T('TITLE_VULNERABLE_MODAL');
+  document.getElementById('vulnerable-modal-body').innerHTML=body;
+  document.getElementById('vulnerable-overlay').style.display='flex';
+}
+function closeVulnerableModal(){
+  document.getElementById('vulnerable-overlay').style.display='none';
+}
+
+function calcNote(t){
+  if(t.pricing==='Fixed') return null;
+  if(t.pricing==='Variable'){
+    const r=t.rates;
+    const resetLabel={1:'monthly',2:'bimonthly',3:'quarterly',6:'semi-annual',12:'annual'}[r.resetMonths]||r.resetMonths+'mo';
+    const tierSummary=(r.tiers||[]).map((tier,i)=>{
+      const prev=i>0?r.tiers[i-1].upTo:0;
+      const range=tier.upTo!=null?prev+'–'+tier.upTo:'above '+prev;
+      const fixed=tier.fixedCharge?(' +€'+parseFloat(tier.fixedCharge).toFixed(2)+'/period'):'';
+      return range+' kWh: €'+tier.rate.toFixed(4)+'/kWh'+fixed;
+    }).join(' · ');
+    return T('CALC_TIERED',{N:resetLabel,TIERS:tierSummary});
+  }
+  const prof=getProfile(t);
+  const hasSlot=cfg.damBySlot&&cfg.damBySlot.some(m=>m&&m.some(v=>v!=null));
+  if(!prof) return T('CALC_FALLBACK');
+  const distNote=inputMode==='annual'&&prof.monthlyFractions
+    ? T('CALC_DIST_FRACTIONS')
+    : inputMode==='monthly'?T('CALC_DIST_FLAT'):'';
+  if(t.pricing==='ToU') return T('CALC_TOU',{NOTE:distNote,PROFILE:esc(prof.name)});
+  return hasSlot?T('CALC_DAM_SLOT',{NOTE:distNote,PROFILE:esc(prof.name)})
+    :T('CALC_DAM_AVG',{NOTE:distNote,PROFILE:esc(prof.name)});
+}
+
+function renderContact(name){
+  // Try supplierDetails first (legacy), then new suppliers array
+  const s=cfg.supplierDetails?.find(x=>x.name===name)||getSupplierObj(name);
+  if(!s) return '';
+  const lines=[];
+  if(s.phone) lines.push(`<div class="contact-line">📞 <a href="tel:${esc(s.phone)}">${esc(s.phone)}</a></div>`);
+  if(s.email) lines.push(`<div class="contact-line">✉️ <a href="mailto:${esc(s.email)}">${esc(s.email)}</a></div>`);
+  if(s.website) lines.push(`<div class="contact-line">🌐 <a href="${safeUrl(s.website)}" target="_blank" rel="noopener">${esc(s.website)}</a></div>`);
+  if(s.address) lines.push(`<div class="contact-line">📍 ${esc(s.address)}</div>`);
+  if(!lines.length) return '';
+  return `<div class="contact-card">
+    <div class="contact-name">${esc(s.tradingName||s.name)}${s.licenseType?` <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">${esc(s.licenseType)}</span>`:''}</div>
+    <div class="contact-details">${lines.join('')}</div>
+    ${s.notes?`<div style="font-size:11px;color:var(--text3);margin-top:6px;font-family:var(--mono)">${esc(s.notes)}</div>`:''}
+  </div>`;
+}
+
+function renderPage(){
+  // Update all static text elements
+  const setText=(id,key)=>{ const el=document.getElementById(id); if(el) el.textContent=T(key); };
+  const setHtml=(id,key)=>{ const el=document.getElementById(id); if(el) el.innerHTML=T(key); };
+  setText('pg-eyebrow','PAGE_EYEBROW');
+  setText('pg-title','PAGE_TITLE');
+  setText('pg-desc','PAGE_DESC');
+  setText('ct-connection','CARD_CONNECTION');
+  setText('ct-consumption','CARD_CONSUMPTION');
+  setText('prompt-enter','PROMPT_ENTER');
+  setText('notices-open-btn','BTN_NOTICES');
+  setText('notices-title','NOTICES_TITLE');
+  setText('ntab-assumptions','NOTICES_TAB_ASSUMPTIONS');
+  setText('ntab-legal','NOTICES_TAB_LEGAL');
+  setText('no-config-title','NO_CONFIG_TITLE');
+  setHtml('no-config-body','NO_CONFIG_BODY');
+  setText('footer-org-name','FOOTER_ORG_NAME');
+  setHtml('footer-address','FOOTER_ADDRESS');
+  setText('footer-pobox-city','FOOTER_POBOX_CITY');
+  setText('footer-postal','FOOTER_POSTAL');
+  setText('footer-pobox-lbl','FOOTER_POBOX');
+  setText('footer-phone-lbl','FOOTER_PHONE');
+  setText('footer-fax-lbl','FOOTER_FAX');
+  setText('footer-email-lbl','FOOTER_EMAIL');
+  setText('footer-contact-lbl','FOOTER_CONTACT');
+  setText('vulnerable-check-label','LBL_VULNERABLE_CHECK');
+  setText('vulnerable-info-label','LBL_VULNERABLE_INFO');
+  // Tabs
+  document.getElementById('tab-domestic').innerHTML='🏠 '+T('TAB_DOMESTIC').replace('🏠 ','');
+  document.getElementById('tab-ci').innerHTML='🏢 '+T('TAB_CI').replace('🏢 ','');
+  // Voltage options
+  const vo=document.getElementById('sel-voltage');
+  if(vo){ vo.options[0].text=T('OPT_LV'); vo.options[1].text=T('OPT_MV'); vo.options[2].text=T('OPT_HV'); }
+  // Pricing options
+  const po=document.getElementById('sel-pricing');
+  if(po){ po.options[0].text=T('OPT_ALL'); po.options[1].text=T('OPT_FIXED'); po.options[2].text=T('OPT_TOU'); po.options[3].text=T('OPT_VARIABLE'); po.options[4].text=T('OPT_VARIABLE_TIERED'); }
+  // Load entitlement labels
+  document.getElementById('le-lt').childNodes[1].textContent=' '+T('LE_LT70');
+  document.getElementById('le-gt').childNodes[1].textContent=' '+T('LE_GT70');
+  // Mode buttons
+  document.getElementById('btn-annual').textContent=T('BTN_ANNUAL');
+  document.getElementById('btn-monthly').textContent=T('BTN_MONTHLY');
+  // Estimator trigger button
+  setText('est-trigger-btn','BTN_ESTIMATE');
+  // If estimator is open, re-render its contents
+  if(document.getElementById('est-overlay')?.style.display!=='none') renderEstimator();
+  // Annual/monthly labels and hints
+  const annualLabel=document.querySelector('label[for-annual]');
+  const annualUnit=document.querySelector('.kwh-unit');
+  // Update consumption labels via setMode re-call
+  setMode(inputMode);
+  // Re-run filters to rebuild results with new language
+  applyFilters();
+}
+
+function applyFilters(){
+  const {voltage,contracts,le}=getFilterParams();
+  const pricing=document.getElementById('sel-pricing').value;
+  const year=new Date().getFullYear();
+  const dc=getDayCounts(year);
+  const area=document.getElementById('results-area');
+  destroyAllCharts();
+
+  const annualKwh=inputMode==='annual'
+    ?(parseFloat(document.getElementById('annual-kwh').value)||0)
+    :((parseFloat(document.getElementById('monthly-kwh').value)||0)/_billingPeriod)*12;
+  const rawMonthlyKwhInput=parseFloat(document.getElementById('monthly-kwh').value)||0;
+  const monthlyKwhInput=rawMonthlyKwhInput/_billingPeriod;
+
+  if(annualKwh<=0){
+    _resultsVisible=false;
+    area.innerHTML=`<div class="card prompt-card" id="prompt-enter" style="text-align:center;padding:32px;color:var(--text3);font-size:13px">${T('PROMPT_ENTER')}</div>`;
+    return;
+  }
+
+  const isVulnerableEligible=document.getElementById('vulnerable-check')?.checked||false;
+
+  const matched=cfg.tariffs.filter(t=>{
+    if(t.voltage!==voltage) return false;
+    if(!contracts.includes(t.contract)) return false;
+    if(pricing!=='All'&&t.pricing!==pricing) return false;
+    // Load entitlement filter (only for LV/MV commercial/industrial)
+    if(le!==null){
+      const tle=t.loadEntitlement||'any';
+      if(tle!=='any'&&tle!==le) return false;
+    }
+    // Vulnerable tariffs only shown if customer declares eligibility
+    if(t.vulnerable&&!isVulnerableEligible) return false;
+    return true;
+  });
+
+  // For monthly mode: compute one-month cost directly
+  function singleMonthCost(t){
+    // Returns {energy, fpa, standing, total} or null
+    const kwh=monthlyKwhInput;
+    const mi=new Date().getMonth();
+    const fpaRate=getTariffFpa(t);
+    const standing=t.standing;
+    function pack(energy,fpa){ return {energy,fpa,standing,total:energy+fpa+standing}; }
+
+    if(t.pricing==='Fixed'){
+      return pack(kwh*t.rates.rate, kwh*fpaRate);
+    }
+    if(t.pricing==='ToU'){
+      const r=t.rates;
+      const prof=getProfile(t);
+      const isHigh=(mi+1)>=r.hiStart&&(mi+1)<=r.hiEnd;
+      const ps=isHigh?r.hiPeakStart:r.loPeakStart, pe=isHigh?r.hiPeakEnd:r.loPeakEnd;
+      const pr=isHigh?r.hiPeakRate:r.loPeakRate;
+      const or=isHigh?r.hiOffRate:r.loOffRate;
+      if(prof){
+        const annHHFF=computeAnnualHHFF(prof,dc);
+        const slots=getSlotKwh(prof,mi,annualKwh,dc,annHHFF);
+        if(slots){
+          let energy=0,fpaTotal=0;
+          for(let s=0;s<48;s++){
+            const h=slotStartHour(s);
+            energy+=slots[s]*(h>=ps&&h<pe?pr:or);
+            fpaTotal+=slots[s]*fpaRate;
+          }
+          return pack(energy,fpaTotal);
+        }
+      }
+      const pf=Math.max(0,Math.min(24,pe-ps))/24;
+      return pack(kwh*pf*pr+kwh*(1-pf)*or, kwh*fpaRate);
+    }
+    if(t.pricing==='Dynamic'){
+      const r=t.rates;
+      const avg=cfg.damMonthly[mi];
+      if(avg==null) return null;
+      const effAvg=Math.max(avg,r.damFloor||0);
+      const mult=parseFloat(r.mult)||1;
+      const adder=parseFloat(r.adder)||0;
+      return pack(kwh*(effAvg*mult+adder), kwh*fpaRate);
+    }
+    return null;
+  }
+
+  // Monthly mode now annualises (monthlyKwh × 12) — Variable tariffs included
+  const excludedVariable=[];
+  const filteredMatched=matched;
+
+  const scored=filteredMatched.map(t=>{
+    const base=annualCostForTariff(t,dc);
+    if(base===null) return {t,base:null,reg:null,fullBase:null};
+    const reg=regulatedAnnual(t.voltage,annualKwh,t.mdm);
+    const hasDisc=t.discounts&&t.discounts.length>0;
+    const fullBase=hasDisc?annualCostNoDiscount(t,dc):null;
+    return {t,base,reg,fullBase};
+  }).filter(x=>x.base!==null).sort((a,b)=>a.base-b.base);
+
+  const noDam=matched.filter(t=>t.pricing==='Dynamic'&&annualCostForTariff(t,dc)===null);
+
+  if(!scored.length&&!noDam.length){
+    _resultsVisible=false;
+    if(inputMode==='monthly'&&pricing==='Dynamic'){
+      area.innerHTML=`<div class="card" style="border-color:rgba(99,102,241,.3);background:rgba(99,102,241,.04);text-align:center;padding:32px">
+        <div style="font-size:32px;margin-bottom:12px">📊</div>
+        <h2 style="font-size:15px;font-weight:500;color:#4338ca;margin-bottom:8px">${T('VAR_ONLY_TITLE')}</h2>
+        <p style="font-size:13px;color:#4338ca;line-height:1.6;max-width:420px;margin:0 auto">${T('VAR_ONLY_BODY')}</p>
+      </div>`;
+    } else {
+      const ctLabel=T(customerType==='domestic'?'TAG_DOMESTIC':'TAG_CI');
+      const leLabel=le?(le==='lt70'?' · '+T('LE_LT70'):' · '+T('LE_GT70')):'';
+      area.innerHTML=`<div class="no-results"><h2 style="font-size:16px;font-weight:500;color:var(--text);margin-bottom:6px">${T('NO_TARIFFS_TITLE')}</h2>
+        <p>${T('NO_TARIFFS_SUB',{VOLTAGE:T('TAG_'+voltage),CONTRACT:ctLabel})}${leLabel}${pricing!=='All'?' · '+pricingTag(pricing):''}.</p></div>`;
+    }
+    return;
+  }
+
+  const saving=scored.length>1?scored[scored.length-1].base-scored[0].base:null;
+  const firstShow=!_resultsVisible; _resultsVisible=true;
+  const introCls=firstShow?' intro':'';
+  let html='';
+
+  if(saving>0) html+=`<div class="savings-bar${introCls}"><div style="font-size:20px">💡</div><div>
+    <div class="savings-text">${inputMode==='monthly'?T('SAVINGS_TEXT_PERIOD',{X:'€'+periodCost(saving).toFixed(2)}):T('SAVINGS_TEXT',{X:'€'+saving.toFixed(2)})}</div>
+    <div class="savings-sub">${T('SAVINGS_SUB')}</div>
+  </div></div>`;
+
+  html+=`<div class="card" id="tariffs-card"><div class="results-header">
+    <div>
+      <div class="results-title">${T(scored.length===1?'TARIFFS_AVAILABLE_ONE':'TARIFFS_AVAILABLE',{N:scored.length})}</div>
+      <div class="results-sub">${inputMode==='monthly'?T('RESULTS_SUB_MONTHLY',{KWH:rawMonthlyKwhInput,YEAR:year}):T('RESULTS_SUB_ANNUAL',{YEAR:year})}</div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <span class="fbadge">${T('TAG_'+voltage)}</span>
+      <span class="fbadge">${T(customerType==='domestic'?'TAG_DOMESTIC':'TAG_CI')}</span>
+      ${le?`<span class="fbadge">${T(le==='lt70'?'LE_LT70':'LE_GT70')}</span>`:''}
+      ${pricing!=='All'?`<span class="fbadge">${pricingTag(pricing)}</span>`:''}
+    </div>
+  </div>`;
+
+  if(inputMode==='monthly') html+=`<div style="font-size:12px;color:var(--text2);font-family:var(--mono);background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2);border-radius:2px;padding:10px 14px;margin-bottom:4px;line-height:1.6">${T('NUDGE_ANNUAL')}</div>`;
+  html+=`<div class="ranked-list${introCls}">`;  scored.forEach(({t,base,reg,fullBase},rank)=>{
+    const isOpen=openCards.has(t.id);
+    const prof=getProfile(t);
+    const moBd=monthlyBreakdown(t,dc);
+    const moKwh=monthlyKwhDisplay(t,dc);
+    const regBd=regulatedBreakdown(t.voltage,annualKwh,t.mdm);
+    const fpaRate=getTariffFpa(t);
+    const fpaSource=t.fpaSource||'global';
+    const showFpa=fpaRate>0;
+    const fpaLabel=fpaSource==='custom'?'FPA (custom)':'FPA';
+
+    const hasEnergyDisc=t.discounts&&t.discounts.some(d=>d.type==='energy');
+    const hasStandingDisc=t.discounts&&t.discounts.some(d=>d.type==='standing');
+    const moRows=getMonths().map((m,i)=>{
+      const bd=moBd[i];
+      return `<tr>
+        <td>${m}</td>
+        <td>${moKwh[i].toFixed(0)}</td>
+        <td style="color:var(--text2)">
+          ${bd&&hasEnergyDisc&&bd.energyDisc>0?`<span style="color:var(--text3);text-decoration:line-through;font-size:10px">€${bd.energyFull.toFixed(2)}</span><br>`:''}
+          €${bd?bd.energy.toFixed(2):'—'}
+        </td>
+        ${showFpa?`<td style="color:#f59e0b">€${bd?bd.fpa.toFixed(2):'—'}</td>`:''}
+        <td style="color:var(--text3)">
+          ${bd&&hasStandingDisc&&bd.standingDisc>0?`<span style="color:var(--text3);text-decoration:line-through;font-size:10px">€${bd.standingFull.toFixed(2)}</span><br>`:''}
+          €${bd?bd.standing.toFixed(2):'—'}
+        </td>
+        <td class="cost-col">€${bd?bd.total.toFixed(2):'—'}</td>
+      </tr>`;
+    }).join('');
+
+    const totKwh=moKwh.reduce((a,x)=>a+x,0);
+    const annEnergy=moBd.reduce((a,v)=>a+(v?v.energy:0),0);
+    const annFpa=moBd.reduce((a,v)=>a+(v?v.fpa:0),0);
+    const annStanding=t.pricing==='Variable'
+      ? moBd.reduce((a,v)=>a+(v?v.standing:0),0)
+      : t.standing*12;
+
+    const regInfoMap={grid:['REGULATED_GRID','REG_GRID_DESC'],pso:['REGULATED_PSO','REG_PSO_DESC'],res:['REGULATED_RES','REG_RES_DESC'],mdm:['REGULATED_MDM','REG_MDM_DESC']};
+    const regRows=Object.entries(regBd).filter(([k])=>k!=='total').map(([k,v])=>{
+      const info=regInfoMap[k]||[];
+      return `<tr style="background:rgba(59,130,246,.04)">
+        <td style="color:#60a5fa;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" onclick="openRegInfo('${info[0]}','${info[1]}')">${v.label} <span style="font-size:10px;opacity:.6">ℹ</span></td>
+        <td style="color:var(--text3)">${v.perKwh?'€'+v.rate.toFixed(4)+'/kWh':T('LBL_FIXED_ROW',{N:v.rate.toFixed(2)})}</td>
+        <td colspan="${showFpa?4:3}" style="color:#60a5fa">€${v.annual.toFixed(2)}</td>
+      </tr>`;
+    }).join('');
+
+    const totRow=`
+      <tr style="border-top:1.5px solid var(--border2);background:var(--bg3)">
+        <td><strong>${T('ROW_SUP_TOTAL')}</strong></td>
+        <td>${totKwh.toFixed(0)}</td>
+        <td style="color:var(--text2)">€${annEnergy.toFixed(2)}</td>
+        ${showFpa?`<td style="color:#f59e0b">€${annFpa.toFixed(2)}</td>`:''}
+        <td style="color:var(--text3)">€${annStanding.toFixed(2)}</td>
+        <td class="cost-col"><strong>€${base.toFixed(2)}</strong></td>
+      </tr>
+      ${regRows}
+      <tr style="background:var(--bg3)">
+        <td><strong>${T('ROW_TOTAL_REG')}</strong></td>
+        <td colspan="${showFpa?4:3}"></td>
+        <td class="cost-col"><strong>€${(base+reg).toFixed(2)}</strong></td>
+      </tr>`;
+
+    const moTableHead=`<thead><tr>
+      <th>${T('TH_MONTH')}</th><th>${T('TH_KWH')}</th>
+      <th>${T('TH_ENERGY')}</th>
+      ${showFpa?`<th style="color:#f59e0b">${fpaLabel}</th>`:''}
+      <th>${T('TH_STANDING')}</th><th>${T('TH_TOTAL')}</th>
+    </tr></thead>`;
+
+    html+=`<div class="rank-card rank-${rank+1}" id="rc-${t.id}">
+      <div class="rank-header" onclick="toggleCard('${t.id}')">
+        <div class="rank-num">${rank+1}</div>
+        <div class="rank-info">
+          <div class="rank-name-row">
+            <div class="rank-name">${esc(t.name)}</div>
+            <span class="rank-sup-dash">–</span>
+            <span class="rank-sup-pill" data-supplier="${esc(t.supplier)}" onclick="event.stopPropagation();openSupContact(this.dataset.supplier)" title="${T('LBL_VIEW_CONTACT')}">${esc(t.supplier)}</span>
+            ${rank===0?`<span class="best-tag">${T('BADGE_BEST_PRICE')}</span>`:''}
+          </div>
+          ${t.updatedAt?`<div style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-top:2px">${T('LBL_UPDATED')} ${new Date(t.updatedAt).toLocaleDateString(lang==='el'?'el-GR':'en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>`:''}
+          <div class="rank-meta">
+            <span class="badge badge-${t.pricing}">${pricingTag(t.pricing)}</span>
+            ${t.pricing==='Dynamic'&&t.rates?.damFloor?`<span style="font-size:10px;padding:2px 6px;border-radius:2px;background:rgba(139,92,246,.1);color:#7c3aed;font-family:var(--mono)">floor €${t.rates.damFloor.toFixed(4)}/kWh</span>`:''}
+            ${prof?`<span class="badge-prof">📊 ${esc(prof.name)}</span>`:`<span class="badge-fallback">⚠ ${T('LBL_NO_PROFILE')}</span>`}
+            <span style="font-size:11px;color:var(--text3);font-family:var(--mono)">€${t.standing.toFixed(2)}${T('LBL_STANDING')}</span>
+            ${t.vulnerable?`<span style="font-size:10px;padding:2px 7px;border-radius:2px;background:rgba(236,72,153,.12);color:#ec4899;font-family:var(--mono);font-weight:500">🛡 ${T('LBL_VULNERABLE_CHECK').split('/')[0].trim()}</span>`:''}
+            ${t.durationMonths
+              ?`<span style="font-size:10px;padding:2px 7px;border-radius:2px;background:rgba(239,68,68,.1);color:#e11d48;font-family:var(--mono);font-weight:500">⏱ ${t.durationMonths}-month minimum</span>`
+              :`<span style="font-size:10px;padding:2px 7px;border-radius:2px;background:var(--bg3);color:var(--text3);font-family:var(--mono)">${T('LBL_NO_MIN')}</span>`}
+          </div>
+        </div>
+        <div class="rank-cost-col">
+          ${inputMode==='monthly'
+            ? `${fullBase&&fullBase>base?`<div style="font-size:13px;color:var(--text3);font-family:var(--mono);text-decoration:line-through">€${periodCost(fullBase).toFixed(2)}</div>`:''}
+          <div class="rank-annual-val" style="${fullBase&&fullBase>base?'color:var(--green)':''}">€${periodCost(base).toFixed(2)}${fullBase&&fullBase>base?'<sup style="font-size:11px">*</sup>':''}<span class="rank-annual-lbl" style="font-size:12px;margin-left:3px">${periodCostLabel()}</span></div>
+          <div style="font-size:13px;font-weight:500;font-family:var(--mono);color:var(--text3);text-align:right;margin-top:4px">≈ €${base.toFixed(0)}<span class="rank-annual-lbl" style="font-size:11px;margin-left:3px">${T('LBL_SUP_YEAR')}</span></div>`
+            : `${fullBase&&fullBase>base?`<div style="font-size:13px;color:var(--text3);font-family:var(--mono);text-decoration:line-through">€${fullBase.toFixed(0)}</div>`:''}
+          <div class="rank-annual-val" style="${fullBase&&fullBase>base?'color:var(--green)':''}">€${base.toFixed(0)}${fullBase&&fullBase>base?'<sup style="font-size:11px">*</sup>':''}<span class="rank-annual-lbl" style="font-size:12px;margin-left:3px">${T('LBL_SUP_YEAR')}</span></div>
+          <div style="font-size:13px;font-weight:500;font-family:var(--mono);color:var(--text3);text-align:right;margin-top:4px">€${(base/12).toFixed(2)}<span class="rank-annual-lbl" style="font-size:11px;margin-left:3px">${T('LBL_SUP_MONTH')}</span></div>`}
+          ${fullBase&&fullBase>base?`<div style="font-size:10px;color:var(--green);font-family:var(--mono);margin-top:3px;line-height:1.5;text-align:right">*${T('LBL_INCL_DISC')}</div>`:''}
+          ${reg>0?`<div style="font-size:11px;color:#60a5fa;font-family:var(--mono);margin-top:3px;text-align:right">${T('LBL_INCL_REGULATED',{X:'€'+(inputMode==='monthly'?periodCost(reg):reg).toFixed(0)})} / ${T('LBL_WITHOUT_VAT')}</div>`:''}
+          <div class="rank-toggle ${isOpen?'open':''}">▼</div>
+        </div>
+      </div>
+      <div class="rank-detail ${isOpen?'open':''}" id="rd-${t.id}">
+        <div class="rank-detail-inner">
+        <div class="rank-detail-pad">
+        ${renderDiscountToggles(t)}
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+          <span style="font-size:13px;font-weight:500;color:var(--text)">${esc(t.supplier)}</span>
+          <button data-supplier="${esc(t.supplier)}" onclick="event.stopPropagation();openSupContact(this.dataset.supplier)"
+            style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:2px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:12px;font-family:var(--font);cursor:pointer;transition:all .12s"
+            onmouseover="this.style.background='var(--accent)';this.style.color='#fff';this.style.borderColor='var(--accent)'"
+            onmouseout="this.style.background='var(--bg3)';this.style.color='var(--text2)';this.style.borderColor='var(--border2)'">
+            ${T('BTN_CONTACT')}
+          </button>
+        </div>
+          ${calcNote(t)?`<div class="calc-note">${calcNote(t)}</div>`:''}
+          ${inputMode==='annual'?`<div style="overflow-x:auto">
+            <table class="mo-table">
+              ${moTableHead}
+              <tbody>${moRows}${totRow}</tbody>
+            </table>
+          </div>
+          <div class="chart-wrap"><canvas id="chart-${t.id}"></canvas></div>`
+          : moBd[0]?`<div style="overflow-x:auto;margin-top:4px">
+            <table class="mo-table">
+              <thead><tr>
+                <th colspan="2" style="text-align:left;font-size:11px;letter-spacing:.05em">${T('BILL_BREAKDOWN_HDR')} — ${periodCostLabel()} · ${(monthlyKwhInput*_billingPeriod).toFixed(0)} kWh</th>
+              </tr></thead>
+              <tbody>
+                <tr>
+                  <td>${T('TH_ENERGY')}</td>
+                  <td class="cost-col">€${(moBd[0].energy*_billingPeriod).toFixed(2)}</td>
+                </tr>
+                ${showFpa?`<tr>
+                  <td style="color:#f59e0b">${fpaLabel}</td>
+                  <td class="cost-col" style="color:#f59e0b">€${(moBd[0].fpa*_billingPeriod).toFixed(2)}</td>
+                </tr>`:''}
+                <tr>
+                  <td>${T('TH_STANDING')} <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">€${t.standing.toFixed(2)}/mo × ${_billingPeriod}</span></td>
+                  <td class="cost-col">€${(moBd[0].standing*_billingPeriod).toFixed(2)}</td>
+                </tr>
+                <tr style="border-top:1.5px solid var(--border2);background:var(--bg3)">
+                  <td><strong>${T('ROW_SUP_TOTAL')}</strong></td>
+                  <td class="cost-col"><strong>€${periodCost(base).toFixed(2)}</strong></td>
+                </tr>
+                ${Object.entries(regBd).filter(([k])=>k!=='total').map(([k,v])=>{
+                  const info=regInfoMap[k]||[];
+                  return `<tr style="background:rgba(59,130,246,.04)">
+                  <td style="color:#60a5fa;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" onclick="openRegInfo('${info[0]}','${info[1]}')">${v.label} <span style="font-size:10px;opacity:.6">ℹ</span></td>
+                  <td class="cost-col" style="color:#60a5fa">€${(v.annual/12*_billingPeriod).toFixed(2)}</td>
+                </tr>`;}).join('')}
+                <tr style="background:var(--bg3)">
+                  <td><strong>${T('ROW_TOTAL_REG')}</strong></td>
+                  <td class="cost-col"><strong>€${(periodCost(base)+periodCost(reg)).toFixed(2)}</strong></td>
+                </tr>
+                <tr style="font-size:11px;color:var(--text3);font-family:var(--mono)">
+                  <td colspan="2" style="padding-top:6px">${T('BILL_YEAR_NOTE',{N:12/_billingPeriod,X:(base+reg).toFixed(0)})}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>`:''}
+
+        </div>
+        </div>
+      </div>
+    </div>`;
+  });
+  html+='</div>';
+  html+='</div>';
+
+  if(scored.length>1&&inputMode==='annual') html+=`<div class="card">
+    <div class="card-title">${T('CHART_ANNUAL')}</div>
+    <div class="chart-wrap-lg"><canvas id="cmp-chart"></canvas></div>
+  </div>`;
+
+  // ── ANNUAL MODE block removed — merged above ──
+  if(noDam.length) html+=`<div class="card" style="border-color:#fde68a;background:#fffbeb">
+    <div class="card-title" style="color:#92400e">${T('VAR_NO_DAM_TITLE')}</div>
+    <ul style="padding-left:18px;font-size:13px;color:#92400e;line-height:1.9">${noDam.map(t=>`<li>${esc(t.name)} (${esc(t.supplier)})</li>`).join('')}</ul>
+  </div>`;
+
+  area.innerHTML=html;
+
+  if(scored.length>1){
+    const _cmpC=document.getElementById('cmp-chart');
+    if(_cmpC){ chartRegistry['cmp']=new Chart(_cmpC,{
+      type:'line',
+      data:{labels:getMonths(),datasets:scored.map(({t},idx)=>({
+        label:t.name,
+        data:(()=>{const mb=monthlyBreakdown(t,dc);return mb.map(v=>v!=null?+v.total.toFixed(2):null);})(),
+        borderColor:PALETTE[idx%PALETTE.length],
+        backgroundColor:PALETTE[idx%PALETTE.length]+'1f',
+        borderDash:DASH_PATTERNS[idx%DASH_PATTERNS.length],
+        borderWidth:idx===0?3:1.75,
+        fill:false,tension:.35,
+        pointStyle:'circle',pointRadius:idx===0?3.5:0,pointHoverRadius:5,
+        pointBackgroundColor:PALETTE[idx%PALETTE.length],pointBorderColor:'#fff',pointBorderWidth:1.5
+      }))},
+      options:{responsive:true,maintainAspectRatio:false,
+        interaction:{mode:'index',intersect:false},
+        plugins:{
+          legend:{labels:{font:{family:CHART_FONT_MONO,size:11},color:'#54606f',boxWidth:10,boxHeight:10,usePointStyle:true,pointStyle:'circle',padding:15}},
+          tooltip:chartTooltip()
+        },
+        scales:{
+          x:{ticks:{font:{family:CHART_FONT_MONO,size:11},color:CHART_TICK},grid:{display:false},border:{color:'#e2e7ef'}},
+          y:{ticks:{callback:v=>'€'+v.toFixed(0),font:{family:CHART_FONT_MONO,size:11},color:CHART_TICK,padding:6},grid:{color:CHART_GRID},border:{display:false}}
+        }}
+    }); }
+  }
+
+  scored.forEach(({t})=>{ if(openCards.has(t.id)&&inputMode==='annual') drawCardChart(t,dc); });
+}
+
+function drawCardChart(t,dc){
+  const canvas=document.getElementById('chart-'+t.id);
+  if(!canvas) return;
+  if(chartRegistry[t.id]){try{chartRegistry[t.id].destroy();}catch(e){} delete chartRegistry[t.id];}
+  const color={Fixed:'#1a3a5e',ToU:'#2f6f8f',Dynamic:'#b06c2c',Variable:'#5b7a52'}[t.pricing]||'#1a3a5e';
+  chartRegistry[t.id]=new Chart(canvas,{
+    type:'bar',
+    data:{labels:getMonths(),datasets:[{
+      label:T('CHART_MONTHLY_COST'),
+      data:(()=>{const mb=monthlyBreakdown(t,dc);return mb.map(v=>v!=null?+v.total.toFixed(2):null);})(),
+      backgroundColor:color+'2e',borderColor:color,borderWidth:1.5,borderRadius:5,
+      borderSkipped:false,hoverBackgroundColor:color+'55',maxBarThickness:38
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:chartTooltip()},
+      scales:{
+        x:{ticks:{font:{family:CHART_FONT_MONO,size:10},color:CHART_TICK},grid:{display:false},border:{display:false}},
+        y:{ticks:{callback:v=>'€'+v.toFixed(0),font:{family:CHART_FONT_MONO,size:10},color:CHART_TICK,padding:6},grid:{color:CHART_GRID},border:{display:false}}
+      }}
+  });
+}
+
+function renderDiscountToggles(t){
+  if(!t.discounts||!t.discounts.length) return '';
+  const rows=t.discounts.map((d,di)=>{
+    const key=t.id+'_disc_'+di;
+    const checked=!window._discountState||!(window._discountState[t.id])||window._discountState[t.id][key]!==false;
+    const typeLabel=d.type==='energy'?T('DISC_ENERGY_LABEL'):T('DISC_STANDING_LABEL');
+    const durLabel=d.durationMonths?T('DISC_DURATION_FIRST',{N:d.durationMonths}):'<strong>'+T('DISC_DURATION_PERM')+'</strong>';
+    const condLabel=d.conditions?' — '+d.conditions:'';
+    return '<label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;cursor:pointer">'
+      +'<input type="checkbox" '+(checked?'checked':'')
+      +' data-tariff="'+t.id+'" data-idx="'+di+'"'
+      +' style="margin-top:2px;accent-color:var(--accent)"'
+      +' onchange="toggleDiscount(this.dataset.tariff,+this.dataset.idx,this.checked)">'
+      +'<span style="color:var(--text2)">'+typeLabel+': <strong>'+d.percentage+'%</strong> '+durLabel+condLabel+'</span>'
+      +'</label>';
+  }).join('');
+  return '<div style="background:rgba(16,185,129,.05);border:1px solid rgba(16,185,129,.2);border-radius:2px;padding:10px 12px;margin-bottom:12px">'
+    +'<div style="font-size:10px;font-family:var(--mono);color:var(--green);letter-spacing:.07em;margin-bottom:8px">'+T('DISC_HEADER')+'</div>'
+    +'<div style="display:flex;flex-direction:column;gap:6px">'+rows+'</div>'
+    +'</div>';
+}
+
+function renderDiscountTogglesMo(t){
+  if(!t.discounts||!t.discounts.length) return '';
+  const rows=t.discounts.map((d,di)=>{
+    const key=t.id+'_disc_'+di;
+    const checked=!window._discountState||!(window._discountState[t.id])||window._discountState[t.id][key]!==false;
+    const typeLabel=d.type==='energy'?T('DISC_ENERGY_LABEL'):T('DISC_STANDING_LABEL');
+    const durLabel=d.durationMonths?T('DISC_DURATION_FIRST',{N:d.durationMonths}):'<strong>'+T('DISC_DURATION_PERM')+'</strong>';
+    const condLabel=d.conditions?' — '+d.conditions:'';
+    return '<label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;cursor:pointer">'
+      +'<input type="checkbox" '+(checked?'checked':'')
+      +' data-tariff="'+t.id+'" data-idx="'+di+'"'
+      +' style="margin-top:2px;accent-color:var(--accent)"'
+      +' onchange="toggleDiscount(this.dataset.tariff,+this.dataset.idx,this.checked)">'
+      +'<span style="color:var(--text2)">'+typeLabel+': <strong>'+d.percentage+'%</strong> '+durLabel+condLabel+'</span>'
+      +'</label>';
+  }).join('');
+  return '<div style="border-top:1px solid var(--border);padding:12px 16px;background:rgba(16,185,129,.04)">'
+    +'<div style="background:rgba(16,185,129,.05);border:1px solid rgba(16,185,129,.2);border-radius:2px;padding:10px 12px">'
+    +'<div style="font-size:10px;font-family:var(--mono);color:var(--green);letter-spacing:.07em;margin-bottom:8px">'+T('DISC_HEADER')+'</div>'
+    +'<div style="display:flex;flex-direction:column;gap:6px">'+rows+'</div>'
+    +'</div></div>';
+}
+
+function toggleDiscount(tariffId, discIdx, active){
+  if(!window._discountState) window._discountState={};
+  if(!window._discountState[tariffId]) window._discountState[tariffId]={};
+  window._discountState[tariffId][tariffId+'_disc_'+discIdx]=active;
+  const wasOpen=new Set(openCards);
+  applyFilters();
+  const year=new Date().getFullYear();
+  const dc=getDayCounts(year);
+  wasOpen.forEach(id=>{
+    openCards.add(id);
+    const det=document.getElementById('rd-'+id);
+    if(det) det.classList.add('open');
+    const tog=document.querySelector('#rc-'+id+' .rank-toggle');
+    if(tog) tog.classList.add('open');
+    const t=cfg.tariffs.find(x=>x.id===id);
+    if(t) requestAnimationFrame(()=>drawCardChart(t,dc));
+  });
+}
+
+/* Clicking a tariff expands its detail inline (others stay as they are). */
+function toggleCard(id){
+  if(openCards.has(id)) openCards.delete(id); else openCards.add(id);
+  document.getElementById('rd-'+id)?.classList.toggle('open',openCards.has(id));
+  document.querySelector(`#rc-${id} .rank-toggle`)?.classList.toggle('open',openCards.has(id));
+  if(openCards.has(id)){
+    const t=cfg.tariffs.find(x=>x.id===id);
+    if(t) drawCardChart(t,getDayCounts(new Date().getFullYear()));
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   SAMPLE CONFIG — used only when the live backend (/api/public/config) is
+   unreachable, so the page renders standalone for design/preview. The real
+   deployment fetches the authoritative config and never hits this.
+   ───────────────────────────────────────────────────────────────────────── */
+function buildSampleConfig(){
+  // Build a 48-slot half-hourly shape from 24 hourly weights
+  const expand=h=>{const s=[];for(let i=0;i<48;i++)s.push(h[Math.floor(i/2)]);return s;};
+  // Residential: low overnight, soft morning bump, strong evening peak
+  const resWD=[0.5,0.4,0.35,0.35,0.4,0.6,1.0,1.5,1.6,1.3,1.1,1.1,1.2,1.1,1.0,1.0,1.2,1.6,2.2,2.6,2.5,2.1,1.4,0.8];
+  const resNW=[0.6,0.5,0.4,0.4,0.45,0.6,0.9,1.2,1.6,1.8,1.9,1.9,1.8,1.6,1.5,1.5,1.7,2.0,2.4,2.6,2.4,2.0,1.4,0.9];
+  // Commercial: daytime-heavy on working days, low otherwise
+  const comWD=[0.3,0.3,0.3,0.3,0.3,0.4,0.7,1.4,2.4,2.9,3.0,3.0,2.8,2.9,3.0,2.9,2.5,1.8,1.1,0.7,0.5,0.4,0.35,0.3];
+  const comNW=[0.3,0.3,0.3,0.3,0.3,0.35,0.5,0.8,1.1,1.3,1.4,1.4,1.3,1.2,1.1,1.0,0.9,0.7,0.5,0.45,0.4,0.35,0.3,0.3];
+  const profile=(id,name,monthlyFractions,wd,nw)=>({
+    id,name,monthlyFractions,
+    months:Array.from({length:12},()=>({W:expand(wd),NW:expand(nw)}))
+  });
+  // Cyprus seasonality: summer cooling peak (Jul/Aug), mild winter heating
+  const resFr=[.085,.075,.075,.07,.075,.085,.10,.105,.085,.075,.075,.095];
+  const comFr=[.083,.078,.082,.08,.084,.087,.092,.085,.084,.083,.08,.082];
+  const norm=a=>{const s=a.reduce((x,y)=>x+y,0);return a.map(v=>v/s);};
+  const suppliers=[
+    {name:"EAC Supply",tradingName:"EAC Supply (ΑΗΚ Προμήθεια)",phone:"+357 22 845000",email:"customerservice@eac.com.cy",website:"https://www.eac.com.cy",address:"11 Amfipoleos St, 2025 Strovolos, Nicosia",licenseType:"Supplier"},
+    {name:"Bright Energy",tradingName:"Bright Energy Ltd",phone:"+357 24 100200",email:"hello@brightenergy.com.cy",website:"https://www.brightenergy.com.cy",address:"42 Spyrou Kyprianou, 6051 Larnaca",licenseType:"Supplier"},
+    {name:"Hellenic Power",tradingName:"Hellenic Power Cyprus",phone:"+357 25 778899",email:"support@hellenicpower.com.cy",website:"https://www.hellenicpower.com.cy",address:"18 Griva Digeni, 3035 Limassol",licenseType:"Supplier"},
+    {name:"Helios Power",tradingName:"Helios Power",phone:"+357 22 556677",email:"info@heliospower.com.cy",website:"https://www.heliospower.com.cy",address:"7 Stasinou Ave, 1060 Nicosia",licenseType:"Supplier"},
+    {name:"Cyfield Energy",tradingName:"Cyfield Energy",phone:"+357 22 449900",email:"energy@cyfield.com.cy",website:"https://www.cyfieldenergy.com.cy",address:"170 Athalassas Ave, 2025 Nicosia",licenseType:"Supplier"}
+  ];
+  const profiles=[
+    profile("res","Residential LV",norm(resFr),resWD,resNW),
+    profile("com","Commercial LV/MV",norm(comFr),comWD,comNW)
+  ];
+  const today=new Date();
+  const iso=d=>new Date(today.getTime()-d*86400000).toISOString();
+  const tariffs=[
+    {id:"eac-dom-fix",name:"EAC Home Standard",supplier:"EAC Supply",updatedAt:iso(8),voltage:"LV",contract:"Domestic",loadEntitlement:"any",pricing:"Fixed",rates:{rate:0.1620},standing:4.50,profileId:"res",mdm:0.55,fpaSource:"global",discounts:[],durationMonths:null},
+    {id:"bright-dom-fix",name:"Bright FixSaver 12",supplier:"Bright Energy",updatedAt:iso(3),voltage:"LV",contract:"Domestic",loadEntitlement:"any",pricing:"Fixed",rates:{rate:0.1490},standing:3.90,profileId:"res",mdm:0,fpaSource:"global",discounts:[{type:"energy",percentage:8,durationMonths:12,conditions:"e-bill + direct debit"}],durationMonths:12},
+    {id:"hellenic-dom-tou",name:"Hellenic Day & Night",supplier:"Hellenic Power",updatedAt:iso(5),voltage:"LV",contract:"Domestic",loadEntitlement:"any",pricing:"ToU",rates:{hiStart:6,hiEnd:9,hiPeakStart:7,hiPeakEnd:23,hiPeakRate:0.1950,hiOffRate:0.1050,loPeakStart:7,loPeakEnd:23,loPeakRate:0.1720,loOffRate:0.0980},standing:4.20,profileId:"res",mdm:0,fpaSource:"global",discounts:[],durationMonths:null},
+    {id:"helios-dom-dyn",name:"Helios Market Flex",supplier:"Helios Power",updatedAt:iso(2),voltage:"LV",contract:"Domestic",loadEntitlement:"any",pricing:"Dynamic",rates:{mult:1.08,adder:0.0380,damFloor:0.0500},standing:3.50,profileId:"res",mdm:0,fpaSource:"global",discounts:[],durationMonths:null},
+    {id:"cyfield-dom-var",name:"Cyfield Tiered Home",supplier:"Cyfield Energy",updatedAt:iso(11),voltage:"LV",contract:"Domestic",loadEntitlement:"any",pricing:"Variable",rates:{resetMonths:1,tiers:[{upTo:150,rate:0.1380,fixedCharge:0},{upTo:400,rate:0.1680,fixedCharge:0},{upTo:null,rate:0.2050,fixedCharge:0}]},standing:4.00,profileId:"res",mdm:0,fpaSource:"global",discounts:[],durationMonths:6},
+    {id:"eac-dom-social",name:"EAC Social Tariff",supplier:"EAC Supply",updatedAt:iso(20),voltage:"LV",contract:"Domestic",loadEntitlement:"any",pricing:"Fixed",rates:{rate:0.1280},standing:2.50,profileId:"res",mdm:0.55,fpaSource:"global",discounts:[],durationMonths:null,vulnerable:true},
+    // Commercial LV
+    {id:"eac-com-fix",name:"EAC Business Standard",supplier:"EAC Supply",updatedAt:iso(8),voltage:"LV",contract:"Commercial",loadEntitlement:"lt70",pricing:"Fixed",rates:{rate:0.1710},standing:9.00,profileId:"com",mdm:0.85,fpaSource:"global",discounts:[],durationMonths:null},
+    {id:"bright-com-tou",name:"Bright Business ToU",supplier:"Bright Energy",updatedAt:iso(4),voltage:"LV",contract:"Commercial",loadEntitlement:"lt70",pricing:"ToU",rates:{hiStart:6,hiEnd:9,hiPeakStart:8,hiPeakEnd:20,hiPeakRate:0.2050,hiOffRate:0.1150,loPeakStart:8,loPeakEnd:20,loPeakRate:0.1820,loOffRate:0.1080},standing:8.00,profileId:"com",mdm:0,fpaSource:"global",discounts:[{type:"standing",percentage:15,durationMonths:null,conditions:"annual prepayment"}],durationMonths:24},
+    {id:"hellenic-com-dyn",name:"Hellenic Business Flex",supplier:"Hellenic Power",updatedAt:iso(6),voltage:"LV",contract:"Commercial",loadEntitlement:"gt70",pricing:"Dynamic",rates:{mult:1.05,adder:0.0320,damFloor:0.0450},standing:14.00,profileId:"com",mdm:0,fpaSource:"global",discounts:[],durationMonths:12}
+  ];
+  // Day-ahead market monthly averages (€/kWh) — plausible Cyprus 2026 shape
+  const damMonthly=[0.118,0.112,0.104,0.096,0.101,0.124,0.149,0.156,0.132,0.108,0.110,0.121];
+  const regulated={lv:0.0620,mv:0.0510,hv:0.0410,pso:0.0095,fpaLV:0.0060,fpaMV:0.0050,fpaHV:0.0040};
+  const notices={
+    assumptions_en:"<h3>How costs are calculated</h3><p>Estimates use each tariff's assigned load profile to distribute your consumption across the year, weighting working and non-working days using the current calendar.</p><ul><li>Dynamic tariffs use day-ahead market (DAM) price assumptions.</li><li>Regulated network, PSO and metering charges are shown separately and excluded from the supplier ranking.</li><li>Figures exclude VAT.</li></ul>",
+    assumptions_el:"<h3>Πώς υπολογίζεται το κόστος</h3><p>Οι εκτιμήσεις χρησιμοποιούν το προφίλ κατανάλωσης κάθε διατίμησης για να κατανείμουν την κατανάλωσή σας στο έτος, σταθμίζοντας εργάσιμες και μη εργάσιμες ημέρες με βάση το τρέχον ημερολόγιο.</p><ul><li>Οι δυναμικές διατιμήσεις χρησιμοποιούν τιμές της Προημερήσιας Αγοράς (ΠΗΑ).</li><li>Οι ρυθμιζόμενες χρεώσεις δικτύου, ΥΔΩ και μετρήσεων εμφανίζονται ξεχωριστά.</li><li>Τα ποσά δεν περιλαμβάνουν ΦΠΑ.</li></ul>",
+    legal_en:"<h3>Disclaimer</h3><p>This tool provides indicative estimates only and does not constitute a commercial offer. Actual costs depend on your real consumption, contract terms and prevailing prices. Always confirm details directly with the supplier.</p>",
+    legal_el:"<h3>Αποποίηση ευθύνης</h3><p>Το εργαλείο παρέχει ενδεικτικές εκτιμήσεις και δεν αποτελεί εμπορική προσφορά. Το πραγματικό κόστος εξαρτάται από την πραγματική σας κατανάλωση, τους όρους του συμβολαίου και τις ισχύουσες τιμές. Επιβεβαιώνετε πάντα τα στοιχεία απευθείας με τον προμηθευτή.</p>",
+    vulnerable_en:"<p>You may qualify for a social / vulnerable consumer tariff if you:</p><ul><li>Receive a guaranteed minimum income or public assistance;</li><li>Are a recipient of a severe disability or care allowance;</li><li>Belong to a low-income multi-child household;</li><li>Depend on electrically-powered medical equipment.</li></ul><p>Eligibility is confirmed by the relevant authority. Contact your supplier for the application process.</p>",
+    vulnerable_el:"<p>Ενδέχεται να δικαιούστε κοινωνική / ευπαθή διατίμηση εάν:</p><ul><li>Λαμβάνετε Ελάχιστο Εγγυημένο Εισόδημα ή δημόσιο βοήθημα·</li><li>Είστε λήπτης επιδόματος βαριάς αναπηρίας ή φροντίδας·</li><li>Ανήκετε σε πολύτεκνη οικογένεια χαμηλού εισοδήματος·</li><li>Εξαρτάστε από ιατρικό εξοπλισμό που λειτουργεί με ηλεκτρισμό.</li></ul><p>Η επιλεξιμότητα επιβεβαιώνεται από την αρμόδια αρχή. Επικοινωνήστε με τον προμηθευτή σας.</p>"
+  };
+  return {suppliers,tariffs,profiles,damMonthly,regulated,notices};
+}
+
+async function init(){
+  try{
+    const resp=await fetch('/api/public/config');
+    if(!resp.ok) throw new Error('API returned '+resp.status);
+    cfg=await resp.json();
+    document.getElementById('app').style.display='';
+    setMode('annual');
+    setCustomerType('domestic');
+    renderPage();
+    updateVulnerableRow();
+    const _nb=document.getElementById('notices-open-btn');
+    if(_nb&&cfg.notices&&(cfg.notices.assumptions_en||cfg.notices.assumptions_el||cfg.notices.legal_en||cfg.notices.legal_el||cfg.notices.assumptions||cfg.notices.legal))
+      _nb.style.display='';
+  }catch(e){
+    // Backend unavailable — fall back to embedded sample config so the page
+    // still renders (design preview / standalone use).
+    console.warn('Live config unavailable, using sample config.',e);
+    try{
+      cfg=buildSampleConfig();
+      document.getElementById('app').style.display='';
+      setMode('annual');
+      setCustomerType('domestic');
+      renderPage();
+      updateVulnerableRow();
+      const _nb=document.getElementById('notices-open-btn');
+      if(_nb&&cfg.notices&&(cfg.notices.assumptions_en||cfg.notices.assumptions_el||cfg.notices.legal_en||cfg.notices.legal_el))
+        _nb.style.display='';
+      // Seed a sample consumption so results are visible immediately on first load
+      const ak=document.getElementById('annual-kwh');
+      if(ak&&!ak.value){ ak.value=6000; applyFilters(); }
+    }catch(e2){
+      document.getElementById('no-config').style.display='';console.error(e2);
+    }
+  }
+  setConnCollapsed(false);
+}
+init();
+
+/* ── Consumption Estimator ── */
+function openEstimator(){
+  document.getElementById('est-overlay').style.display='flex';
+  document.getElementById('est-result-wrap').style.display='none';
+  document.getElementById('est-use-btn').style.display='none';
+  window._estValue=null;
+  renderEstimator();
+}
+function closeEstimator(){
+  document.getElementById('est-overlay').style.display='none';
+}
+function renderEstimator(){
+  document.getElementById('est-title').textContent=T('EST_TITLE');
+  document.getElementById('est-desc').textContent=T('EST_DESC');
+  document.getElementById('est-lbl-dwelling').textContent=T('EST_DWELLING');
+  document.getElementById('est-lbl-persons').textContent=T('EST_PERSONS');
+  document.getElementById('est-lbl-ac').textContent=T('EST_AC');
+  document.getElementById('est-lbl-water').textContent=T('EST_WATER');
+  document.getElementById('est-lbl-cooking').textContent=T('EST_COOKING');
+  document.getElementById('est-calc-btn').textContent=T('EST_CALC');
+  document.getElementById('est-use-btn').textContent=T('EST_USE');
+  document.getElementById('est-result-lbl').textContent=T('EST_RESULT_LBL');
+  document.getElementById('est-result-unit').textContent=T('EST_RESULT_UNIT');
+  document.getElementById('est-note').textContent=T('EST_NOTE');
+  document.getElementById('est-meth-title').textContent=T('EST_METH_TITLE');
+  document.getElementById('meth-modal-title').textContent=T('EST_METH_TITLE');
+  document.getElementById('est-meth-body').innerHTML=T('EST_METH_BODY');
+  // dwelling options
+  const dSel=document.getElementById('est-dwelling');
+  const dKeys=['EST_D_STUDIO','EST_D_APT1','EST_D_APT2','EST_D_APT3','EST_D_SEMI','EST_D_DET_S','EST_D_DET_L'];
+  const dVals=['studio','apt1','apt2','apt3','semi','det_s','det_l'];
+  const prev=dSel.value;
+  dSel.innerHTML=dKeys.map((k,i)=>`<option value="${dVals[i]}">${T(k)}</option>`).join('');
+  if(prev) dSel.value=prev;
+  // radio groups
+  const acOpts=[['none','EST_AC_NONE'],['light','EST_AC_LIGHT'],['mod','EST_AC_MOD'],['heavy','EST_AC_HEAVY']];
+  renderEstRadios('est-ac-group','est-ac',acOpts,'mod');
+  const wOpts=[['solar','EST_WATER_SOLAR'],['elec','EST_WATER_ELEC'],['other','EST_WATER_OTHER']];
+  renderEstRadios('est-water-group','est-water',wOpts,'solar');
+  const cOpts=[['yes','EST_YES'],['no','EST_NO']];
+  renderEstRadios('est-cooking-group','est-cooking',cOpts,'no');
+  document.getElementById('est-trigger-btn').textContent=T('BTN_ESTIMATE');
+}
+function renderEstRadios(groupId,name,opts,defaultVal){
+  const g=document.getElementById(groupId);
+  if(!g) return;
+  const cur=g.querySelector('.active')?.dataset.val||defaultVal;
+  g.innerHTML=opts.map(([v,k])=>
+    `<label class="est-radio${cur===v?' active':''}" data-val="${v}" onclick="selectEstRadio('${groupId}','${v}')">
+      <input type="radio" name="${name}" value="${v}"${cur===v?' checked':''}>${T(k)}
+    </label>`
+  ).join('');
+}
+function selectEstRadio(groupId,val){
+  document.querySelectorAll(`#${groupId} .est-radio`).forEach(el=>{
+    el.classList.toggle('active',el.dataset.val===val);
+    el.querySelector('input').checked=el.dataset.val===val;
+  });
+}
+function getEstRadio(groupId){
+  const el=document.querySelector(`#${groupId} .est-radio.active`);
+  return el?el.dataset.val:null;
+}
+function calcEstimate(){
+  const dwelling=document.getElementById('est-dwelling').value||'apt2';
+  const persons=Math.max(1,Math.min(10,parseInt(document.getElementById('est-persons').value)||2));
+  const ac=getEstRadio('est-ac-group')||'mod';
+  const water=getEstRadio('est-water-group')||'solar';
+  const cooking=getEstRadio('est-cooking-group')||'no';
+  const bases={studio:1200,apt1:1800,apt2:2600,apt3:3500,semi:4500,det_s:6000,det_l:9000};
+  const acAdd={none:0,light:700,mod:1800,heavy:3500};
+  const waterAdd={solar:300,elec:1200,other:0};
+  let total=(bases[dwelling]||2600)+Math.max(0,persons-1)*600+(acAdd[ac]||0)+(waterAdd[water]||0)+(cooking==='yes'?400:0);
+  total=Math.round(total/100)*100;
+  window._estValue=total;
+  document.getElementById('est-result-num').textContent=total.toLocaleString();
+  document.getElementById('est-result-wrap').style.display='';
+  document.getElementById('est-use-btn').style.display='';
+}
+function openEstMeth(){
+  document.getElementById('meth-modal-overlay').style.display='flex';
+}
+function closeEstMeth(){
+  document.getElementById('meth-modal-overlay').style.display='none';
+}
+function applyEstimate(){
+  if(!window._estValue) return;
+  setMode('annual');
+  const ak=document.getElementById('annual-kwh');
+  ak.value=window._estValue;
+  onAnnualInput();
+  closeEstimator();
+}
+</script>
+<!-- Consumption estimator modal -->
+<div id="est-overlay" class="est-overlay" style="display:none" onclick="if(event.target.id==='est-overlay')closeEstimator()">
+  <div class="est-box">
+    <div class="est-head">
+      <h2 id="est-title">Estimate your consumption</h2>
+      <button onclick="closeEstimator()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--text3)">✕</button>
+    </div>
+    <div class="est-body">
+      <p class="est-desc" id="est-desc"></p>
+
+      <div class="est-field">
+        <label id="est-lbl-dwelling"></label>
+        <select id="est-dwelling">
+          <option value="apt2"></option>
+        </select>
+      </div>
+
+      <div class="est-field">
+        <label id="est-lbl-persons"></label>
+        <input type="number" id="est-persons" value="2" min="1" max="10" style="max-width:100px">
+      </div>
+
+      <div class="est-field">
+        <label id="est-lbl-ac"></label>
+        <div class="est-radio-group" id="est-ac-group"></div>
+      </div>
+
+      <div class="est-field">
+        <label id="est-lbl-water"></label>
+        <div class="est-radio-group" id="est-water-group"></div>
+      </div>
+
+      <div class="est-field">
+        <label id="est-lbl-cooking"></label>
+        <div class="est-radio-group" id="est-cooking-group"></div>
+      </div>
+
+      <div id="est-result-wrap" style="display:none">
+        <div class="est-result">
+          <div class="est-result-val"><span id="est-result-num"></span> <span style="font-size:14px;font-weight:400" id="est-result-unit">kWh / year</span></div>
+          <div class="est-result-lbl" id="est-result-lbl">Estimated annual consumption</div>
+        </div>
+        <p class="est-note" id="est-note"></p>
+      </div>
+
+      <button class="est-meth-link" id="est-meth-link" onclick="openEstMeth()">ℹ️ <span id="est-meth-title">Methodology &amp; data sources</span></button>
+    </div>
+    <div class="est-foot">
+      <button class="est-btn-sec" onclick="closeEstimator()">✕</button>
+      <button class="est-btn-calc" id="est-calc-btn" onclick="calcEstimate()">Calculate</button>
+      <button class="est-btn-use" id="est-use-btn" style="display:none" onclick="applyEstimate()">Use this estimate</button>
+    </div>
+  </div>
+</div>
+
+<!-- Methodology modal -->
+<div id="meth-modal-overlay" class="meth-modal-overlay" style="display:none" onclick="if(event.target.id==='meth-modal-overlay')closeEstMeth()">
+  <div class="meth-modal-box">
+    <div class="meth-modal-head">
+      <h2 id="meth-modal-title">Methodology &amp; data sources</h2>
+      <button onclick="closeEstMeth()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--text3)">✕</button>
+    </div>
+    <div class="meth-modal-body">
+      <div class="est-meth-body" id="est-meth-body"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Notices modal -->
+<div id="notices-overlay" class="notices-overlay" style="display:none" onclick="if(event.target.id==='notices-overlay')closeNotices()">
+  <div class="notices-box">
+    <div class="notices-head">
+      <h2 id="notices-title">Notices &amp; Disclaimers</h2>
+      <button onclick="closeNotices()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--text3)">✕</button>
+    </div>
+    <div class="notices-tabs">
+      <button class="notices-tab active" id="ntab-assumptions" onclick="switchNoticesTab('assumptions')">Notices</button>
+      <button class="notices-tab" id="ntab-legal" onclick="switchNoticesTab('legal')">Disclaimers</button>
+    </div>
+    <div class="notices-body" id="notices-body"></div>
+  </div>
+</div>
+
+<!-- Regulated charge info popup -->
+<div id="reg-info-overlay" class="reg-info-overlay" style="display:none" onclick="if(event.target.id==='reg-info-overlay')closeRegInfo()">
+  <div class="reg-info-box">
+    <div class="reg-info-head">
+      <h3 id="reg-info-title"></h3>
+      <button onclick="closeRegInfo()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--text3)">✕</button>
+    </div>
+    <div id="reg-info-body" class="reg-info-body"></div>
+  </div>
+</div>
+
+<!-- Supplier contact modal -->
+<div id="sup-contact-overlay" class="sup-modal-overlay" style="display:none" onclick="if(event.target.id==='sup-contact-overlay')closeSupContact()">
+  <div class="sup-modal-box">
+    <div class="sup-modal-head">
+      <h2 id="sup-contact-name">Supplier</h2>
+      <button onclick="closeSupContact()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--text3)">✕</button>
+    </div>
+    <div class="sup-modal-body" id="sup-contact-body"></div>
+  </div>
+</div>
+<!-- Vulnerable consumer modal -->
+<div id="vulnerable-overlay" class="sup-modal-overlay" style="display:none" onclick="if(event.target.id==='vulnerable-overlay')closeVulnerableModal()">
+  <div class="sup-modal-box" style="max-width:500px">
+    <div class="sup-modal-head">
+      <h2 id="vulnerable-modal-title" style="font-size:14px"></h2>
+      <button onclick="closeVulnerableModal()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--text3)">✕</button>
+    </div>
+    <div class="sup-modal-body" id="vulnerable-modal-body" style="font-size:13px;line-height:1.7;max-height:60vh;overflow-y:auto"></div>
+  </div>
+</div>
+
+</body>
+</html>

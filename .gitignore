@@ -1,0 +1,14 @@
+# Secrets — never commit
+tariff-api/.env
+.env
+
+# Python
+tariff-api/.venv/
+__pycache__/
+*.pyc
+
+# Local data
+tariff-api/uploads/*
+!tariff-api/uploads/.gitkeep
+*.db
+tariff-api/tariff.db
