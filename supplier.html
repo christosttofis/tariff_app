@@ -608,7 +608,7 @@ const LANG = {
     ERR_ONE_TIER:'Need at least one tier.',
     ERR_ENTER_EMAIL_PW:'Enter your email and password.',
     ERR_SESSION_EXPIRED:'Session expired — please sign in again.', ERR_SESSION_EXPIRED_SHORT:'Session expired.',
-    ERR_LOGIN_FAILED:'Login failed.', ERR_SUPPLIER_ONLY:'This portal is for supplier accounts only.',
+    ERR_LOGIN_FAILED:'Login failed.', ERR_SUPPLIER_ONLY:'Invalid email or password.',
     ERR_NETWORK:'Network error — is the server running?', ERR_DELETE_FAILED:'Delete failed.',
     MSG_TARIFF_UPDATED:'Tariff updated and resubmitted for review.', MSG_TARIFF_SUBMITTED:'Tariff submitted for CERA review.',
     MSG_DOC_UPLOAD_FAILED:'Document upload failed: ',
@@ -733,7 +733,7 @@ const LANG = {
     ERR_SESSION_EXPIRED:'Η συνεδρία έληξε — παρακαλώ συνδεθείτε ξανά.',
     ERR_SESSION_EXPIRED_SHORT:'Η συνεδρία έληξε.',
     ERR_LOGIN_FAILED:'Η σύνδεση απέτυχε.',
-    ERR_SUPPLIER_ONLY:'Η πύλη αυτή είναι μόνο για λογαριασμούς προμηθευτών.',
+    ERR_SUPPLIER_ONLY:'Λανθασμένο email ή κωδικός πρόσβασης.',
     ERR_NETWORK:'Σφάλμα δικτύου — εκτελείται ο διακομιστής;',
     ERR_DELETE_FAILED:'Η διαγραφή απέτυχε.',
     MSG_TARIFF_UPDATED:'Η διατίμηση ενημερώθηκε και επανυποβλήθηκε για έγκριση.',
@@ -823,6 +823,19 @@ function _isStrongPassword(pw){
   const _origFetch=window.fetch.bind(window);
   window.fetch=async function(...args){
     const resp=await _origFetch(...args);
+    // The session cookie is shared across every tab in this browser, not
+    // per-tab. If a supplier logs into a second tab as an admin (or vice
+    // versa), that overwrites the cookie everywhere, including this
+    // already-open supplier tab — and its next API call silently starts
+    // acting as the new identity. Because admin sessions are allowed
+    // everywhere, that direction produces no error at all — just quietly
+    // wider data — so this can't be caught by checking status codes; it needs
+    // X-User-Role (set server-side on every response) compared against what
+    // this tab expects.
+    const actualRole=resp.headers.get('X-User-Role');
+    if(actualRole && actualRole!=='supplier' && sessionStorage.getItem('cera_sup_role')==='supplier'){
+      _localSignOut('Your session was terminated — please sign in again.');
+    }
     if(resp.status===403){
       try{
         const data=await resp.clone().json();
@@ -1021,7 +1034,7 @@ async function doLogin(){
       btn.disabled = false; btn.textContent = T('LOGIN_BTN');
       return;
     }
-    if(data.role !== 'supplier' && data.role !== 'admin'){
+    if(data.role !== 'supplier'){
       errEl.textContent = T('ERR_SUPPLIER_ONLY'); btn.disabled = false; btn.textContent = T('LOGIN_BTN'); return;
     }
     sessionStorage.setItem('cera_sup_email',    data.email);
@@ -1049,7 +1062,7 @@ async function doVerifyOtp(){
     });
     const data = await resp.json().catch(() => ({}));
     if(!resp.ok){ errEl.textContent = data.detail || T('OTP_INVALID'); btn.disabled = false; btn.textContent = T('OTP_BTN'); return; }
-    if(data.role !== 'supplier' && data.role !== 'admin'){
+    if(data.role !== 'supplier'){
       errEl.textContent = T('ERR_SUPPLIER_ONLY'); btn.disabled = false; btn.textContent = T('OTP_BTN'); return;
     }
     sessionStorage.setItem('cera_sup_email',    data.email);
@@ -1620,14 +1633,40 @@ function closeMessagesModal(){
 // synchronously know whether we're logged in. Optimistically call initApp();
 // loadTariffs() shows/hides the login overlay depending on whether the
 // cookie is still valid (401 vs 200).
-(function boot(){
+async function boot(){
   renderPage();
-  const email    = sessionStorage.getItem('cera_sup_email')    || '';
-  const role     = sessionStorage.getItem('cera_sup_role')     || '';
-  const supplier = sessionStorage.getItem('cera_sup_supplier') || '';
-  if(role && role !== 'supplier' && role !== 'admin'){ showLogin(); return; }
+  let email    = sessionStorage.getItem('cera_sup_email')    || '';
+  let role     = sessionStorage.getItem('cera_sup_role')     || '';
+  let supplier = sessionStorage.getItem('cera_sup_supplier') || '';
+  // Admin accounts can authenticate via this portal's login form (same endpoint
+  // as admin.html) but must never use it: the tariff endpoints only scope
+  // results down to one supplier when the caller's role is 'supplier' (see
+  // admin.py's is_supplier checks) — an admin has no supplier_name, so they'd
+  // see every supplier's tariffs rendered inside what's meant to be a
+  // single-supplier view. doLogin()/verify-otp() already reject non-supplier
+  // roles at the form itself, but an admin's own cookie carried into a fresh
+  // tab/reload never touches that form — it goes straight through here.
+  // Treat it exactly like "not logged in" rather than silently accepting it.
+  if(role && role !== 'supplier'){ _localSignOut('Your session was terminated — please sign in again.'); return; }
+  // The httpOnly cookie may be valid even if this tab never ran doLogin() itself
+  // (e.g. a fresh tab, or a reload) — sessionStorage would then be empty and the
+  // topbar/Sign out UI would show a blank identity. Re-hydrate from /me in that case.
+  if(!role){
+    try{
+      const meResp = await fetch(_base + '/api/auth/me', {headers: authHeaders()});
+      if(meResp.ok){
+        const me = await meResp.json();
+        if(me.role !== 'supplier'){ _localSignOut('Your session was terminated — please sign in again.'); return; }
+        email = me.email; role = me.role; supplier = me.supplier || '';
+        sessionStorage.setItem('cera_sup_email',    email);
+        sessionStorage.setItem('cera_sup_role',     role);
+        sessionStorage.setItem('cera_sup_supplier', supplier);
+      }
+    }catch(e){}
+  }
   initApp({email, role, supplier});
-})();
+}
+boot();
 </script>
 
 <!-- Messages modal -->

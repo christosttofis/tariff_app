@@ -1,7 +1,7 @@
 # CERA Tariff Comparison Tool — Administrator Manual
 
-**Version:** 1.2  
-**Date:** July 2026  
+**Version:** 1.3  
+**Date:** July 2026 (updated 2026-07-15: sliding session expiry, accidental-overload protection, cross-portal sign-in behavior)  
 **Prepared by:** Cyprus Energy Regulatory Authority  
 
 ---
@@ -59,7 +59,9 @@ You will be presented with a login overlay. Enter your CERA email address and pa
 
 **Verification code (2FA):** After a correct password, most accounts are prompted for a 6-digit verification code sent to your registered email address. Enter the code to complete sign-in. The code is valid for 10 minutes; if you don't receive it, you can request a new one after 2 minutes using the resend link. **Entering the wrong code 3 times locks your account for 3 hours**, the same as entering the wrong password 3 times — see [Section 14.1](#141-lockout-policy).
 
-**Session duration:** Sessions expire after 8 hours. You will be asked to log in again after this time.
+**Session duration:** Your session stays active while you're actively using the panel — it automatically renews itself in the background, so you will not be logged out mid-task purely because time has passed. As a safety limit, a session always ends after **12 hours** even if continuously active, and you'll need to sign in again at that point regardless.
+
+**Signing in with a different role in another browser tab:** The browser can only hold one active sign-in at a time — the same limitation as most sites (e.g. you can't be logged into two different Gmail accounts in two regular browser tabs at once). If you're signed into the Admin Panel and then sign into the Supplier Portal in another tab of the *same* browser (or vice versa), the tab you were using first will detect this and sign you out, asking you to sign in again. This is expected and protects against the two sessions interfering with each other. If you genuinely need both an admin and a supplier session open at the same time, use a private/incognito window (or a separate browser) for one of them.
 
 **Automatic sign-out on inactivity:** If no activity (clicking, typing, or scrolling) is detected for 15 minutes, you will see a "Still there?" warning with a 60-second countdown. If you don't click **Stay signed in** before the countdown ends, you are automatically signed out and returned to the login screen. This applies to both the Admin Panel and the Supplier Portal, and protects the panel if a screen is left unattended. Any activity while the warning is showing does not extend the session on its own — only clicking **Stay signed in** does.
 
@@ -129,7 +131,7 @@ If a supplier's account shows the 🔒 **Locked** badge:
 2. Confirm the action in the prompt
 3. The supplier can immediately attempt to log in again
 
-> **Locked admin accounts** cannot be unlocked through the panel — see [Section 14.4](#144-unlocking-a-locked-admin-account) for the procedure.
+> **Locked admin accounts** cannot be unlocked through the panel — see [Section 14.5](#145-unlocking-a-locked-admin-account) for the procedure.
 
 ### 4.5 Resending an invitation
 
@@ -367,11 +369,15 @@ When an account is locked:
 
 Both the Admin Panel and Supplier Portal automatically sign a user out after **15 minutes of inactivity** (no clicks, key presses, or scrolling). A warning is shown 1 minute before sign-out, with a **Stay signed in** button to continue the session. This reduces the risk of an unattended, logged-in screen being used by someone else — e.g. an admin stepping away from their desk without locking their computer.
 
-### 14.3 Unlocking a locked supplier account
+### 14.3 Protection against accidental overload
+
+The server automatically limits how many requests it will accept from a single computer in a short period (60 per minute). This is not meant to stop a person — it protects the system if a browser tab gets stuck retrying a failed action in a loop, or if a script is accidentally run that hammers the server with requests. If this limit is ever hit, the affected action will briefly show an error; simply wait a few seconds and try again. Repeated hits on the sign-in page specifically are also recorded in the Login Activity log (see [Section 11](#11-audit-log)) so they can be distinguished from genuine failed sign-in attempts.
+
+### 14.4 Unlocking a locked supplier account
 
 See [Section 4.4](#44-unlocking-a-locked-supplier-account).
 
-### 14.4 Unlocking a locked admin account
+### 14.5 Unlocking a locked admin account
 
 Because a locked admin cannot access the admin panel, the unlock must be performed directly on the server.
 
@@ -393,7 +399,7 @@ python unlock_user.py --email yourname@cera.org.cy
 ```
 6. Return to the browser and log in normally
 
-### 14.5 If you have forgotten your password
+### 14.6 If you have forgotten your password
 
 Use the **Forgot password** link on the admin login screen. A reset link will be sent to your registered CERA email address. The link is valid for 1 hour.
 
@@ -403,7 +409,7 @@ python create_user.py --email yourname@cera.org.cy --role admin
 ```
 This will prompt for a new password.
 
-### 14.6 Creating a new admin account
+### 14.7 Creating a new admin account
 
 Admin accounts cannot be created through the admin panel. They must be created on the server by IT.
 
@@ -427,7 +433,7 @@ Admin accounts cannot be created through the admin panel. They must be created o
 
 > The new admin will be asked to change their password via the **My Account** menu after first login, or they can use the **Forgot password** link on the login screen to set their own password.
 
-### 14.7 Removing an admin account
+### 14.8 Removing an admin account
 
 Admin accounts cannot be removed through the admin panel. This must be done on the server by IT.
 
@@ -507,6 +513,8 @@ If the page loads, the server is running. If not, start it using `start.bat`.
 - Check your email and password are correct
 - Check your account has not been locked (see Section 14)
 - Check your account is active — ask another admin to verify in the Users panel
+- **A CERA admin account cannot sign into the Supplier Portal, and a supplier account cannot sign into the Admin Panel.** Attempting either shows the same generic "Invalid email or password" message as any other failed sign-in (by design, so the message doesn't reveal anything about the account) — this doesn't mean your credentials are wrong, just that you're on the wrong page. Go to the correct portal for your account type.
+- If you were previously signed in and suddenly find yourself back at the login screen with the message "Your session was terminated", see the note on signing in with a different role in another tab, in [Section 2](#2-accessing-the-admin-panel).
 
 ### A supplier says they did not receive their invitation email
 - Go to Users → find the supplier → click **Resend invitation**
@@ -535,4 +543,4 @@ If the page loads, the server is running. If not, start it using `start.bat`.
 
 ---
 
-*This document covers version 1.2 of the CERA Tariff Comparison Tool. For technical support or to report issues, contact the system administrator.*
+*This document covers version 1.3 of the CERA Tariff Comparison Tool. For technical support or to report issues, contact the system administrator.*

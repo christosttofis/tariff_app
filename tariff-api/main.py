@@ -14,6 +14,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -22,11 +23,14 @@ load_dotenv()  # loads tariff-api/.env if present
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
+import jwt
+
 import models
-from auth import run_password_expiry_check
+from auth import ACCESS_COOKIE_NAME, ALGORITHM, SECRET_KEY, run_password_expiry_check
 from database import SessionLocal, engine, get_db
 from routers import admin as admin_router
 from routers import auth as auth_router
@@ -80,6 +84,71 @@ app = FastAPI(
     description="Backend for the Cyprus electricity tariff comparison tool.",
 )
 
+# ── Per-IP rate limiting ────────────────────────────────────────────────────
+# Guards against accidental overload (a stuck retry loop, a mis-run script)
+# rather than sophisticated abuse. Self-contained sliding-window counter per
+# client IP, applied to every route — deliberately not using a routing-library
+# based limiter (e.g. slowapi) because its route-handler lookup doesn't
+# recognize routes registered via app.include_router() on this FastAPI/
+# Starlette version, so it silently rate-limited nothing under /api/auth or
+# /api/admin. In-memory only: correct for the single-process deployment this
+# app assumes (see the scheduled-notifications loop below); would need a
+# shared store (e.g. Redis) if ever scaled to multiple instances/workers.
+_RATE_LIMIT_WINDOW_SECONDS = 60
+_RATE_LIMIT_MAX_REQUESTS = 60
+_rate_limit_buckets: dict[str, list[float]] = {}
+
+
+def _is_rate_limited(client_ip: str) -> bool:
+    now = time.monotonic()
+    cutoff = now - _RATE_LIMIT_WINDOW_SECONDS
+    bucket = _rate_limit_buckets.setdefault(client_ip, [])
+    while bucket and bucket[0] < cutoff:
+        bucket.pop(0)
+    if len(bucket) >= _RATE_LIMIT_MAX_REQUESTS:
+        return True
+    bucket.append(now)
+    return False
+
+
+@app.middleware("http")
+async def rate_limit_middleware(request, call_next):
+    client_ip = request.client.host if request.client else "unknown"
+    if not _is_rate_limited(client_ip):
+        return await call_next(request)
+
+    # Auth endpoints already have a "Login activity" audit trail (models.LoginActivity)
+    # shown in the admin panel — record rate-limit hits there too so an admin sees a
+    # retry storm alongside lockouts/bad-password attempts, instead of only in server logs.
+    if request.url.path.startswith("/api/auth/"):
+        email = "(unknown)"
+        try:
+            body = await request.json()
+            email = body.get("email") or email
+        except Exception:
+            pass
+        db = SessionLocal()
+        try:
+            db.add(models.LoginActivity(
+                email=email,
+                user_id=None,
+                success=False,
+                reason="rate_limited",
+                ip_address=client_ip,
+                user_agent=request.headers.get("user-agent"),
+                ts=datetime.now(timezone.utc).isoformat(),
+            ))
+            db.commit()
+        except Exception:
+            logger.exception("Failed to record rate-limited login activity")
+        finally:
+            db.close()
+
+    return JSONResponse(
+        {"error": f"Rate limit exceeded: {_RATE_LIMIT_MAX_REQUESTS} per {_RATE_LIMIT_WINDOW_SECONDS} seconds"},
+        status_code=429,
+    )
+
 # Frontend is normally served same-origin by this app (relative fetch calls), so this
 # only matters for cross-origin access — restrict to the actual deployment URL rather
 # than "*". Set TARIFF_BASE_URL per-environment; it's already used for email links.
@@ -115,6 +184,29 @@ _CSP_POLICY = (
 async def add_csp_header(request, call_next):
     response = await call_next(request)
     response.headers["Content-Security-Policy"] = _CSP_POLICY
+    return response
+
+
+# admin.html and supplier.html each verify their required role once, at page
+# load — but the session lives in a browser-wide cookie, not a per-tab one.
+# If a user logs into the other role in a second tab, that overwrites the
+# cookie for every tab, including one that's already sitting on the "wrong"
+# portal — and subsequent API calls from that tab silently start acting under
+# the new identity instead of failing (a supplier tab that inherits an admin
+# cookie gets full unfiltered data back with no error at all). This header
+# lets each page's fetch interceptor notice the swap and force a fresh login,
+# regardless of which specific endpoint happened to be called.
+@app.middleware("http")
+async def add_role_header(request, call_next):
+    response = await call_next(request)
+    token = request.cookies.get(ACCESS_COOKIE_NAME)
+    if token:
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            if payload.get("purpose") != "otp":
+                response.headers["X-User-Role"] = payload.get("role", "")
+        except jwt.InvalidTokenError:
+            pass
     return response
 
 # ── Scheduled notifications background loop ────────────────────────────────────

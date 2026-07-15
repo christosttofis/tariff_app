@@ -225,6 +225,11 @@ def logout(response: Response):
     return {"message": "Signed out."}
 
 
+@router.get("/me", summary="Current session's identity — lets the frontend re-hydrate the user badge after a reload/new tab")
+def me(user: CurrentUser = Depends(get_current_user)):
+    return {"role": user.role, "supplier": user.supplier_name, "email": user.email}
+
+
 _OTP_RESEND_COOLDOWN_SECONDS = 120  # 2 minutes
 
 

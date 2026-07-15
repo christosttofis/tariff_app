@@ -7,7 +7,9 @@ Set the TARIFF_SECRET_KEY environment variable in production.
 The fallback here is for local development only — any token signed with the
 dev key would be accepted by any other dev install, so never deploy it.
 
-Token lifetime: 8 hours (a full working day without forced re-login).
+Token lifetime: sliding — each authenticated request extends the session by
+TOKEN_EXPIRE_HOURS, capped at ABSOLUTE_SESSION_HOURS from the original login
+regardless of activity (bounds how long a stolen/replayed token stays useful).
 
 Roles
 -----
@@ -44,14 +46,17 @@ SECRET_KEY = os.getenv(
     "dev-only-do-not-deploy-cera-tariff-2026-xK9mP3qR7sN1wL5",
 )
 ALGORITHM = "HS256"
-TOKEN_EXPIRE_HOURS = 8
+TOKEN_EXPIRE_HOURS = 1      # sliding window — renewed on each authenticated request
+ABSOLUTE_SESSION_HOURS = 12  # hard cap from login, regardless of activity
 OTP_EXPIRE_MINUTES = 10
 
 # The session JWT lives in an httpOnly cookie so it's never exposed to JS (and
 # therefore can't be exfiltrated by an XSS payload) — no Max-Age is set, so
-# it's a browser-session cookie, matching the old sessionStorage-based
-# lifetime (dies when the browser closes; the 8h server-side exp is the hard
-# cap regardless).
+# it's a browser-session cookie (dies when the browser closes). The token
+# itself is reissued with a fresh expiry on every authenticated request (see
+# get_current_user), so an active user is never logged out mid-work; the
+# ABSOLUTE_SESSION_HOURS cap is the real backstop against a stolen/replayed
+# token being kept alive indefinitely.
 ACCESS_COOKIE_NAME = "cera_access_token"
 
 # ── Password hashing ──────────────────────────────────────────────────────────
@@ -122,14 +127,20 @@ def record_password_change(db: Session, user: "models.User", new_plain: str) -> 
 
 # ── Token creation ────────────────────────────────────────────────────────────
 
-def create_token(user: models.User) -> str:
+def create_token(user: models.User, session_start: datetime | None = None) -> str:
+    now = datetime.now(timezone.utc)
     payload = {
         "sub": str(user.id),
         "email": user.email,
         "role": user.role,
         "supplier": user.supplier_name,
-        "iat": datetime.now(timezone.utc),
-        "exp": datetime.now(timezone.utc) + timedelta(hours=TOKEN_EXPIRE_HOURS),
+        "iat": now,
+        # Preserved across sliding renewals so ABSOLUTE_SESSION_HOURS can be enforced
+        # from the original login, not from whichever renewal issued this token.
+        # PyJWT only auto-converts the registered iat/exp/nbf claims from datetime —
+        # this is a custom claim, so it must be encoded as a timestamp explicitly.
+        "session_start": (session_start or now).timestamp(),
+        "exp": now + timedelta(hours=TOKEN_EXPIRE_HOURS),
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
@@ -193,6 +204,7 @@ class CurrentUser:
 
 def get_current_user(
     request: Request,
+    response: Response,
     db: Session = Depends(get_db),
 ) -> CurrentUser:
     token = request.cookies.get(ACCESS_COOKIE_NAME)
@@ -207,6 +219,11 @@ def get_current_user(
 
     if payload.get("purpose") == "otp":
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "2FA not yet completed")
+
+    session_start_ts = payload.get("session_start")
+    session_start = datetime.fromtimestamp(session_start_ts, tz=timezone.utc) if session_start_ts else None
+    if session_start and datetime.now(timezone.utc) - session_start > timedelta(hours=ABSOLUTE_SESSION_HOURS):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Session expired — please log in again")
 
     user = db.get(models.User, int(payload["sub"]))
     if not user or not user.is_active:
@@ -225,6 +242,10 @@ def get_current_user(
 
     if user.must_change_password and request.url.path not in _PASSWORD_EXPIRED_ALLOWLIST:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "password_expired")
+
+    # Sliding renewal — every authenticated request extends the session by
+    # TOKEN_EXPIRE_HOURS, still capped at ABSOLUTE_SESSION_HOURS from session_start.
+    set_auth_cookie(response, create_token(user, session_start=session_start))
 
     return CurrentUser(
         id=user.id,

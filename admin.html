@@ -4873,6 +4873,17 @@ function _isStrongPassword(pw){
   const _origFetch=window.fetch.bind(window);
   window.fetch=async function(...args){
     const resp=await _origFetch(...args);
+    // The session cookie is shared across every tab in this browser, not
+    // per-tab. If an admin logs into a second tab as a supplier (or vice
+    // versa), that overwrites the cookie everywhere, including this
+    // already-open admin tab — and its next API call silently starts acting
+    // as the new identity. X-User-Role (set server-side on every response)
+    // lets us catch that the moment it happens rather than showing stale or
+    // wrong-scoped data.
+    const actualRole=resp.headers.get('X-User-Role');
+    if(actualRole && actualRole!=='admin' && sessionStorage.getItem('cera_admin_role')==='admin'){
+      _localSignOut('Your session was terminated — please sign in again.');
+    }
     if(resp.status===403){
       try{
         const data=await resp.clone().json();
@@ -5071,7 +5082,7 @@ async function doLogin(){
       return;
     }
     // Direct login (no 2FA path — kept for forward compatibility)
-    if(data.role!=='admin'){errEl.textContent='Access denied — this portal is for CERA administrators only.';btn.disabled=false;btn.textContent=T('BTN_SIGNIN');return;}
+    if(data.role!=='admin'){errEl.textContent='Invalid email or password.';btn.disabled=false;btn.textContent=T('BTN_SIGNIN');return;}
     sessionStorage.setItem('cera_admin_email',data.email);
     sessionStorage.setItem('cera_admin_role',data.role);
     showUserBadge(data.email);
@@ -5098,7 +5109,7 @@ async function doVerifyOtp(){
     });
     const data=await resp.json().catch(()=>({}));
     if(!resp.ok){errEl.textContent=data.detail||'Verification failed.';btn.disabled=false;btn.textContent=T('OTP_BTN');return;}
-    if(data.role!=='admin'){errEl.textContent='Access denied — this portal is for CERA administrators only.';btn.disabled=false;btn.textContent=T('OTP_BTN');return;}
+    if(data.role!=='admin'){errEl.textContent='Invalid email or password.';btn.disabled=false;btn.textContent=T('OTP_BTN');return;}
     sessionStorage.setItem('cera_admin_email',data.email);
     sessionStorage.setItem('cera_admin_role',data.role);
     showUserBadge(data.email);
@@ -5161,8 +5172,37 @@ async function loadConfig(){
     const resp=await fetch(_adminApiBase+'/api/admin/config',{headers:authHeaders()});
     if(resp.status===401){_localSignOut('Session expired — please sign in again.');return;}
     if(!resp.ok) throw new Error('HTTP '+resp.status);
+
+    let role=sessionStorage.getItem('cera_admin_role');
+    let email=sessionStorage.getItem('cera_admin_email');
+    // The httpOnly cookie may be valid even if this tab never ran doLogin() itself
+    // (e.g. a fresh tab, or a reload) — sessionStorage would then be empty and the
+    // user badge/Sign out button would never appear. Re-hydrate from /me in that case.
+    if(!role){
+      try{
+        const meResp=await fetch(_adminApiBase+'/api/auth/me',{headers:authHeaders()});
+        if(meResp.ok){
+          const me=await meResp.json();
+          role=me.role; email=me.email;
+          if(role==='admin'){
+            sessionStorage.setItem('cera_admin_email',email);
+            sessionStorage.setItem('cera_admin_role',role);
+          }
+        }
+      }catch(e){}
+    }
+    // /api/admin/config succeeds for ANY authenticated user — it scopes tariffs
+    // down to one supplier for supplier accounts rather than rejecting them
+    // (see admin.py's is_supplier checks). doLogin()/verify-otp already reject
+    // non-admin roles at the login form itself, but a supplier's own cookie
+    // carried into a fresh admin.html tab/reload never touches that form —
+    // it goes straight through this function. Treat it exactly like "not
+    // logged in" rather than silently accepting it or redirecting elsewhere.
+    if(role!=='admin'){ _localSignOut('Your session was terminated — please sign in again.'); return; }
+
     _sessionActive=true;
     hideLogin();
+    showUserBadge(email);
     const cfg=await resp.json();
     suppliers=(cfg.suppliers||[]).map(s=>typeof s==='string'?{name:s}:s);
     profiles=cfg.profiles||[];
