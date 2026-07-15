@@ -1,6 +1,6 @@
 # CERA Tariff Comparison Tool — Administrator Manual
 
-**Version:** 1.1  
+**Version:** 1.2  
 **Date:** July 2026  
 **Prepared by:** Cyprus Energy Regulatory Authority  
 
@@ -56,6 +56,8 @@ http://<server-address>/admin.html
 ```
 
 You will be presented with a login overlay. Enter your CERA email address and password.
+
+**Verification code (2FA):** After a correct password, most accounts are prompted for a 6-digit verification code sent to your registered email address. Enter the code to complete sign-in. The code is valid for 10 minutes; if you don't receive it, you can request a new one after 2 minutes using the resend link. **Entering the wrong code 3 times locks your account for 3 hours**, the same as entering the wrong password 3 times — see [Section 14.1](#141-lockout-policy).
 
 **Session duration:** Sessions expire after 8 hours. You will be asked to log in again after this time.
 
@@ -354,7 +356,7 @@ Emails are sent via Microsoft Azure (Mail.Send) using CERA's existing Azure tena
 
 ### 14.1 Lockout policy
 
-To protect against unauthorised access, accounts are automatically locked after **3 consecutive failed login attempts**. The lockout lasts **3 hours**.
+To protect against unauthorised access, accounts are automatically locked after **3 consecutive failed attempts** — this covers both a wrong password **and** a wrong 6-digit verification code at the 2FA step (see [Section 2](#2-accessing-the-admin-panel)), since guessing the code without a limit would otherwise be a way around the password check. The lockout lasts **3 hours**.
 
 When an account is locked:
 - The affected user receives an email notification immediately
@@ -533,4 +535,4 @@ If the page loads, the server is running. If not, start it using `start.bat`.
 
 ---
 
-*This document covers version 1.1 of the CERA Tariff Comparison Tool. For technical support or to report issues, contact the system administrator.*
+*This document covers version 1.2 of the CERA Tariff Comparison Tool. For technical support or to report issues, contact the system administrator.*
