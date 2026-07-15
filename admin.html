@@ -4851,13 +4851,14 @@ function loadSnapshot(){
 /* ── Auth helpers ── */
 const _adminApiBase=window.location.protocol==='file:'?'http://localhost:8000':'';
 
-function getToken(){return sessionStorage.getItem('cera_admin_token');}
+// Session lives in an httpOnly cookie (set by the server) — the browser
+// attaches it to same-origin fetches automatically, so there is no token
+// for JS to read or send explicitly. _sessionActive just tracks whether
+// the last known API call succeeded, for UI state (idle timer, badge).
+let _sessionActive=false;
 
 function authHeaders(extra){
-  const h={'Content-Type':'application/json',...(extra||{})};
-  const t=getToken();
-  if(t) h['Authorization']='Bearer '+t;
-  return h;
+  return {'Content-Type':'application/json',...(extra||{})};
 }
 
 function _isStrongPassword(pw){
@@ -4905,7 +4906,6 @@ async function doUpdatePasswordExpired(){
     });
     const data=await resp.json().catch(()=>({}));
     if(resp.ok){
-      if(data.access_token) sessionStorage.setItem('cera_admin_token',data.access_token);
       document.getElementById('pwx-cur-pw').value='';
       document.getElementById('pwx-new-pw').value='';
       document.getElementById('pwx-confirm-pw').value='';
@@ -4967,7 +4967,7 @@ const IDLE_TIMEOUT_MS=15*60*1000, IDLE_WARNING_LEAD_MS=60*1000;
 let _idleWarnTimer=null, _idleCountdownInterval=null, _idleWarningShown=false;
 
 function _isLoggedIn(){
-  return !!getToken() && document.getElementById('login-overlay').classList.contains('hidden');
+  return _sessionActive && document.getElementById('login-overlay').classList.contains('hidden');
 }
 
 function _clearIdleTimers(){
@@ -5072,7 +5072,6 @@ async function doLogin(){
     }
     // Direct login (no 2FA path — kept for forward compatibility)
     if(data.role!=='admin'){errEl.textContent='Access denied — this portal is for CERA administrators only.';btn.disabled=false;btn.textContent=T('BTN_SIGNIN');return;}
-    sessionStorage.setItem('cera_admin_token',data.access_token);
     sessionStorage.setItem('cera_admin_email',data.email);
     sessionStorage.setItem('cera_admin_role',data.role);
     showUserBadge(data.email);
@@ -5100,7 +5099,6 @@ async function doVerifyOtp(){
     const data=await resp.json().catch(()=>({}));
     if(!resp.ok){errEl.textContent=data.detail||'Verification failed.';btn.disabled=false;btn.textContent=T('OTP_BTN');return;}
     if(data.role!=='admin'){errEl.textContent='Access denied — this portal is for CERA administrators only.';btn.disabled=false;btn.textContent=T('OTP_BTN');return;}
-    sessionStorage.setItem('cera_admin_token',data.access_token);
     sessionStorage.setItem('cera_admin_email',data.email);
     sessionStorage.setItem('cera_admin_role',data.role);
     showUserBadge(data.email);
@@ -5136,7 +5134,12 @@ async function doResendOtp(){
 }
 
 function doLogout(msg){
-  sessionStorage.removeItem('cera_admin_token');
+  fetch(_adminApiBase+'/api/auth/logout',{method:'POST'}).catch(()=>{});
+  _localSignOut(msg);
+}
+
+function _localSignOut(msg){
+  _sessionActive=false;
   sessionStorage.removeItem('cera_admin_email');
   sessionStorage.removeItem('cera_admin_role');
   document.getElementById('user-badge').style.display='none';
@@ -5156,8 +5159,10 @@ document.getElementById('login-email').addEventListener('keydown',e=>{if(e.key==
 async function loadConfig(){
   try{
     const resp=await fetch(_adminApiBase+'/api/admin/config',{headers:authHeaders()});
-    if(resp.status===401){showLogin('Session expired — please sign in again.');return;}
+    if(resp.status===401){_localSignOut('Session expired — please sign in again.');return;}
     if(!resp.ok) throw new Error('HTTP '+resp.status);
+    _sessionActive=true;
+    hideLogin();
     const cfg=await resp.json();
     suppliers=(cfg.suppliers||[]).map(s=>typeof s==='string'?{name:s}:s);
     profiles=cfg.profiles||[];
@@ -5184,19 +5189,17 @@ async function loadConfig(){
   buildDashboard();
 }
 
-// On page load: if we have a stored token, try loading immediately; otherwise show login
+// On page load: the session lives in an httpOnly cookie we can't read from
+// JS, so we can't synchronously know whether we're logged in. Optimistically
+// ask the API for the config; loadConfig() itself shows/hides the login
+// overlay depending on whether the cookie is still valid (401 vs 200).
 (function init(){
   renderPage(); // apply stored language preference before anything else
   const storedEmail=sessionStorage.getItem('cera_admin_email');
   if(storedEmail) showUserBadge(storedEmail);
-  if(getToken()){
-    hideLogin();
-    loadConfig();
-  }else{
-    showLogin();
-    // render empty UI so the page isn't blank behind the overlay
-    renderSuppliers();renderProfiles();renderTariffs();
-  }
+  // render empty UI so the page isn't blank behind the login overlay while we check
+  renderSuppliers();renderProfiles();renderTariffs();
+  loadConfig();
 })();
 </script>
 <!-- Tariff review modal -->
@@ -5448,7 +5451,6 @@ async function doUpdatePassword(){
     });
     const data=await resp.json().catch(()=>({}));
     if(resp.ok){
-      if(data.access_token) sessionStorage.setItem('cera_admin_token',data.access_token);
       document.getElementById('acct-cur-pw').value='';
       document.getElementById('acct-new-pw').value='';
       document.getElementById('acct-confirm-pw').value='';

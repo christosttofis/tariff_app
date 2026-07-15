@@ -799,14 +799,16 @@ function renderPage(){
 // ── Auth ──────────────────────────────────────────────────────────────────────
 const _base = window.location.protocol === 'file:' ? 'http://localhost:8000' : '';
 
-function getToken(){ return sessionStorage.getItem('cera_sup_token'); }
 function getRole(){  return sessionStorage.getItem('cera_sup_role');  }
 
+// Session lives in an httpOnly cookie (set by the server) — the browser
+// attaches it to same-origin fetches automatically, so there is no token
+// for JS to read or send explicitly. _sessionActive just tracks whether
+// the last known API call succeeded, for UI state (idle timer).
+let _sessionActive = false;
+
 function authHeaders(){
-  const h = {'Content-Type':'application/json'};
-  const t = getToken();
-  if(t) h['Authorization'] = 'Bearer ' + t;
-  return h;
+  return {'Content-Type':'application/json'};
 }
 
 function _isStrongPassword(pw){
@@ -854,7 +856,6 @@ async function doUpdatePasswordExpired(){
     });
     const data=await resp.json().catch(()=>({}));
     if(resp.ok){
-      if(data.access_token) sessionStorage.setItem('cera_sup_token',data.access_token);
       document.getElementById('pwx-cur-pw').value='';
       document.getElementById('pwx-new-pw').value='';
       document.getElementById('pwx-confirm-pw').value='';
@@ -949,7 +950,7 @@ const IDLE_TIMEOUT_MS = 15*60*1000, IDLE_WARNING_LEAD_MS = 60*1000;
 let _idleWarnTimer = null, _idleCountdownInterval = null, _idleWarningShown = false;
 
 function _isLoggedIn(){
-  return !!getToken() && document.getElementById('login-overlay').classList.contains('hidden');
+  return _sessionActive && document.getElementById('login-overlay').classList.contains('hidden');
 }
 
 function _clearIdleTimers(){
@@ -1023,7 +1024,6 @@ async function doLogin(){
     if(data.role !== 'supplier' && data.role !== 'admin'){
       errEl.textContent = T('ERR_SUPPLIER_ONLY'); btn.disabled = false; btn.textContent = T('LOGIN_BTN'); return;
     }
-    sessionStorage.setItem('cera_sup_token',    data.access_token);
     sessionStorage.setItem('cera_sup_email',    data.email);
     sessionStorage.setItem('cera_sup_role',     data.role);
     sessionStorage.setItem('cera_sup_supplier', data.supplier || '');
@@ -1052,7 +1052,6 @@ async function doVerifyOtp(){
     if(data.role !== 'supplier' && data.role !== 'admin'){
       errEl.textContent = T('ERR_SUPPLIER_ONLY'); btn.disabled = false; btn.textContent = T('OTP_BTN'); return;
     }
-    sessionStorage.setItem('cera_sup_token',    data.access_token);
     sessionStorage.setItem('cera_sup_email',    data.email);
     sessionStorage.setItem('cera_sup_role',     data.role);
     sessionStorage.setItem('cera_sup_supplier', data.supplier || '');
@@ -1086,7 +1085,13 @@ async function doResendOtp(){
 }
 
 function doLogout(msg){
-  ['cera_sup_token','cera_sup_email','cera_sup_role','cera_sup_supplier'].forEach(k => sessionStorage.removeItem(k));
+  fetch(_base + '/api/auth/logout', {method:'POST'}).catch(()=>{});
+  _localSignOut(msg);
+}
+
+function _localSignOut(msg){
+  _sessionActive = false;
+  ['cera_sup_email','cera_sup_role','cera_sup_supplier'].forEach(k => sessionStorage.removeItem(k));
   showLogin(msg);
 }
 
@@ -1152,8 +1157,10 @@ function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,
 // ── API calls ──────────────────────────────────────────────────────────────────
 async function loadTariffs(){
   const resp = await fetch(_base + '/api/admin/tariffs', {headers: authHeaders()});
-  if(resp.status === 401){ showLogin(T('ERR_SESSION_EXPIRED')); return; }
+  if(resp.status === 401){ _localSignOut(T('ERR_SESSION_EXPIRED')); return; }
   if(!resp.ok) throw new Error('HTTP ' + resp.status);
+  _sessionActive = true;
+  hideLogin();
   tariffs = await resp.json();
   renderTariffs();
 }
@@ -1170,7 +1177,7 @@ async function loadProfiles(){
 async function deleteTariff(id, name){
   if(!confirm(T('CONFIRM_DELETE').replace('{name}',name))) return;
   const resp = await fetch(_base + '/api/admin/tariffs/' + encodeURIComponent(id), {method:'DELETE', headers: authHeaders()});
-  if(resp.status === 401){ showLogin(T('ERR_SESSION_EXPIRED_SHORT')); return; }
+  if(resp.status === 401){ _localSignOut(T('ERR_SESSION_EXPIRED_SHORT')); return; }
   if(!resp.ok){ alert(T('ERR_DELETE_FAILED')); return; }
   tariffs = tariffs.filter(t => t.id !== id);
   renderTariffs();
@@ -1342,7 +1349,7 @@ async function submitForm(){
     const url    = _base + '/api/admin/tariffs' + (isEdit ? '/'+encodeURIComponent(body.id) : '');
     const method = isEdit ? 'PUT' : 'POST';
     const resp   = await fetch(url, {method, headers: authHeaders(), body: JSON.stringify(body)});
-    if(resp.status === 401){ showLogin(T('ERR_SESSION_EXPIRED_SHORT')); return; }
+    if(resp.status === 401){ _localSignOut(T('ERR_SESSION_EXPIRED_SHORT')); return; }
     const data   = await resp.json().catch(()=>({}));
     if(!resp.ok){ setFormStatus('err', data.detail || ('Error: HTTP ' + resp.status)); return; }
 
@@ -1358,10 +1365,8 @@ async function submitForm(){
     if(fileInput && fileInput.files.length > 0){
       const fd = new FormData();
       fd.append('file', fileInput.files[0]);
-      const token = getToken();
       const uploadResp = await fetch(_base + '/api/admin/tariffs/' + encodeURIComponent(data.id) + '/documents', {
         method: 'POST',
-        headers: token ? {'Authorization': 'Bearer ' + token} : {},
         body: fd,
       });
       if(!uploadResp.ok){
@@ -1611,19 +1616,17 @@ function closeMessagesModal(){
   document.getElementById('messages-overlay').style.display = 'none';
 }
 
+// The session lives in an httpOnly cookie we can't read from JS, so we can't
+// synchronously know whether we're logged in. Optimistically call initApp();
+// loadTariffs() shows/hides the login overlay depending on whether the
+// cookie is still valid (401 vs 200).
 (function boot(){
   renderPage();
-  const token = getToken();
-  if(token){
-    const email    = sessionStorage.getItem('cera_sup_email')    || '';
-    const role     = sessionStorage.getItem('cera_sup_role')     || '';
-    const supplier = sessionStorage.getItem('cera_sup_supplier') || '';
-    if(role !== 'supplier' && role !== 'admin'){ showLogin(); return; }
-    hideLogin();
-    initApp({access_token: token, email, role, supplier});
-  } else {
-    showLogin();
-  }
+  const email    = sessionStorage.getItem('cera_sup_email')    || '';
+  const role     = sessionStorage.getItem('cera_sup_role')     || '';
+  const supplier = sessionStorage.getItem('cera_sup_supplier') || '';
+  if(role && role !== 'supplier' && role !== 'admin'){ showLogin(); return; }
+  initApp({email, role, supplier});
 })();
 </script>
 
@@ -1763,7 +1766,6 @@ async function doUpdatePassword(){
     });
     const data = await resp.json().catch(()=>({}));
     if(resp.ok){
-      if(data.access_token) sessionStorage.setItem('cera_sup_token', data.access_token);
       document.getElementById('acct-cur-pw').value = '';
       document.getElementById('acct-new-pw').value = '';
       document.getElementById('acct-confirm-pw').value = '';
@@ -1842,12 +1844,10 @@ async function uploadDocModal(){
   if(!fi.files.length){ msgEl.textContent = T('DOCS_PICK_FILE'); msgEl.style.color='var(--red)'; return; }
   const fd = new FormData();
   fd.append('file', fi.files[0]);
-  const token = getToken();
   msgEl.textContent = T('DOCS_UPLOADING'); msgEl.style.color='var(--text3)';
   try{
     const resp = await fetch(_base + '/api/admin/tariffs/' + encodeURIComponent(_docsTargetId) + '/documents', {
       method: 'POST',
-      headers: token ? {'Authorization': 'Bearer ' + token} : {},
       body: fd,
     });
     const data = await resp.json().catch(()=>({}));

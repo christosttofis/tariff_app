@@ -21,8 +21,7 @@ from datetime import datetime, timedelta, timezone
 
 import bcrypt
 import jwt
-from fastapi import Depends, HTTPException, Request, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
 import email_utils
@@ -47,6 +46,13 @@ SECRET_KEY = os.getenv(
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_HOURS = 8
 OTP_EXPIRE_MINUTES = 10
+
+# The session JWT lives in an httpOnly cookie so it's never exposed to JS (and
+# therefore can't be exfiltrated by an XSS payload) — no Max-Age is set, so
+# it's a browser-session cookie, matching the old sessionStorage-based
+# lifetime (dies when the browser closes; the 8h server-side exp is the hard
+# cap regardless).
+ACCESS_COOKIE_NAME = "cera_access_token"
 
 # ── Password hashing ──────────────────────────────────────────────────────────
 
@@ -128,6 +134,21 @@ def create_token(user: models.User) -> str:
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
+def set_auth_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key=ACCESS_COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=True,
+        samesite="strict",
+        path="/",
+    )
+
+
+def clear_auth_cookie(response: Response) -> None:
+    response.delete_cookie(key=ACCESS_COOKIE_NAME, path="/")
+
+
 def create_pending_token(email: str) -> str:
     """Short-lived token issued after password check, before OTP verification.
     Carries purpose='otp' so get_current_user rejects it for normal API calls."""
@@ -154,9 +175,6 @@ def decode_pending_token(token: str) -> str:
 
 # ── Current-user dependency ───────────────────────────────────────────────────
 
-_bearer = HTTPBearer()
-
-
 class CurrentUser:
     def __init__(self, id: int, email: str, role: str, supplier_name: str | None):
         self.id = id
@@ -175,10 +193,11 @@ class CurrentUser:
 
 def get_current_user(
     request: Request,
-    credentials: HTTPAuthorizationCredentials = Depends(_bearer),
     db: Session = Depends(get_db),
 ) -> CurrentUser:
-    token = credentials.credentials
+    token = request.cookies.get(ACCESS_COOKIE_NAME)
+    if not token:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not authenticated")
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except jwt.ExpiredSignatureError:

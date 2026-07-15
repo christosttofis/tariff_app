@@ -4,15 +4,16 @@ import os
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 import email_utils
 import models
 from auth import (
-    CurrentUser, check_password_reuse, create_pending_token, create_token, decode_pending_token,
-    get_current_user, record_password_change, validate_password_strength, verify_password,
+    CurrentUser, check_password_reuse, clear_auth_cookie, create_pending_token, create_token,
+    decode_pending_token, get_current_user, record_password_change, set_auth_cookie,
+    validate_password_strength, verify_password,
 )
 from database import get_db
 
@@ -69,8 +70,8 @@ class UpdatePasswordIn(BaseModel):
     new_password: str
 
 
-@router.post("/login", summary="Exchange email + password for a JWT bearer token")
-def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
+@router.post("/login", summary="Exchange email + password for a session cookie")
+def login(body: LoginIn, request: Request, response: Response, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == body.email).first()
     now = datetime.now(timezone.utc)
 
@@ -127,9 +128,8 @@ def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
     # Skip OTP entirely if disabled for this user (e.g. during testing)
     if not (user.otp_enabled if user.otp_enabled is not None else True):
         _log_login(db, request, email=user.email, user_id=user.id, success=True, reason="password_only")
+        set_auth_cookie(response, create_token(user))
         return {
-            "access_token": create_token(user),
-            "token_type": "bearer",
             "role": user.role,
             "supplier": user.supplier_name,
             "email": user.email,
@@ -150,8 +150,8 @@ def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
     }
 
 
-@router.post("/verify-otp", summary="Verify OTP code and exchange for a full JWT")
-def verify_otp(body: VerifyOtpIn, request: Request, db: Session = Depends(get_db)):
+@router.post("/verify-otp", summary="Verify OTP code and exchange for a session cookie")
+def verify_otp(body: VerifyOtpIn, request: Request, response: Response, db: Session = Depends(get_db)):
     email = decode_pending_token(body.pending_token)
     now_dt = datetime.now(timezone.utc)
     now = now_dt.isoformat()
@@ -211,13 +211,18 @@ def verify_otp(body: VerifyOtpIn, request: Request, db: Session = Depends(get_db
 
     _log_login(db, request, email=user.email, user_id=user.id, success=True, reason="otp_verified")
 
+    set_auth_cookie(response, create_token(user))
     return {
-        "access_token": create_token(user),
-        "token_type": "bearer",
         "role": user.role,
         "supplier": user.supplier_name,
         "email": user.email,
     }
+
+
+@router.post("/logout", summary="Clear the session cookie")
+def logout(response: Response):
+    clear_auth_cookie(response)
+    return {"message": "Signed out."}
 
 
 _OTP_RESEND_COOLDOWN_SECONDS = 120  # 2 minutes
@@ -317,6 +322,7 @@ def update_email(
 @router.put("/password", summary="Update the current user's password")
 def update_password(
     body: UpdatePasswordIn,
+    response: Response,
     db: Session = Depends(get_db),
     current: CurrentUser = Depends(get_current_user),
 ):
@@ -328,4 +334,5 @@ def update_password(
     record_password_change(db, user, body.new_password)
     # Changing the password invalidates old tokens (see auth.get_current_user's
     # iat check) — issue a fresh one so the current session isn't kicked out.
-    return {"message": "Password updated.", "access_token": create_token(user)}
+    set_auth_cookie(response, create_token(user))
+    return {"message": "Password updated."}
