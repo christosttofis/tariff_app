@@ -7,6 +7,7 @@ registration with Mail.Send application permission granted by an admin.
 No passwords — only the client secret from the Azure app registration.
 """
 
+import html
 import logging
 import os
 import threading
@@ -15,6 +16,14 @@ import msal
 import requests
 
 logger = logging.getLogger(__name__)
+
+
+def _esc(v) -> str:
+    """HTML-escape a value before interpolating it into an email body — tariff
+    names, supplier names, and rejection reasons are all user-controlled and
+    would otherwise let a supplier inject markup/links into an HTML email
+    rendered in someone else's mail client (admin or supplier)."""
+    return html.escape(str(v), quote=True)
 
 TENANT_ID     = os.getenv("AZURE_TENANT_ID", "")
 CLIENT_ID     = os.getenv("AZURE_CLIENT_ID", "")
@@ -180,7 +189,7 @@ def notify_admin_new_tariff(tariff_name: str, supplier: str) -> None:
         return
     body = (
         f'<p style="margin:0 0 12px;{_FONT}">A new tariff has been submitted and is awaiting your review.</p>'
-        + _detail_table(_row("Tariff", f"<strong>{tariff_name}</strong>") + _row("Supplier", supplier))
+        + _detail_table(_row("Tariff", f"<strong>{_esc(tariff_name)}</strong>") + _row("Supplier", _esc(supplier)))
         + _btn(f"{BASE_URL}/admin.html", "Open Admin Panel")
     )
     _send_bg([ADMIN_TO],
@@ -193,7 +202,7 @@ def notify_admin_resubmit(tariff_name: str, supplier: str) -> None:
         return
     body = (
         f'<p style="margin:0 0 12px;{_FONT}">A tariff has been edited and resubmitted. It requires re-approval before going live.</p>'
-        + _detail_table(_row("Tariff", f"<strong>{tariff_name}</strong>") + _row("Supplier", supplier))
+        + _detail_table(_row("Tariff", f"<strong>{_esc(tariff_name)}</strong>") + _row("Supplier", _esc(supplier)))
         + _btn(f"{BASE_URL}/admin.html", "Review in Admin Panel")
     )
     _send_bg([ADMIN_TO],
@@ -208,7 +217,7 @@ def notify_supplier_approved(to_emails: list[str], tariff_name: str, supplier: s
         f'<p style="margin:0 0 12px;{_FONT}">Your tariff has been reviewed and '
         f'<strong style="color:#2f6f4e">approved</strong>. '
         f'It is now live on the CERA electricity tariff comparison tool.</p>'
-        + _detail_table(_row("Tariff", f"<strong>{tariff_name}</strong>") + _row("Supplier", supplier))
+        + _detail_table(_row("Tariff", f"<strong>{_esc(tariff_name)}</strong>") + _row("Supplier", _esc(supplier)))
         + _btn(f"{BASE_URL}/supplier.html", "View in Supplier Portal")
     )
     _send_bg(to_emails,
@@ -219,9 +228,9 @@ def notify_supplier_approved(to_emails: list[str], tariff_name: str, supplier: s
 def notify_supplier_rejected(to_emails: list[str], tariff_name: str, supplier: str, reason: str = "") -> None:
     if not to_emails:
         return
-    rows = _row("Tariff", f"<strong>{tariff_name}</strong>") + _row("Supplier", supplier)
+    rows = _row("Tariff", f"<strong>{_esc(tariff_name)}</strong>") + _row("Supplier", _esc(supplier))
     if reason:
-        rows += _row("Reason", reason)
+        rows += _row("Reason", _esc(reason))
     body = (
         f'<p style="margin:0 0 12px;{_FONT}">Your tariff has been reviewed and was '
         f'<strong style="color:#a6403a">not approved</strong> at this time.</p>'
@@ -315,7 +324,7 @@ def notify_password_expiring(to_email: str, days_left: int, role: str = "supplie
 def notify_supplier_invite(to_email: str, supplier_name: str, invite_url: str) -> None:
     body = (
         f'<p style="margin:0 0 12px;{_FONT}">You have been invited to manage tariffs for '
-        f'<strong>{supplier_name}</strong> on the Cyprus Energy Regulatory Authority '
+        f'<strong>{_esc(supplier_name)}</strong> on the Cyprus Energy Regulatory Authority '
         f'Tariff Comparison Tool.</p>'
         f'<p style="margin:0 0 12px;{_FONT}">Click the button below to set up your password '
         f'and activate your account. This link is valid for <strong>7 days</strong>.</p>'

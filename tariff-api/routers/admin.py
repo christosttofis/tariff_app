@@ -145,7 +145,10 @@ def get_admin_config(
     regulated = db.query(models.Regulated).first()
     dam       = db.query(models.DamData).first()
     notices   = db.query(models.Notices).first()
-    changelog = db.query(models.Changelog).order_by(models.Changelog.ts.desc()).all()
+    cq = db.query(models.Changelog)
+    if user.is_supplier:
+        cq = cq.filter(models.Changelog.supplier == user.supplier_name)
+    changelog = cq.order_by(models.Changelog.ts.desc()).all()
 
     tariff_ids = [t.id for t in tariffs]
     doc_tariff_ids = [
@@ -358,8 +361,8 @@ def update_tariff_status(
 
 # ── Suppliers (admin only) ────────────────────────────────────────────────────
 
-@router.get("/suppliers", summary="List all suppliers")
-def list_suppliers(db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+@router.get("/suppliers", summary="List all suppliers (admin only)")
+def list_suppliers(db: Session = Depends(get_db), user: CurrentUser = Depends(require_admin)):
     return [supplier_to_dict(s) for s in db.query(models.Supplier).all()]
 
 
@@ -487,7 +490,6 @@ def download_document(
         path=str(file_path),
         filename=doc.original_name,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{doc.original_name}"'},
     )
 
 
@@ -1049,12 +1051,15 @@ def update_dam(body: DamIn, db: Session = Depends(get_db), user: CurrentUser = D
 
 # ── Changelog ─────────────────────────────────────────────────────────────────
 
-@router.get("/changelog", summary="Full changelog, newest first")
+@router.get("/changelog", summary="Full changelog for admins, own-supplier changelog for suppliers")
 def get_changelog(db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    q = db.query(models.Changelog)
+    if user.is_supplier:
+        q = q.filter(models.Changelog.supplier == user.supplier_name)
     return [
         {"id": c.id, "tariffId": c.tariffId, "tariffName": c.tariffName,
          "supplier": c.supplier, "action": c.action,
          "changes": json.loads(c.changes) if c.changes else [], "ts": c.ts,
          "actorRole": c.actorRole, "actorEmail": c.actorEmail}
-        for c in db.query(models.Changelog).order_by(models.Changelog.ts.desc()).all()
+        for c in q.order_by(models.Changelog.ts.desc()).all()
     ]

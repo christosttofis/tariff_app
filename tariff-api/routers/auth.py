@@ -153,7 +153,29 @@ def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
 @router.post("/verify-otp", summary="Verify OTP code and exchange for a full JWT")
 def verify_otp(body: VerifyOtpIn, request: Request, db: Session = Depends(get_db)):
     email = decode_pending_token(body.pending_token)
-    now = datetime.now(timezone.utc).isoformat()
+    now_dt = datetime.now(timezone.utc)
+    now = now_dt.isoformat()
+
+    user = db.query(models.User).filter(models.User.email == email, models.User.is_active == True).first()
+    if not user:
+        _log_login(db, request, email=email, user_id=None, success=False, reason="user_not_found")
+        raise HTTPException(401, "User not found or deactivated.")
+
+    # Reuse the same failed_attempts/locked_until fields as password login — a
+    # correct password already resets them to 0 before OTP starts, so guessing
+    # the 6-digit code is bounded by the same lockout, not left uncapped.
+    if user.locked_until:
+        locked_until = datetime.fromisoformat(user.locked_until)
+        if now_dt < locked_until:
+            _log_login(db, request, email=email, user_id=user.id, success=False, reason="locked")
+            raise HTTPException(
+                429,
+                "Account locked due to too many failed attempts. "
+                "Please try again later or contact your CERA administrator."
+            )
+        user.failed_attempts = 0
+        user.locked_until = None
+        db.commit()
 
     rec = (
         db.query(models.OtpCode)
@@ -162,16 +184,30 @@ def verify_otp(body: VerifyOtpIn, request: Request, db: Session = Depends(get_db
         .first()
     )
     if not rec or rec.expires_at < now or rec.code != body.code.strip():
-        _log_login(db, request, email=email, user_id=None, success=False, reason="bad_otp")
-        raise HTTPException(401, "Invalid or expired verification code.")
+        user.failed_attempts = (user.failed_attempts or 0) + 1
+        if user.failed_attempts >= _MAX_ATTEMPTS:
+            user.locked_until = (now_dt + timedelta(minutes=_LOCKOUT_MINUTES)).isoformat()
+            db.commit()
+            email_utils.notify_account_locked(user.email, _LOCKOUT_MINUTES, user.role)
+            _log_login(db, request, email=email, user_id=user.id, success=False, reason="locked_out")
+            raise HTTPException(
+                429,
+                "Account locked due to too many failed attempts. "
+                "Please try again later or contact your CERA administrator."
+            )
+        remaining = _MAX_ATTEMPTS - user.failed_attempts
+        db.commit()
+        _log_login(db, request, email=email, user_id=user.id, success=False, reason="bad_otp")
+        raise HTTPException(
+            401,
+            f"Invalid or expired verification code. "
+            f"{remaining} attempt(s) remaining before your account is locked."
+        )
 
     rec.used = True
+    user.failed_attempts = 0
+    user.locked_until = None
     db.commit()
-
-    user = db.query(models.User).filter(models.User.email == email, models.User.is_active == True).first()
-    if not user:
-        _log_login(db, request, email=email, user_id=None, success=False, reason="user_not_found")
-        raise HTTPException(401, "User not found or deactivated.")
 
     _log_login(db, request, email=user.email, user_id=user.id, success=True, reason="otp_verified")
 
