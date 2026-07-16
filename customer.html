@@ -45,6 +45,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 /* Customer type tabs */
 .ctype-tabs{display:flex;gap:0;margin-bottom:20px;border:1px solid var(--border);border-radius:2px;overflow:hidden;width:fit-content}
 .ctype-tab{padding:10px 28px;font-size:14px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text2);font-family:var(--font);transition:all .12s}
+.conn-card .ctype-tabs{margin-bottom:12px}
+.conn-card .ctype-tab{padding:7px 24px}
 .ctype-tab.active{background:var(--accent);color:#fff}
 .ctype-tab:not(.active):hover{background:var(--bg3);color:var(--text)}
 /* Load entitlement radio */
@@ -79,19 +81,17 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .fbadge{font-size:11px;padding:3px 9px;border-radius:2px;font-family:var(--mono);background:var(--bg3);border:1px solid var(--border2);color:var(--text2)}
 .ranked-list{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
 .rank-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);transition:box-shadow .15s}
-.rank-card.rank-1{border-color:var(--accent2);box-shadow:0 0 0 1.5px var(--accent2)}
-.rank-header{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;cursor:pointer;user-select:none}
+.rank-header{display:flex;align-items:stretch;gap:12px;padding:14px 16px;cursor:pointer;user-select:none}
 .rank-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;font-family:var(--mono);flex-shrink:0;margin-top:2px}
-.rank-1 .rank-num{background:var(--accent2);color:#fff}
-.rank-card:not(.rank-1) .rank-num{background:var(--bg3);color:var(--text2);border:1px solid var(--border2)}
-.rank-info{flex:1;min-width:0}
+.rank-num{background:var(--bg3);color:var(--text2);border:1px solid var(--border2)}
+.rank-info{flex:1;min-width:0;display:flex;flex-direction:column}
 .rank-supplier{font-size:15px;font-weight:600;font-family:var(--font);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
 .rank-name{font-size:14px;font-weight:600;font-family:var(--font);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rank-name-row{display:flex;align-items:baseline;gap:8px;min-width:0}
 .rank-name-row .rank-name{flex-shrink:1}
 .rank-sup-dash{font-size:14px;font-weight:600;font-family:var(--font);color:var(--text3);flex-shrink:0}
-.rank-sup-pill{font-size:14px;font-weight:600;font-family:var(--font);color:var(--accent);background:var(--accent-light,rgba(37,99,235,.08));border:1px solid var(--border2);border-radius:4px;padding:1px 9px;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:background .12s,border-color .12s}
-.rank-sup-pill:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.rank-sup-pill{display:inline-block;font-size:14px;font-weight:600;font-family:var(--font);color:var(--accent);cursor:pointer;white-space:nowrap;flex-shrink:0;text-decoration:underline dotted;text-underline-offset:3px;transition:color .12s,text-decoration-color .12s,transform .15s ease}
+.rank-sup-pill:hover{color:var(--accent-deep);text-decoration-style:solid;transform:translateY(-1px)}
 .rank-meta{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;align-items:center}
 .badge{display:inline-block;font-size:11px;padding:2px 7px;border-radius:2px;font-family:var(--mono);font-weight:500}
 .badge-sup{background:rgba(139,92,246,.12);color:#7c3aed}
@@ -101,15 +101,14 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .badge-Variable{background:#f0fdfa;color:#0d9488;border:1px solid #99f6e4}
 .badge-prof{background:rgba(16,185,129,.1);color:#047857;font-size:11px;padding:2px 6px;border-radius:2px;font-family:var(--mono)}
 .badge-fallback{background:rgba(245,158,11,.1);color:#92400e;font-size:11px;padding:2px 6px;border-radius:2px;font-family:var(--mono)}
-.best-tag{font-size:11px;font-weight:600;padding:2px 8px;border-radius:2px;background:var(--accent2);color:#fff;margin-left:6px;vertical-align:middle}
 .rank-cost-col{flex-shrink:0;width:265px;border-left:1px solid var(--border);padding-left:14px;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
 .rank-annual-val{font-size:22px;font-weight:600;font-family:var(--mono);text-align:right;color:var(--accent)}
 .rank-annual-lbl{font-size:11px;color:var(--text3);font-family:var(--mono);text-align:right}
-.rank-toggle{color:var(--text3);font-size:12px;transition:transform .2s;margin-top:auto;padding-top:8px;align-self:flex-end}
+.rank-toggle{display:inline-block;color:var(--text3);font-size:11px;transition:transform .2s;margin-left:6px;vertical-align:middle}
 .rank-toggle.open{transform:rotate(180deg)}
-.rank-detail{display:grid;grid-template-rows:0fr;transition:grid-template-rows .32s cubic-bezier(.4,0,.2,1)}
+.rank-detail{display:grid;grid-template-rows:0fr;transition:grid-template-rows .55s cubic-bezier(.4,0,.2,1)}
 .rank-detail.open{grid-template-rows:1fr}
-.rank-detail-inner{overflow:hidden;min-height:0;opacity:0;transition:opacity .25s ease .04s}
+.rank-detail-inner{overflow:hidden;min-height:0;opacity:0;transition:opacity .4s ease .06s}
 .rank-detail.open .rank-detail-inner{opacity:1}
 .rank-detail-pad{padding:16px;border-top:1px solid var(--border)}
 @keyframes cardIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
@@ -233,6 +232,8 @@ body{
 .card{padding:22px 24px;margin-bottom:16px;border-color:var(--border);box-shadow:var(--shadow)}
 .card-title{font-size:11px;letter-spacing:.14em;color:var(--accent);
   padding-bottom:10px;margin-bottom:18px;border-bottom:1px solid var(--border)}
+.conn-card{padding:16px 20px;margin-bottom:12px}
+.conn-card .card-title{padding-bottom:6px}
 
 /* Segmented controls — premium */
 .ctype-tabs,.mode-toggle{border-color:var(--border);border-radius:10px;background:var(--bg3);padding:3px;gap:3px;box-shadow:inset 0 1px 2px rgba(16,33,55,.04)}
@@ -263,16 +264,12 @@ body{
 .ranked-list{gap:12px}
 .rank-card{border-color:var(--border);box-shadow:var(--shadow);transition:box-shadow .18s ease,transform .18s ease,border-color .18s ease}
 .rank-card:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
-.rank-card.rank-1{border-color:var(--accent2);box-shadow:0 0 0 1px var(--accent2),0 8px 24px rgba(176,108,44,.16)}
-.rank-card.rank-1::before{content:"";display:block;height:3px;background:linear-gradient(90deg,var(--accent2),var(--accent2-deep))}
 .rank-header{padding:16px 18px;gap:14px}
 .rank-num{width:30px;height:30px;font-size:12px}
-.rank-card.rank-1 .rank-num{box-shadow:0 2px 8px rgba(176,108,44,.35)}
 .rank-name{font-size:15px;letter-spacing:-.005em}
 .rank-sup-pill{font-size:15px;letter-spacing:-.005em}
 .rank-sup-dash{font-size:15px}
 .rank-annual-val{font-size:25px;letter-spacing:-.01em}
-.best-tag{background:var(--accent2);border-radius:999px;letter-spacing:.04em;padding:3px 9px}
 
 /* Badges — consistent, crisp-but-soft */
 .badge{border-radius:var(--radius-sm);padding:3px 8px;font-weight:500}
@@ -346,10 +343,10 @@ body{
 .card-full,.cons-full{display:grid;grid-template-rows:1fr;transition:grid-template-rows .32s cubic-bezier(.4,0,.2,1)}
 .conn-card.collapsed>.card-full,.cons-card.collapsed .cons-full{grid-template-rows:0fr}
 .collapse-inner{overflow:hidden;min-height:0;transition:opacity .25s ease}
-.card-full .collapse-inner{padding-top:14px}
+.card-full .collapse-inner{padding-top:8px}
 .conn-card.collapsed>.card-full .collapse-inner,.cons-card.collapsed .cons-full .collapse-inner{opacity:0}
 @media (prefers-reduced-motion:reduce){.card-full,.cons-full,.collapse-inner{transition:none}}
-.collapse-toggle{margin-left:auto;flex-shrink:0;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);border-radius:6px;cursor:pointer;font-size:11px;line-height:1;transition:transform .25s ease,border-color .12s,color .12s}
+.collapse-toggle{margin-left:auto;flex-shrink:0;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);border-radius:6px;cursor:pointer;font-size:11px;line-height:1;transition:transform .25s ease,border-color .12s,color .12s}
 .cc-head:hover .collapse-toggle{border-color:var(--accent);color:var(--accent)}
 .conn-card:not(.collapsed) .collapse-toggle{transform:rotate(180deg)}
 .cons-toggle{margin-left:0}
@@ -636,12 +633,11 @@ const LANG = {
     HINT_ANNUAL: "As per CERA's Power supply rules - Chapter 7.1.7 (a) all power suppliers are obliged to send to each consumer, at least once a year, their total consumption for the previous year, and the expected consumption for the current year.",
     RESULTS_SUB_ANNUAL: "cheapest supplier cost first · annual · profile-distributed · {YEAR} calendar",
     RESULTS_SUB_MONTHLY: "cheapest bill first · {KWH} kWh per bill · {YEAR} calendar",
-    BADGE_BEST_PRICE: "BEST PRICE",
     LBL_STANDING: "/mo standing",
     LBL_NO_MIN: "No minimum period",
-    LBL_MIN_MONTHS: "{N}-month minimum",
+    LBL_MIN_MONTHS: "{N}-month-contract",
     LBL_NO_PROFILE: "no profile",
-    LBL_INCL_DISC: "Price incl. promotional discounts.<br>Expand to review conditions.",
+    LBL_INCL_DISC: "Price incl. promotional discounts. Expand to review conditions.",
     LBL_SUP_YEAR: "/ year",
     LBL_SUP_MONTH: "/ month",
     LBL_SUP_2MO: "/ 2 months",
@@ -816,12 +812,11 @@ const LANG = {
     HINT_ANNUAL: "Βάσει των Κανόνων Προμηθειας Ηλεκτρισμού Άρθρο 7.1.7 (α) της ΡΑΕΚ, όλοι οι προμηθευτές υποχρεούνται να ενημερώνουν τους πελάτες τους κατ' ελάχιστο μια φορά τον χρόνο, για την συνολική τους κατανάλωση κατά το προηγούμενο έτος καθώς επίσης και την εκτίμιση κατανάλωσης για το τρέχον έτος.",
     RESULTS_SUB_ANNUAL: "Φθηνότερος προμηθευτής πρώτα · Ετήσια · Κατανομή-προφίλ · {YEAR}",
     RESULTS_SUB_MONTHLY: "Φθηνότερος λογαριασμός πρώτα · {KWH} kWh ανά λογαριασμό · {YEAR}",
-    BADGE_BEST_PRICE: "ΠΙΟ ΣΥΜΦΕΡΟΥΣΑ",
     LBL_STANDING: "/μήνα πάγιο",
     LBL_NO_MIN: "Αορίστου χρόνου",
-    LBL_MIN_MONTHS: "{N} μήνες ελάχιστο",
+    LBL_MIN_MONTHS: "{N} μήνες συμβόλαιο",
     LBL_NO_PROFILE: "Χωρίς προφίλ",
-    LBL_INCL_DISC: "Τιμή με εκπτώσεις.<br>Αναπτύξτε για λεπτομέρειες.",
+    LBL_INCL_DISC: "Τιμή με εκπτώσεις. Αναπτύξτε για λεπτομέρειες.",
     LBL_SUP_YEAR: "/έτος",
     LBL_SUP_MONTH: "/μήνα",
     LBL_SUP_2MO: "/ 2 μήνες",
@@ -1974,7 +1969,6 @@ function applyFilters(){
             <div class="rank-name">${esc(t.name)}</div>
             <span class="rank-sup-dash">–</span>
             <span class="rank-sup-pill" data-supplier="${esc(t.supplier)}" onclick="event.stopPropagation();openSupContact(this.dataset.supplier)" title="${T('LBL_VIEW_CONTACT')}">${esc(t.supplier)}</span>
-            ${rank===0?`<span class="best-tag">${T('BADGE_BEST_PRICE')}</span>`:''}
           </div>
           <div class="rank-meta">
             <span class="badge badge-${t.pricing}">${pricingTag(t.pricing)}</span>
@@ -1982,21 +1976,18 @@ function applyFilters(){
             <span style="font-size:11px;color:var(--text3);font-family:var(--mono)">€${t.standing.toFixed(2)}${T('LBL_STANDING')}</span>
             ${t.vulnerable?`<span style="font-size:11px;padding:2px 7px;border-radius:2px;background:rgba(236,72,153,.12);color:#ec4899;font-family:var(--mono);font-weight:500">🛡 ${T('LBL_VULNERABLE_CHECK').split('/')[0].trim()}</span>`:''}
             ${t.durationMonths
-              ?`<span style="font-size:11px;padding:2px 7px;border-radius:2px;background:rgba(239,68,68,.1);color:#e11d48;font-family:var(--mono);font-weight:500">⏱ ${t.durationMonths}-month minimum</span>`
+              ?`<span style="font-size:11px;padding:2px 7px;border-radius:2px;background:rgba(239,68,68,.1);color:#e11d48;font-family:var(--mono);font-weight:500">⏱ ${T('LBL_MIN_MONTHS',{N:t.durationMonths})}</span>`
               :`<span style="font-size:11px;padding:2px 7px;border-radius:2px;background:var(--bg3);color:var(--text3);font-family:var(--mono)">${T('LBL_NO_MIN')}</span>`}
           </div>
+          ${fullBase&&fullBase>base?`<div style="font-size:11px;color:var(--green);font-family:var(--mono);margin-top:auto;padding-top:6px;line-height:1.5">*${T('LBL_INCL_DISC')}</div>`:''}
         </div>
         <div class="rank-cost-col">
           ${inputMode==='monthly'
-            ? `${fullBase&&fullBase>base?`<div style="font-size:13px;color:var(--text3);font-family:var(--mono);text-decoration:line-through">€${periodCost(fullBase).toFixed(2)}</div>`:''}
-          <div class="rank-annual-val" style="${fullBase&&fullBase>base?'color:var(--green)':''}">€${periodCost(base).toFixed(2)}${fullBase&&fullBase>base?'<sup style="font-size:11px">*</sup>':''}<span class="rank-annual-lbl" style="font-size:12px;margin-left:3px">${periodCostLabel()}</span></div>
+            ? `<div class="rank-annual-val" style="${fullBase&&fullBase>base?'color:var(--green)':''}">${fullBase&&fullBase>base?`<span style="font-size:13px;font-weight:400;color:var(--text3);text-decoration:line-through;margin-right:5px">€${periodCost(fullBase).toFixed(2)}</span>`:''}€${periodCost(base).toFixed(2)}${fullBase&&fullBase>base?'<sup style="font-size:11px">*</sup>':''}<span class="rank-annual-lbl" style="font-size:12px;margin-left:3px">${periodCostLabel()}</span><span class="rank-toggle ${isOpen?'open':''}">▼</span></div>
           <div style="font-size:13px;font-weight:500;font-family:var(--mono);color:var(--text3);text-align:right;margin-top:4px">≈ €${base.toFixed(0)}<span class="rank-annual-lbl" style="font-size:11px;margin-left:3px">${T('LBL_SUP_YEAR')}</span></div>`
-            : `${fullBase&&fullBase>base?`<div style="font-size:13px;color:var(--text3);font-family:var(--mono);text-decoration:line-through">€${fullBase.toFixed(0)}</div>`:''}
-          <div class="rank-annual-val" style="${fullBase&&fullBase>base?'color:var(--green)':''}">€${base.toFixed(0)}${fullBase&&fullBase>base?'<sup style="font-size:11px">*</sup>':''}<span class="rank-annual-lbl" style="font-size:12px;margin-left:3px">${T('LBL_SUP_YEAR')}</span></div>
+            : `<div class="rank-annual-val" style="${fullBase&&fullBase>base?'color:var(--green)':''}">${fullBase&&fullBase>base?`<span style="font-size:13px;font-weight:400;color:var(--text3);text-decoration:line-through;margin-right:5px">€${fullBase.toFixed(0)}</span>`:''}€${base.toFixed(0)}${fullBase&&fullBase>base?'<sup style="font-size:11px">*</sup>':''}<span class="rank-annual-lbl" style="font-size:12px;margin-left:3px">${T('LBL_SUP_YEAR')}</span><span class="rank-toggle ${isOpen?'open':''}">▼</span></div>
           <div style="font-size:13px;font-weight:500;font-family:var(--mono);color:var(--text3);text-align:right;margin-top:4px">€${(base/12).toFixed(2)}<span class="rank-annual-lbl" style="font-size:11px;margin-left:3px">${T('LBL_SUP_MONTH')}</span></div>`}
-          ${fullBase&&fullBase>base?`<div style="font-size:11px;color:var(--green);font-family:var(--mono);margin-top:3px;line-height:1.5;text-align:right">*${T('LBL_INCL_DISC')}</div>`:''}
           ${reg>0?`<div style="font-size:11px;color:#60a5fa;font-family:var(--mono);margin-top:3px;text-align:right">${T('LBL_INCL_REGULATED',{X:'€'+(inputMode==='monthly'?periodCost(reg):reg).toFixed(0)})} / ${T('LBL_WITHOUT_VAT')}</div>`:''}
-          <div class="rank-toggle ${isOpen?'open':''}">▼</div>
         </div>
       </div>
       <div class="rank-detail ${isOpen?'open':''}" id="rd-${t.id}">
