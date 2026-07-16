@@ -32,7 +32,7 @@ In Annual mode the customer enters one **annual kWh** figure. Each tariff's prof
 - Requires a profile — no profile means the tariff is excluded (`return null`).
 - For every **actual day** of the month (`dims[m]` days, leap-year aware for February), and every one of the 48 half-hourly slots that day:
   - Slot kWh = annual kWh × (that slot's HHFF value for the day's working/non-working shape) ÷ annual HHFF total (`annualHHFF`) — i.e. full-year normalisation, same as ToU.
-  - Slot's DAM price is looked up with this fallback order: **exact date + slot actual price** (`damDailyData`) → **that month's half-hourly slot average** (`damBySlot`) → **that month's flat DAM average** (`damMonthly`). If none exist for that month, the tariff is excluded for the whole calculation (`return null`).
+  - Slot's DAM price is looked up with this fallback order: **exact date + slot actual price** (`damDailyData`, current `CALC_YEAR`) → **the same date+slot one year earlier** (`CALC_YEAR-1`, same `damDailyData` bucket — daily data is bucketed by calendar month only, not year, so prior-year dates live in the same array) → **that month's half-hourly slot average** (`damBySlot`) → **that month's flat DAM average** (`damMonthly`). If none exist for that month, the tariff is excluded for the whole calculation (`return null`).
   - Effective price = `max(damPrice, damFloor) × mult + adder` (tariff-specific floor/multiplier/adder from `t.rates`).
   - Energy cost += slot kWh × effective price, summed across every slot of every day in the month.
 
