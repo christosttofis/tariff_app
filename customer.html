@@ -69,13 +69,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .annual-note{font-size:12px;color:var(--text2);margin-top:10px;padding:10px 12px;background:var(--accent-light);border-radius:2px;border-left:3px solid var(--accent);line-height:1.6}
 /* Monthly mode */
 .monthly-input-wrap{display:flex;flex-direction:column;gap:8px}
-.monthly-equiv{font-size:12px;color:var(--text2);margin-top:4px;font-family:var(--mono)}
-.monthly-equiv span{font-weight:600;color:var(--text)}
 
 .hint{font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:8px;line-height:1.6}
-.savings-bar{background:var(--accent2-light);border:1px solid var(--border);border-left:3px solid var(--accent2);border-radius:2px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.savings-text{font-size:13px;color:var(--text);font-weight:500}
-.savings-sub{font-size:12px;color:var(--text2);font-family:var(--mono)}
 .results-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px}
 .results-title{font-size:14px;font-weight:600}
 .results-sub{font-size:12px;color:var(--text2);font-family:var(--mono);margin-top:2px}
@@ -116,7 +111,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .rank-detail.open .rank-detail-inner{opacity:1}
 .rank-detail-pad{padding:16px;border-top:1px solid var(--border)}
 @keyframes cardIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
-@keyframes savingsIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 .ranked-list.intro>.rank-card{animation:cardIn .5s cubic-bezier(.22,.7,.25,1) backwards}
 .ranked-list.intro>.rank-card:nth-child(1){animation-delay:.04s}
 .ranked-list.intro>.rank-card:nth-child(2){animation-delay:.1s}
@@ -125,8 +119,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .ranked-list.intro>.rank-card:nth-child(5){animation-delay:.28s}
 .ranked-list.intro>.rank-card:nth-child(6){animation-delay:.34s}
 .ranked-list.intro>.rank-card:nth-child(n+7){animation-delay:.4s}
-.savings-bar.intro{animation:savingsIn .45s ease backwards}
-@media (prefers-reduced-motion:reduce){.ranked-list.intro>.rank-card,.savings-bar.intro{animation:none}.rank-detail,.rank-detail-inner{transition:none}}
+@media (prefers-reduced-motion:reduce){.ranked-list.intro>.rank-card{animation:none}.rank-detail,.rank-detail-inner{transition:none}}
 .contact-card{background:var(--bg3);border-radius:2px;padding:12px 14px;margin-bottom:12px}
 .contact-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px}
 .contact-details{display:flex;flex-direction:column;gap:4px}
@@ -135,9 +128,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .contact-line a:hover{text-decoration:underline}
 .calc-note{font-size:11px;font-family:var(--mono);color:var(--text3);padding:7px 11px;background:var(--bg3);border-radius:2px;border-left:2px solid var(--border2);margin-bottom:12px;line-height:1.6}
 .mo-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px}
-.mo-table th{text-align:left;padding:5px 8px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.07em;white-space:nowrap}
-.mo-table td{padding:6px 8px;border-bottom:1px solid var(--border);font-family:var(--mono);color:var(--text2);white-space:nowrap}
-.mo-table th:first-child,.mo-table td:first-child{width:100%}
+.mo-table th{text-align:left;padding:5px 6px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.07em;white-space:nowrap;line-height:1.4}
+.mo-table td{padding:6px 6px;border-bottom:1px solid var(--border);font-family:var(--mono);color:var(--text2);white-space:nowrap}
+.mo-table th:first-child,.mo-table td:first-child{width:1%;white-space:nowrap}
 .mo-table th:not(:first-child){text-align:right}
 .mo-table td:not(:first-child){text-align:right}
 .mo-table tr:last-child td{border-bottom:none;font-weight:600;color:var(--text);background:var(--bg3)}
@@ -259,13 +252,6 @@ body{
 .kwh-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-light)}
 .kwh-unit{background:var(--bg3);border-color:var(--border2);border-radius:0 var(--radius-sm) var(--radius-sm) 0;color:var(--text2)}
 .annual-note{border-radius:var(--radius-sm);background:var(--accent-light);border-left-width:3px;border-left-color:var(--accent)}
-
-/* Savings bar — confident highlight */
-.savings-bar{border:1px solid var(--accent2);border-left-width:4px;border-radius:var(--radius);
-  background:linear-gradient(100deg,var(--accent2-light),rgba(247,239,226,.4));
-  padding:14px 18px;box-shadow:var(--shadow)}
-.savings-text{font-size:14px;color:var(--accent2-deep);font-weight:600}
-.savings-sub{color:var(--text2);margin-top:2px}
 
 /* Results header */
 .results-title{font-size:15px}
@@ -546,7 +532,7 @@ body{
               <button class="mode-btn bp-btn" data-p="2" onclick="setBillingPeriod(2)" id="bp-btn-2">Bi-monthly</button>
             </div>
           </div>
-          <div class="monthly-equiv" id="monthly-equiv"></div>
+          <p class="hint" id="monthly-calc-note" style="display:none"></p>
         </div>
       </div>
       <button class="est-trigger-btn" id="est-trigger-btn" onclick="openEstimator()">🧮 Estimate</button>
@@ -638,10 +624,6 @@ const LANG = {
     LBL_MONTHLY_KWH: "Monthly consumption",
     UNIT_KWH_MONTH: "kWh / month",
     HINT_ANNUAL: "As per CERA's Power supply rules - Chapter 7.1.7 (a) all power suppliers are obliged to send to each consumer, at least once a year, their total consumption for the previous year, and the expected consumption for the current year.",
-    HINT_MONTHLY: "In monthly mode all 12 months use the same kWh. The annual estimate shown = monthly × 12. The profile is still used for intra-day (peak/off-peak) weighting.",
-    SAVINGS_TEXT: "Save up to {X}/year by choosing the cheapest tariff",
-    SAVINGS_TEXT_MONTH: "Save up to {X}/month by choosing the cheapest tariff",
-    SAVINGS_SUB: "supplier cost only · regulated charges shown separately per tariff",
     RESULTS_SUB_ANNUAL: "cheapest supplier cost first · annual · profile-distributed · {YEAR} calendar",
     RESULTS_SUB_MONTHLY: "cheapest bill first · {KWH} kWh per bill · {YEAR} calendar",
     BADGE_BEST_PRICE: "BEST PRICE",
@@ -660,7 +642,7 @@ const LANG = {
     MONTHLY_CONS_LBL: "Consumption per bill",
     MONTHLY_UNIT_1: "kWh / month",
     MONTHLY_UNIT_2: "kWh / 2 mo.",
-    SAVINGS_TEXT_PERIOD: "Save up to {X} per bill by choosing the cheapest tariff",
+    MONTHLY_CALC_NOTE: "This calculation is based on your consumption for the current month of {MONTH}. For more accurate results, please use the annual calculator.",
     BILL_BREAKDOWN_HDR: "Bill breakdown",
     BILL_YEAR_NOTE: "× {N} bills/year ≈ €{X} / year (excl. VAT)",
     NUDGE_ANNUAL: "💡 For a more accurate comparison based on your seasonal usage pattern, switch to Annual mode and enter your yearly consumption.",
@@ -675,6 +657,9 @@ const LANG = {
     TH_DAYS: "Days",
     TH_KWH: "kWh",
     TH_ENERGY: "Energy Cost",
+    FPA_SHORT: "FPA",
+    FPA_FULL: "Fuel price adjustment",
+    FPA_DESC: "Fuel Price Adjustment (FPA): a per-kWh charge added to the supplier's energy rate to reflect fluctuations in fuel and purchased-power costs. Set by the supplier.",
     TH_STANDING: "Standing",
     TH_TOTAL: "Total",
     ROW_SUP_TOTAL: "Supplier total",
@@ -818,10 +803,6 @@ const LANG = {
     LBL_MONTHLY_KWH: "Μηνιαία κατανάλωση",
     UNIT_KWH_MONTH: "kWh / μήνα",
     HINT_ANNUAL: "Βάσει των Κανόνων Προμηθειας Ηλεκτρισμού Άρθρο 7.1.7 (α) της ΡΑΕΚ, όλοι οι προμηθευτές υποχρεούνται να ενημερώνουν τους πελάτες τους κατ' ελάχιστο μια φορά τον χρόνο, για την συνολική τους κατανάλωση κατά το προηγούμενο έτος καθώς επίσης και την εκτίμιση κατανάλωσης για το τρέχον έτος.",
-    HINT_MONTHLY: "Στον μηνιαίο υπολογισμό όλοι οι μήνες υπολογίζονται με την ίδια κατανάλωση. Ετήσια κατανάλωση = Μηνιαία × 12. Χρησιμοποιείται προφίλ για τον υπολογισμό κατανάλωσης εντός της ημέρας.",
-    SAVINGS_TEXT: "Εξοικονομίστε μέχρι και {X}/έτος επιλέγοντας την πιο συμφέρουσα διατίμηση.",
-    SAVINGS_TEXT_MONTH: "Εξοικονομίστε μέχρι και {X}/μήνα επιλέγοντας την πιο συμφέρουσα διατίμηση.",
-    SAVINGS_SUB: "Κόστος Ρεύματος. Οι ρυθμιζόμενες χρεώσεις δείνονται ξεχωριστά ανά διατίμηση.",
     RESULTS_SUB_ANNUAL: "Φθηνότερος προμηθευτής πρώτα · Ετήσια · Κατανομή-προφίλ · {YEAR}",
     RESULTS_SUB_MONTHLY: "Φθηνότερος λογαριασμός πρώτα · {KWH} kWh ανά λογαριασμό · {YEAR}",
     BADGE_BEST_PRICE: "ΠΙΟ ΣΥΜΦΕΡΟΥΣΑ",
@@ -840,7 +821,7 @@ const LANG = {
     MONTHLY_CONS_LBL: "Κατανάλωση ανά λογαριασμό",
     MONTHLY_UNIT_1: "kWh / μήνα",
     MONTHLY_UNIT_2: "kWh / 2 μήν.",
-    SAVINGS_TEXT_PERIOD: "Εξοικονομίστε μέχρι και {X} ανά λογαριασμό επιλέγοντας την πιο συμφέρουσα διατίμηση.",
+    MONTHLY_CALC_NOTE: "Ο υπολογισμός βασίζεται στην κατανάλωσή σας για τον τρέχοντα μήνα {MONTH}. Για πιο ακριβή αποτελέσματα, χρησιμοποιήστε τον ετήσιο υπολογιστή.",
     BILL_BREAKDOWN_HDR: "Ανάλυση λογαριασμού",
     BILL_YEAR_NOTE: "× {N} λογ./έτος ≈ €{X} / έτος (χωρίς ΦΠΑ)",
     NUDGE_ANNUAL: "💡 Για πιο ακριβή σύγκριση βάσει εποχικής κατανάλωσης, επιλέξτε Ετήσια σύγκριση και εισάγετε την ετήσια κατανάλωσή σας.",
@@ -855,6 +836,9 @@ const LANG = {
     TH_DAYS: "Μέρες",
     TH_KWH: "kWh",
     TH_ENERGY: "Κόστος Ενέργειας",
+    FPA_SHORT: "ΑΤΚ",
+    FPA_FULL: "Αναπροσαρμογή τιμής καυσίμου",
+    FPA_DESC: "Αναπροσαρμογή Τιμής Καυσίμου (ΑΤΚ): χρέωση ανά kWh που προστίθεται στη χρέωση ενέργειας του προμηθευτή, για την κάλυψη διακυμάνσεων στο κόστος καυσίμου και αγοράς ενέργειας. Οριζόμενο από τον προμηθευτή.",
     TH_STANDING: "Πάγιο",
     TH_TOTAL: "Ολικό",
     ROW_SUP_TOTAL: "Ολικό Προμηθευτή",
@@ -1086,7 +1070,10 @@ function setMode(mode){
   document.getElementById('btn-annual').textContent=T('BTN_ANNUAL');
   document.getElementById('btn-monthly').textContent=T('BTN_MONTHLY');
   const hint=document.getElementById('consumption-hint');
-  if(hint) hint.textContent=T(mode==='annual'?'HINT_ANNUAL':'HINT_MONTHLY');
+  if(hint){
+    hint.style.display=mode==='annual'?'':'none';
+    if(mode==='annual') hint.textContent=T('HINT_ANNUAL');
+  }
   // Update input labels
   const annLabel=document.querySelector('#mode-annual label');
   if(annLabel) annLabel.textContent=T('LBL_ANNUAL_KWH');
@@ -1100,22 +1087,26 @@ function setMode(mode){
   if(bcLbl) bcLbl.textContent=T('BILLING_CYCLE');
   const bpKeys=['BILLING_M1','BILLING_M2'];
   [1,2].forEach((p,i)=>{ const b=document.getElementById('bp-btn-'+p); if(b) b.textContent=T(bpKeys[i]); });
+  updateMonthlyCalcNote();
   applyFilters();
+}
+
+function updateMonthlyCalcNote(){
+  const note=document.getElementById('monthly-calc-note');
+  if(!note) return;
+  const raw=parseFloat(document.getElementById('monthly-kwh').value)||0;
+  if(raw>0){
+    const month=new Date().toLocaleDateString(lang==='el'?'el-GR':'en-GB',{month:'long'});
+    note.textContent=T('MONTHLY_CALC_NOTE',{MONTH:month});
+    note.style.display='';
+  } else {
+    note.style.display='none';
+  }
 }
 
 function onAnnualInput(){applyFilters();}
 function onMonthlyInput(){
-  const raw=parseFloat(document.getElementById('monthly-kwh').value)||0;
-  const eq=document.getElementById('monthly-equiv');
-  if(raw>0){
-    const mo=raw/_billingPeriod;
-    const yr=mo*12;
-    eq.innerHTML=_billingPeriod>1
-      ?`<span style="color:var(--text2)">${mo.toFixed(0)} kWh/month · ${yr.toLocaleString(undefined,{maximumFractionDigits:0})} kWh/year</span>`
-      :`<span>${yr.toLocaleString()} kWh/year</span>`;
-  } else {
-    eq.innerHTML='';
-  }
+  updateMonthlyCalcNote();
   applyFilters();
 }
 function setBillingPeriod(n){
@@ -1832,53 +1823,6 @@ function applyFilters(){
     return true;
   });
 
-  // For monthly mode: compute one-month cost directly
-  function singleMonthCost(t){
-    // Returns {energy, fpa, standing, total} or null
-    const kwh=monthlyKwhInput;
-    const mi=new Date().getMonth();
-    const fpaRate=getTariffFpa(t);
-    const standing=t.standing;
-    function pack(energy,fpa){ return {energy,fpa,standing,total:energy+fpa+standing}; }
-
-    if(t.pricing==='Fixed'){
-      return pack(kwh*t.rates.rate, kwh*fpaRate);
-    }
-    if(t.pricing==='ToU'){
-      const r=t.rates;
-      const prof=getProfile(t);
-      const isHigh=(mi+1)>=r.hiStart&&(mi+1)<=r.hiEnd;
-      const ps=isHigh?r.hiPeakStart:r.loPeakStart, pe=isHigh?r.hiPeakEnd:r.loPeakEnd;
-      const pr=isHigh?r.hiPeakRate:r.loPeakRate;
-      const or=isHigh?r.hiOffRate:r.loOffRate;
-      if(prof){
-        const annHHFF=computeAnnualHHFF(prof,dc);
-        const slots=getSlotKwh(prof,mi,annualKwh,dc,annHHFF);
-        if(slots){
-          let energy=0,fpaTotal=0;
-          for(let s=0;s<48;s++){
-            const h=slotStartHour(s);
-            energy+=slots[s]*(h>=ps&&h<pe?pr:or);
-            fpaTotal+=slots[s]*fpaRate;
-          }
-          return pack(energy,fpaTotal);
-        }
-      }
-      const pf=Math.max(0,Math.min(24,pe-ps))/24;
-      return pack(kwh*pf*pr+kwh*(1-pf)*or, kwh*fpaRate);
-    }
-    if(t.pricing==='Dynamic'){
-      const r=t.rates;
-      const avg=cfg.damMonthly[mi];
-      if(avg==null) return null;
-      const effAvg=Math.max(avg,r.damFloor||0);
-      const mult=parseFloat(r.mult)||1;
-      const adder=parseFloat(r.adder)||0;
-      return pack(kwh*(effAvg*mult+adder), kwh*fpaRate);
-    }
-    return null;
-  }
-
   // Monthly mode now annualises (monthlyKwh × 12) — Variable tariffs included
   const excludedVariable=[];
   const filteredMatched=matched;
@@ -1911,15 +1855,9 @@ function applyFilters(){
     return;
   }
 
-  const saving=scored.length>1?scored[scored.length-1].base-scored[0].base:null;
   const firstShow=!_resultsVisible; _resultsVisible=true;
   const introCls=firstShow?' intro':'';
   let html='';
-
-  if(saving>0) html+=`<div class="savings-bar${introCls}"><div style="font-size:20px">💡</div><div>
-    <div class="savings-text">${inputMode==='monthly'?T('SAVINGS_TEXT_PERIOD',{X:'€'+periodCost(saving).toFixed(2)}):T('SAVINGS_TEXT',{X:'€'+saving.toFixed(2)})}</div>
-    <div class="savings-sub">${T('SAVINGS_SUB')}</div>
-  </div></div>`;
 
   html+=`<div class="card" id="tariffs-card"><div class="results-header">
     <div>
@@ -1942,9 +1880,11 @@ function applyFilters(){
     const moKwh=monthlyKwhDisplay(t,dc);
     const regBd=regulatedBreakdown(t.voltage,annualKwh,t.mdm);
     const fpaRate=getTariffFpa(t);
-    const fpaSource=t.fpaSource||'global';
     const showFpa=fpaRate>0;
-    const fpaLabel=fpaSource==='custom'?'FPA (custom)':'FPA';
+    const fpaRateStr=`€${fpaRate.toFixed(4)}/kWh`;
+    const fpaInfoAttrs=`style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" onclick="openRegInfo('FPA_FULL','FPA_DESC')"`;
+    const fpaLabelShort=`<span ${fpaInfoAttrs}>${esc(T('FPA_SHORT'))} <span style="font-size:10px;opacity:.6">ℹ</span><br><span style="font-size:9px;letter-spacing:normal">${fpaRateStr}</span></span>`;
+    const fpaLabelFull=`<span ${fpaInfoAttrs}>${esc(T('FPA_FULL'))} <span style="font-size:10px">(${fpaRateStr})</span> <span style="font-size:10px;opacity:.6">ℹ</span></span>`;
 
     const hasEnergyDisc=t.discounts&&t.discounts.some(d=>d.type==='energy');
     const hasStandingDisc=t.discounts&&t.discounts.some(d=>d.type==='standing');
@@ -1957,7 +1897,7 @@ function applyFilters(){
           ${bd&&hasEnergyDisc&&bd.energyDisc>0?`<span style="color:var(--text3);text-decoration:line-through;font-size:10px">€${bd.energyFull.toFixed(2)}</span><br>`:''}
           €${bd?bd.energy.toFixed(2):'—'}
         </td>
-        ${showFpa?`<td style="color:#f59e0b">€${bd?bd.fpa.toFixed(2):'—'}</td>`:''}
+        ${showFpa?`<td style="color:var(--text)">€${bd?bd.fpa.toFixed(2):'—'}</td>`:''}
         <td style="color:var(--text3)">
           ${bd&&hasStandingDisc&&bd.standingDisc>0?`<span style="color:var(--text3);text-decoration:line-through;font-size:10px">€${bd.standingFull.toFixed(2)}</span><br>`:''}
           €${bd?bd.standing.toFixed(2):'—'}
@@ -1988,7 +1928,7 @@ function applyFilters(){
         <td><strong>${T('ROW_SUP_TOTAL')}</strong></td>
         <td>${totKwh.toFixed(0)}</td>
         <td style="color:var(--text2)">€${annEnergy.toFixed(2)}</td>
-        ${showFpa?`<td style="color:#f59e0b">€${annFpa.toFixed(2)}</td>`:''}
+        ${showFpa?`<td style="color:var(--text)">€${annFpa.toFixed(2)}</td>`:''}
         <td style="color:var(--text3)">€${annStanding.toFixed(2)}</td>
         <td class="cost-col"><strong>€${base.toFixed(2)}</strong></td>
       </tr>
@@ -2002,7 +1942,7 @@ function applyFilters(){
     const moTableHead=`<thead><tr>
       <th>${T('TH_MONTH')}</th><th>${T('TH_KWH')}</th>
       <th>${T('TH_ENERGY')}</th>
-      ${showFpa?`<th style="color:#f59e0b">${fpaLabel}</th>`:''}
+      ${showFpa?`<th style="color:var(--text)">${fpaLabelShort}</th>`:''}
       <th>${T('TH_STANDING')}</th><th>${T('TH_TOTAL')}</th>
     </tr></thead>`;
 
@@ -2020,7 +1960,6 @@ function applyFilters(){
           <div class="rank-meta">
             <span class="badge badge-${t.pricing}">${pricingTag(t.pricing)}</span>
             ${t.pricing==='Dynamic'&&t.rates?.damFloor?`<span style="font-size:10px;padding:2px 6px;border-radius:2px;background:rgba(139,92,246,.1);color:#7c3aed;font-family:var(--mono)">floor €${t.rates.damFloor.toFixed(4)}/kWh</span>`:''}
-            ${prof?`<span class="badge-prof">📊 ${esc(prof.name)}</span>`:`<span class="badge-fallback">⚠ ${T('LBL_NO_PROFILE')}</span>`}
             <span style="font-size:11px;color:var(--text3);font-family:var(--mono)">€${t.standing.toFixed(2)}${T('LBL_STANDING')}</span>
             ${t.vulnerable?`<span style="font-size:10px;padding:2px 7px;border-radius:2px;background:rgba(236,72,153,.12);color:#ec4899;font-family:var(--mono);font-weight:500">🛡 ${T('LBL_VULNERABLE_CHECK').split('/')[0].trim()}</span>`:''}
             ${t.durationMonths
@@ -2073,8 +2012,8 @@ function applyFilters(){
                   <td class="cost-col">€${(moBd[0].energy*_billingPeriod).toFixed(2)}</td>
                 </tr>
                 ${showFpa?`<tr>
-                  <td style="color:#f59e0b">${fpaLabel}</td>
-                  <td class="cost-col" style="color:#f59e0b">€${(moBd[0].fpa*_billingPeriod).toFixed(2)}</td>
+                  <td style="color:var(--text)">${fpaLabelFull}</td>
+                  <td class="cost-col" style="color:var(--text)">€${(moBd[0].fpa*_billingPeriod).toFixed(2)}</td>
                 </tr>`:''}
                 <tr>
                   <td>${T('TH_STANDING')} <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">€${t.standing.toFixed(2)}/mo × ${_billingPeriod}</span></td>
@@ -2086,8 +2025,9 @@ function applyFilters(){
                 </tr>
                 ${Object.entries(regBd).filter(([k])=>k!=='total').map(([k,v])=>{
                   const info=regInfoMap[k]||[];
+                  const rateStr=v.perKwh?'€'+v.rate.toFixed(4)+'/kWh':T('LBL_FIXED_ROW',{N:v.rate.toFixed(2)});
                   return `<tr style="background:rgba(59,130,246,.04)">
-                  <td style="color:#60a5fa;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" onclick="openRegInfo('${info[0]}','${info[1]}')">${v.label} <span style="font-size:10px;opacity:.6">ℹ</span></td>
+                  <td style="color:#60a5fa;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" onclick="openRegInfo('${info[0]}','${info[1]}')">${v.label} <span style="font-size:10px">(${rateStr})</span> <span style="font-size:10px;opacity:.6">ℹ</span></td>
                   <td class="cost-col" style="color:#60a5fa">€${(v.annual/12*_billingPeriod).toFixed(2)}</td>
                 </tr>`;}).join('')}
                 <tr style="background:var(--bg3)">

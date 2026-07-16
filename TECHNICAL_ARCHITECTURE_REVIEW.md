@@ -8,7 +8,7 @@
 
 ## 1. System overview
 
-A tariff comparison and regulatory-approval tool for the Cyprus Energy Regulatory Authority (CERA). Three audiences, three portals, one backend:
+A tariff comparison and regulatory-monitoring tool for the Cyprus Energy Regulatory Authority (CERA). Three audiences, three portals, one backend:
 
 | Portal | File | Auth | Purpose |
 |---|---|---|---|
