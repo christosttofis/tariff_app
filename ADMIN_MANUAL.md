@@ -1,7 +1,7 @@
 # CERA Tariff Comparison Tool — Administrator Manual
 
-**Version:** 1.3  
-**Date:** July 2026 (updated 2026-07-15: sliding session expiry, accidental-overload protection, cross-portal sign-in behavior)  
+**Version:** 1.4  
+**Date:** July 2026 (updated 2026-07-17: Suppliers, Load Profiles, Notices, and DAM Data now save immediately when you click their own Save button — see Section 12 for what "Publish" does now)  
 **Prepared by:** Cyprus Energy Regulatory Authority  
 
 ---
@@ -85,7 +85,7 @@ The admin panel is divided into sections accessible from the left-hand navigatio
 | **DAM Data** | 📈 | Upload day-ahead market price data |
 | **Notices** | 📝 | Edit the notices and disclaimers shown on the calculator |
 | **Audit Log** | 🕵️ | View full history of all tariff changes |
-| **Publish** | 🚀 | Manually publish the current configuration |
+| **Publish** | 🚀 | Optional manual full re-sync / "last published" checkpoint — not required for routine edits, see [Section 12](#12-publishing) |
 
 A **badge** on the Tariffs navigation item shows the number of tariffs currently awaiting review.
 
@@ -151,21 +151,24 @@ Navigate to **Suppliers** in the left menu.
 
 This section manages the registered details of each licensed supplier — name, licence number, address, contact email, telephone, and website. These details are displayed on the public calculator when a consumer expands a tariff card.
 
+Every action in this section (add, edit, remove) saves straight to the server the moment you click its button — there is no separate publish step, and none of it depends on the **Publish** page (see [Section 12](#12-publishing)).
+
 ### Adding a supplier
 
-1. Click **+ Add supplier**
-2. Fill in the supplier details
-3. Click **Save**
+1. Type the new supplier's name into the field at the bottom of the supplier list
+2. Click **+ Add**
+
+This creates the supplier record immediately (name only). To fill in licence number, address, contact details, etc., use **Edit details** afterwards.
 
 > A supplier record must exist before a user account can be created for that supplier, and before any tariffs can be submitted under that supplier's name.
 
 ### Editing a supplier
 
-Click the **Edit** button next to any supplier to update their details. Changes are reflected immediately on the public calculator.
+Click **✏ Edit details** next to any supplier to open the detail form, update the fields, and click **Save details**. Changes (including renaming the supplier) are saved immediately and are reflected right away on the public calculator — renaming a supplier also automatically updates every tariff currently assigned to them.
 
 ### Deleting a supplier
 
-A supplier can only be deleted if they have no tariffs in the system. Remove all their tariffs first, then delete the supplier record.
+Click **Remove** next to a supplier. A supplier can only be deleted if they have no tariffs in the system — remove all their tariffs first, then delete the supplier record. Deletion takes effect immediately.
 
 ---
 
@@ -255,16 +258,23 @@ Load profiles define how a consumer's annual electricity consumption is distribu
 
 Profiles are imported from EAC CSV exports. Each profile contains 12 months of half-hourly load shapes for working days and non-working days.
 
+Every action in this section (add/overwrite, rename, delete) saves straight to the server the moment you click its button — there is no separate publish step.
+
 ### Uploading a profile
 
-1. Click **+ Upload profile**
-2. Select the CSV file exported from the DSO system
-3. The system parses the file and shows a preview of coverage (months with working-day and non-working-day data)
-4. Click **Save** to confirm
+1. Enter a **Profile name** (and optional description)
+2. Paste the DSO CSV export into the text box — see the expected format shown above the form
+3. Click **⚡ Parse & save profile**
+
+Parsing and saving happen in one step: the file is validated and, if valid, saved immediately. The status message underneath confirms how many time slots and months were covered. If you reuse the name of an existing profile, you'll be asked to confirm overwriting it — the existing profile's underlying record is updated in place, so tariffs already assigned to it stay correctly assigned.
+
+### Renaming a profile
+
+Click **✏ Rename** next to a profile in the **Saved profiles** list, enter the new name, and confirm. Saved immediately.
 
 ### Deleting a profile
 
-A profile can only be deleted if no tariffs are currently assigned to it. Reassign affected tariffs to a different profile first.
+Click **Delete** next to a profile. A profile can only be deleted if no tariffs are currently assigned to it — reassign affected tariffs to a different profile first. Deletion takes effect immediately.
 
 ---
 
@@ -274,18 +284,22 @@ Navigate to **DAM Data** in the left menu.
 
 DAM data is required to calculate costs for **Dynamic (market-linked)** tariffs. It provides day-ahead electricity market prices used to estimate what a consumer would pay under a dynamic pricing contract.
 
-Two levels of data can be stored:
+Two levels of data are derived from what you upload:
 
 | Type | Granularity | Used for |
 |---|---|---|
 | **Monthly averages** | One average price per month (€/kWh) | Annual cost estimate for dynamic tariffs |
 | **Half-hourly slot data** | 48 slots × 12 months | More accurate profile-weighted calculation |
 
+Both are computed automatically from the half-hourly price file you upload — there is no separate manual entry for monthly averages.
+
 ### Updating DAM data
 
-1. Enter or paste the monthly average prices for each month of the reference year
-2. Optionally upload the half-hourly slot data file
-3. Click **Save**
+1. Set the **Data year** and **Price unit** (€/MWh or €/kWh)
+2. Drag & drop one or more CSV files onto the drop zone (or click it to browse), or paste raw data into the text box — see the expected format shown above
+3. Click **💾 Save DAM data**
+
+Dropping/pasting a file only parses it into a preview (monthly averages, coverage calendar, price explorer) in your browser — nothing is saved to the server until you click **💾 Save DAM data**. Click **Clear** to discard the current parse and start over without saving anything.
 
 > DAM data represents historical or forecast prices and should be updated periodically to reflect current market conditions. The year of the data is recorded and displayed to consumers on the calculator.
 
@@ -305,7 +319,7 @@ This section allows you to edit the text shown in the **Notices & Disclaimers** 
 
 Content is entered as HTML, allowing basic formatting (headings, paragraphs, bullet lists).
 
-Click **Save** after making any changes.
+Click **💾 Save notices** at the bottom of the page after making any changes — this saves and publishes all the notices content in one step; nothing is written to the server until you click it.
 
 ---
 
@@ -326,11 +340,14 @@ The log is read-only and cannot be modified or deleted. Use it to track the hist
 
 ## 12. Publishing
 
-Most changes (approvals, regulated charge updates, notices) take effect immediately on the public calculator without any manual publish step.
+Every section of the admin panel saves itself immediately, using its own Save/Add/Edit/Delete/Rename/Remove button — Tariffs, Suppliers, Regulated Charges, Load Profiles, Notices, and DAM Data. There is **no required publish step**. As soon as you click a Save-type button anywhere in the panel, that change is written to the database and is live on the public calculator right away.
 
-The **Publish** section is used to perform a **full configuration replacement** — uploading a complete configuration file (suppliers, tariffs, profiles, regulated charges, DAM data) in one operation. This is used for bulk initial setup or major migrations, not for routine day-to-day changes.
+The **Publish** page's **💾 Save & publish** button is now a manual, optional safety net rather than a routine step. Clicking it re-sends everything currently loaded in your browser (suppliers, profiles, tariffs, regulated charges, notices, DAM data) to the server in one go. Use it if:
 
-> Use Publish with caution. It replaces the entire configuration. All existing data is overwritten.
+- You suspect something didn't save correctly and want to force a full re-sync
+- You want to record a "last published" timestamp as a manual checkpoint (shown on the Publish page after clicking, and kept as a local backup snapshot you can inspect with **Load snapshot**)
+
+> Because it re-sends everything your browser currently has loaded, avoid clicking **Save & publish** if you know another admin might be mid-edit in a different browser tab at the same time — your snapshot could overwrite their in-progress changes to sections you haven't touched. For routine day-to-day work, just use each section's own Save button and ignore the Publish page entirely.
 
 ---
 
@@ -536,11 +553,11 @@ If the page loads, the server is running. If not, start it using `start.bat`.
 - Check the server log for email error messages
 - Verify that the `TARIFF_EMAIL_FROM` address has the Mail.Send permission in the Azure portal
 
-### The database file is missing
-- The database file (`tariff-api/tariff.db`) is created automatically the first time the server starts
-- If it has been accidentally deleted, all data is lost — restore from the most recent backup
-- Contact IT to verify that automated backups are in place
+### The database is unreachable or data appears to be missing
+- The application stores its data in a PostgreSQL database, configured via the `DATABASE_URL` value in `tariff-api/.env` — not in a local file. If the panel fails to load data at all, first confirm the PostgreSQL service is running and reachable at the configured host/port.
+- If specific data (e.g. tariffs, suppliers, or the audit log) appears to have disappeared while the server itself is running fine, this points to a database-level change, not a missing file — do not assume it will reappear on its own.
+- **There is currently no automated backup schedule configured for this database.** Until one is set up, the only protection against data loss is a manual `pg_dump` taken before any risky operation (bulk imports, schema changes, etc.). Contact IT/the development team to set up scheduled backups if this has not been done yet.
 
 ---
 
-*This document covers version 1.3 of the CERA Tariff Comparison Tool. For technical support or to report issues, contact the system administrator.*
+*This document covers version 1.4 of the CERA Tariff Comparison Tool. For technical support or to report issues, contact the system administrator.*

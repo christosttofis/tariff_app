@@ -935,6 +935,23 @@ def create_profile(body: ProfileIn, db: Session = Depends(get_db), user: Current
     return profile_to_dict(p)
 
 
+@router.put("/profiles/{profile_id}", summary="Replace a profile in place (admin only)")
+def update_profile(profile_id: str, body: ProfileIn, db: Session = Depends(get_db), user: CurrentUser = Depends(require_admin)):
+    p = db.get(models.Profile, profile_id)
+    if not p:
+        raise HTTPException(404, "Profile not found")
+    p.name = body.name
+    p.desc = body.desc
+    p.months = json.dumps(body.months)
+    p.covW = body.covW
+    p.covNW = body.covNW
+    p.rows = body.rows
+    p.colCount = body.colCount
+    db.commit()
+    db.refresh(p)
+    return profile_to_dict(p)
+
+
 @router.delete("/profiles/{profile_id}", status_code=204, summary="Delete a profile (admin only)")
 def delete_profile(profile_id: str, db: Session = Depends(get_db), user: CurrentUser = Depends(require_admin)):
     if db.query(models.Tariff).filter(models.Tariff.profileId == profile_id).count():

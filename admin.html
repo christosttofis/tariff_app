@@ -439,6 +439,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
         <input type="text" id="sup-name" placeholder="New supplier name…" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:2px;padding:8px 10px;font-size:13px;font-family:var(--font);color:var(--text);outline:none" onkeydown="if(event.key==='Enter')addSupplier()">
         <button class="btn btn-primary" onclick="addSupplier()" data-t="BTN_ADD">+ Add</button>
       </div>
+      <div class="status" id="sup-status"></div>
     </div>
   </div>
 
@@ -481,7 +482,7 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
       <div class="status" id="prof-status"></div>
     </div>
 
-    <div class="card"><div class="card-title" data-t="CARD_SAVED_PROF">Saved profiles</div><div id="profile-list"></div></div>
+    <div class="card"><div class="card-title" data-t="CARD_SAVED_PROF">Saved profiles</div><div id="profile-list"></div><div class="status" id="profile-list-status"></div></div>
   </div>
 
   <!-- TARIFFS -->
@@ -719,6 +720,7 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
       </div>
       <textarea id="dam-raw" style="display:none"></textarea>
       <div class="btn-row" style="margin-top:8px">
+        <button class="btn btn-primary" onclick="saveDamData()" data-t="BTN_SAVE_DAM">💾 Save DAM data</button>
         <button class="btn btn-ghost" onclick="clearDAM()" data-t="BTN_CLEAR_DAM">Clear</button>
       </div>
       <div class="status" id="dam-status"></div>
@@ -806,19 +808,19 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
           <label data-t="LBL_LV_GRID">LV grid usage (€/kWh)</label>
           <input type="number" id="reg-lv" value="0.0000" step="0.0001" min="0">
           <p class="hint">Applies to all LV tariffs</p>
-          <p class="hint reg-ts" style="display:none;color:var(--text3)"></p>
+          <p class="hint reg-ts reg-ts-grid" style="display:none;color:var(--text3)"></p>
         </div>
         <div class="field">
           <label data-t="LBL_MV_GRID">MV grid usage (€/kWh)</label>
           <input type="number" id="reg-mv" value="0.0000" step="0.0001" min="0">
           <p class="hint">Applies to all MV tariffs</p>
-          <p class="hint reg-ts" style="display:none;color:var(--text3)"></p>
+          <p class="hint reg-ts reg-ts-grid" style="display:none;color:var(--text3)"></p>
         </div>
         <div class="field">
           <label data-t="LBL_HV_GRID">HV grid usage (€/kWh)</label>
           <input type="number" id="reg-hv" value="0.0000" step="0.0001" min="0">
           <p class="hint">Applies to all HV tariffs</p>
-          <p class="hint reg-ts" style="display:none;color:var(--text3)"></p>
+          <p class="hint reg-ts reg-ts-grid" style="display:none;color:var(--text3)"></p>
         </div>
       </div>
     </div>
@@ -837,19 +839,19 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
           <label data-t="LBL_LV_FPA">LV — FPA (€/kWh)</label>
           <input type="number" id="reg-fpa-lv" value="0.0000" step="0.0001" min="0" oninput="updateRegPreview()">
           <p class="hint">Applied to LV tariffs using global FPA</p>
-          <p class="hint reg-ts" style="display:none;color:var(--text3)"></p>
+          <p class="hint reg-ts reg-ts-fpa" style="display:none;color:var(--text3)"></p>
         </div>
         <div class="field">
           <label data-t="LBL_MV_FPA">MV — FPA (€/kWh)</label>
           <input type="number" id="reg-fpa-mv" value="0.0000" step="0.0001" min="0" oninput="updateRegPreview()">
           <p class="hint">Applied to MV tariffs using global FPA</p>
-          <p class="hint reg-ts" style="display:none;color:var(--text3)"></p>
+          <p class="hint reg-ts reg-ts-fpa" style="display:none;color:var(--text3)"></p>
         </div>
         <div class="field">
           <label data-t="LBL_HV_FPA">HV — FPA (€/kWh)</label>
           <input type="number" id="reg-fpa-hv" value="0.0000" step="0.0001" min="0" oninput="updateRegPreview()">
           <p class="hint">Applied to HV tariffs using global FPA</p>
-          <p class="hint reg-ts" style="display:none;color:var(--text3)"></p>
+          <p class="hint reg-ts reg-ts-fpa" style="display:none;color:var(--text3)"></p>
         </div>
       </div>
       <p class="hint" style="margin-top:8px">Tariffs set to "use global FPA" will use the rate matching their voltage level. Change here to update all linked tariffs at once.</p>
@@ -865,13 +867,13 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
           <label data-t="LBL_PSO">Public Service Obligations — PSO (€/kWh)</label>
           <input type="number" id="reg-pso" value="0.0000" step="0.0001" min="0">
           <p class="hint">Applied per kWh consumed</p>
-          <p class="hint reg-ts" style="display:none;color:var(--text3)"></p>
+          <p class="hint reg-ts reg-ts-universal" style="display:none;color:var(--text3)"></p>
         </div>
         <div class="field">
           <label data-t="LBL_RES">RES and Energy Conservation Fund (€/kWh)</label>
           <input type="number" id="reg-res" value="0.0000" step="0.0001" min="0">
           <p class="hint">Applied per kWh consumed — all tariffs</p>
-          <p class="hint reg-ts" style="display:none;color:var(--text3)"></p>
+          <p class="hint reg-ts reg-ts-universal" style="display:none;color:var(--text3)"></p>
         </div>
       </div>
     </div>
@@ -971,7 +973,7 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
   <div class="pane" id="pane-notices">
     <div class="page-head">
       <h1 data-t="PANE_NOTICES_TITLE">Assumptions &amp; Notices</h1>
-      <p data-t="PANE_NOTICES_DESC">This content appears as a popup on the customer calculator. Use it to document calculation assumptions and provide legal notices. Changes take effect after publishing.</p>
+      <p data-t="PANE_NOTICES_DESC">This content appears as a popup on the customer calculator. Use it to document calculation assumptions and provide legal notices. Click "Save notices" below to publish changes.</p>
     </div>
 
     <div class="card">
@@ -1075,6 +1077,13 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
         </div>
       </div>
     </div>
+
+    <div class="card">
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="saveNotices()" data-t="BTN_SAVE_NOTICES">💾 Save notices</button>
+      </div>
+      <div class="status" id="notices-status"></div>
+    </div>
   </div>
 
   <!-- CHANGELOG -->
@@ -1092,7 +1101,6 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
           <option value="" data-t="OPT_ALL_SUPPLIERS">All suppliers</option>
         </select>
         <button class="btn btn-sm" onclick="exportChangelog()" data-t="BTN_EXPORT_CSV">⬇ Export CSV</button>
-        <button class="btn btn-danger btn-sm" onclick="clearChangelog()" data-t="BTN_CLEAR_LOG">🗑 Clear log</button>
         <span id="cl-count" style="font-size:11px;font-family:var(--mono);color:var(--text3);margin-left:4px"></span>
       </div>
       <div style="overflow-x:auto">
@@ -1462,7 +1470,7 @@ const LANG = {
     PANE_DAM_DESC:'Shared half-hourly market prices used by all dynamic tariffs.',
     CARD_FORMAT:'Format', CARD_PASTE_DATA:'Paste data',
     LBL_DATA_YEAR:'Data year', LBL_PRICE_UNIT:'Price unit',
-    DZ_TITLE:'Drop CSV files here', DZ_SUB:'or click to browse — multiple files supported', BTN_PARSE:'⚡ Parse', BTN_CLEAR_DAM:'Clear',
+    DZ_TITLE:'Drop CSV files here', DZ_SUB:'or click to browse — multiple files supported', BTN_PARSE:'⚡ Parse', BTN_CLEAR_DAM:'Clear', BTN_SAVE_DAM:'💾 Save DAM data',
     CARD_COV_TITLE:'Data coverage', COV_FULL:'Full', COV_PARTIAL:'Partial', COV_NONE:'No data', COV_BACK:'Back',
     CARD_MONTHLY_AVG:'Monthly averages (€/kWh)',
     BTN_EXP_DAILY:'⬇ Export daily CSV', BTN_EXP_SLOT:'⬇ Export slot averages', BTN_EXP_MONTHLY:'⬇ Export monthly averages',
@@ -1492,7 +1500,8 @@ const LANG = {
     MONTH_8:'September', MONTH_9:'October', MONTH_10:'November', MONTH_11:'December',
     // Notices pane
     PANE_NOTICES_TITLE:'Assumptions & Notices',
-    PANE_NOTICES_DESC:'This content appears as a popup on the customer calculator. Use it to document calculation assumptions and provide legal notices. Changes take effect after publishing.',
+    PANE_NOTICES_DESC:'This content appears as a popup on the customer calculator. Use it to document calculation assumptions and provide legal notices. Click "Save notices" below to publish changes.',
+    BTN_SAVE_NOTICES:'💾 Save notices',
     CARD_FMT_TOOLBAR:'Formatting toolbar',
     CARD_ASSUMPTIONS:'Assumptions', CARD_LEGAL:'Legal notices',
     CARD_VULNERABLE:'🛡 Vulnerable consumer / social tariff — eligible cases',
@@ -1501,13 +1510,13 @@ const LANG = {
     PANE_CHANGELOG_DESC:'Full audit log of all tariff creates, updates, and deletes. Timestamps are local time.',
     OPT_ALL_ACTIONS:'All actions', OPT_CREATED:'Created', OPT_UPDATED:'Updated', OPT_DELETED:'Deleted',
     OPT_ALL_SUPPLIERS:'All suppliers',
-    BTN_EXPORT_CSV:'⬇ Export CSV', BTN_CLEAR_LOG:'🗑 Clear log',
+    BTN_EXPORT_CSV:'⬇ Export CSV',
     TH_TIMESTAMP:'Timestamp', TH_TARIFF_CL:'Tariff', TH_SUPPLIER_CL:'User', TH_ACTOR:'Made by', TH_ACTION:'Action', TH_CHANGES:'Changes',
     CL_ACTOR_ADMIN:'CERA Admin', CL_ACTOR_SUPPLIER:'Supplier',
     CL_EMPTY:'No changelog entries yet. Changes to tariffs will appear here.',
     // Publish pane
     PANE_PUB_TITLE:'Publish',
-    PANE_PUB_DESC:'Save all configuration to localStorage. The customer calculator reads from the same browser storage.',
+    PANE_PUB_DESC:'Suppliers, profiles, tariffs, regulated charges, notices and DAM data all save immediately from their own page — this button is not required for day-to-day edits. Use it as a manual safety net to re-sync everything to the server in one go, and to record a "last published" snapshot below.',
     BTN_SAVE_REG:'💾 Save regulated charges', BTN_REG_HISTORY:'📈 History',
     MODAL_REG_HISTORY_FPA:'Regulated charges history — FPA trend',
     MODAL_REG_HISTORY_GRID:'Regulated charges history — Grid usage trend',
@@ -1629,7 +1638,7 @@ const LANG = {
     PANE_DAM_DESC:'Κοινές τιμές αγοράς ανά μισάωρο που χρησιμοποιούνται από όλα τις δυναμικές διατιμήσεις.',
     CARD_FORMAT:'Μορφή', CARD_PASTE_DATA:'Επικόλληση δεδομένων',
     LBL_DATA_YEAR:'Έτος δεδομένων', LBL_PRICE_UNIT:'Μονάδα τιμής',
-    DZ_TITLE:'Σύρτε αρχεία CSV εδώ', DZ_SUB:'ή κάντε κλικ για αναζήτηση — υποστηρίζονται πολλαπλά αρχεία', BTN_PARSE:'⚡ Ανάλυση', BTN_CLEAR_DAM:'Εκκαθάριση',
+    DZ_TITLE:'Σύρτε αρχεία CSV εδώ', DZ_SUB:'ή κάντε κλικ για αναζήτηση — υποστηρίζονται πολλαπλά αρχεία', BTN_PARSE:'⚡ Ανάλυση', BTN_CLEAR_DAM:'Εκκαθάριση', BTN_SAVE_DAM:'💾 Αποθήκευση δεδομένων ΠΗΑ',
     CARD_COV_TITLE:'Κάλυψη δεδομένων', COV_FULL:'Πλήρης', COV_PARTIAL:'Μερική', COV_NONE:'Κανένα δεδομένο', COV_BACK:'Πίσω',
     CARD_MONTHLY_AVG:'Μηνιαίοι μέσοι όροι (€/kWh)',
     BTN_EXP_DAILY:'⬇ Εξαγωγή ημερήσιο CSV', BTN_EXP_SLOT:'⬇ Εξαγωγή μέσους ανά slot', BTN_EXP_MONTHLY:'⬇ Εξαγωγή μηνιαίους μέσους',
@@ -1659,7 +1668,8 @@ const LANG = {
     MONTH_8:'Σεπτέμβριος', MONTH_9:'Οκτώβριος', MONTH_10:'Νοέμβριος', MONTH_11:'Δεκέμβριος',
     // Notices pane
     PANE_NOTICES_TITLE:'Σημειώσεις & Αποποιήσεις Ευθυνών',
-    PANE_NOTICES_DESC:'Αυτό το περιεχόμενο εμφανίζεται ως αναδυόμενο παράθυρο στην αριθμομηχανή. Χρησιμοποιήστε το για να τεκμηριώσετε υπολογιστικές παραδοχές και νομικές ανακοινώσεις.',
+    PANE_NOTICES_DESC:'Αυτό το περιεχόμενο εμφανίζεται ως αναδυόμενο παράθυρο στην αριθμομηχανή. Χρησιμοποιήστε το για να τεκμηριώσετε υπολογιστικές παραδοχές και νομικές ανακοινώσεις. Πατήστε «Αποθήκευση ανακοινώσεων» παρακάτω για δημοσίευση.',
+    BTN_SAVE_NOTICES:'💾 Αποθήκευση ανακοινώσεων',
     CARD_FMT_TOOLBAR:'Γραμμή μορφοποίησης',
     CARD_ASSUMPTIONS:'Σημειώσεις', CARD_LEGAL:'Αποποιήσεις Ευθυνών',
     CARD_VULNERABLE:'🛡 Ευάλωτοι καταναλωτές / κοινωνικό τιμολόγιο',
@@ -1668,13 +1678,13 @@ const LANG = {
     PANE_CHANGELOG_DESC:'Πλήρες αρχείο καταγραφής δημιουργιών, ενημερώσεων και διαγραφών τιμολογίων. Οι χρονοσφραγίδες είναι τοπικής ώρας.',
     OPT_ALL_ACTIONS:'Όλες οι ενέργειες', OPT_CREATED:'Δημιουργήθηκε', OPT_UPDATED:'Ενημερώθηκε', OPT_DELETED:'Διαγράφηκε',
     OPT_ALL_SUPPLIERS:'Όλοι οι προμηθευτές',
-    BTN_EXPORT_CSV:'⬇ Εξαγωγή CSV', BTN_CLEAR_LOG:'🗑 Εκκαθάριση',
+    BTN_EXPORT_CSV:'⬇ Εξαγωγή CSV',
     TH_TIMESTAMP:'Χρόνος', TH_TARIFF_CL:'Τιμολόγιο', TH_SUPPLIER_CL:'Χρήστης', TH_ACTOR:'Έγινε από', TH_ACTION:'Ενέργεια', TH_CHANGES:'Αλλαγές',
     CL_ACTOR_ADMIN:'Διαχειριστής CERA', CL_ACTOR_SUPPLIER:'Προμηθευτής',
     CL_EMPTY:'Δεν υπάρχουν καταχωρήσεις ακόμα. Οι αλλαγές στα τιμολόγια θα εμφανίζονται εδώ.',
     // Publish pane
     PANE_PUB_TITLE:'Δημοσίευση',
-    PANE_PUB_DESC:'Αποθήκευση όλης της διαμόρφωσης. Η αριθμομηχανή πελατών διαβάζει από την ίδια αποθήκευση.',
+    PANE_PUB_DESC:'Οι προμηθευτές, τα προφίλ, τα τιμολόγια, οι ρυθμιζόμενες χρεώσεις, οι ανακοινώσεις και τα δεδομένα ΠΗΑ αποθηκεύονται αμέσως από τη δική τους σελίδα — αυτό το κουμπί δεν απαιτείται για καθημερινές αλλαγές. Χρησιμοποιήστε το ως χειροκίνητο δίχτυ ασφαλείας για επανασυγχρονισμό όλων με τον διακομιστή, και για να καταγράψετε ένα στιγμιότυπο «τελευταίας δημοσίευσης» παρακάτω.',
     BTN_SAVE_REG:'💾 Αποθήκευση ρυθμιζόμενων χρεώσεων', BTN_REG_HISTORY:'📈 Ιστορικό',
     MODAL_REG_HISTORY_FPA:'Ιστορικό ρυθμιζόμενων χρεώσεων — τάση FPA',
     MODAL_REG_HISTORY_GRID:'Ιστορικό ρυθμιζόμενων χρεώσεων — τάση χρεώσεων δικτύου',
@@ -1771,12 +1781,21 @@ function showPane(id){
 }
 
 /* ── Suppliers ── */
-function addSupplier(){
+async function addSupplier(){
   const name=document.getElementById('sup-name').value.trim();
   if(!name||suppliers.some(s=>supName(s)===name)) return;
-  suppliers.push({name});
-  document.getElementById('sup-name').value='';
-  renderSuppliers();
+  const st=document.getElementById('sup-status');
+  showStatus(st,'ok','Saving…');
+  try{
+    const resp=await fetch(_adminApiBase+'/api/admin/suppliers',{method:'POST',headers:authHeaders(),body:JSON.stringify({name})});
+    if(resp.status===401){showLogin('Session expired.');return;}
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(st,'err','Save failed: '+(e.detail||resp.status));return;}
+    const saved=await resp.json();
+    suppliers.push(saved);
+    document.getElementById('sup-name').value='';
+    renderSuppliers();
+    showStatus(st,'ok',`Saved — "${name}" added.`);
+  } catch(e){showStatus(st,'err','Save failed: '+e.message);}
 }
 function openSupModal(name){
   const s=suppliers.find(x=>supName(x)===name);
@@ -1795,17 +1814,13 @@ function openSupModal(name){
 function closeSupModal(){
   document.getElementById('sup-modal-overlay').style.display='none';
 }
-function saveSupplierDetails(){
+async function saveSupplierDetails(){
   const origName=document.getElementById('sup-modal-orig-name').value;
   const newName=document.getElementById('sup-modal-name').value.trim();
   if(!newName) return;
   const idx=suppliers.findIndex(s=>supName(s)===origName);
   if(idx<0) return;
-  // If name changed, update all tariffs that reference the old name
-  if(newName!==origName){
-    tariffs.forEach(t=>{if(t.supplier===origName) t.supplier=newName;});
-  }
-  suppliers[idx]={
+  const body={
     name:newName,
     licence:document.getElementById('sup-licence').value.trim(),
     address:document.getElementById('sup-address').value.trim(),
@@ -1813,14 +1828,37 @@ function saveSupplierDetails(){
     email:document.getElementById('sup-email').value.trim(),
     tel:document.getElementById('sup-tel').value.trim()
   };
-  closeSupModal();
-  renderSuppliers();
-  renderTariffs(); // refresh tariff list in case supplier name changed
+  const st=document.getElementById('sup-status');
+  showStatus(st,'ok','Saving…');
+  try{
+    const resp=await fetch(_adminApiBase+'/api/admin/suppliers/'+encodeURIComponent(origName),{method:'PUT',headers:authHeaders(),body:JSON.stringify(body)});
+    if(resp.status===401){showLogin('Session expired.');return;}
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(st,'err','Save failed: '+(e.detail||resp.status));return;}
+    const saved=await resp.json();
+    // Server already renamed this supplier on any referencing tariffs — mirror that locally
+    if(newName!==origName){
+      tariffs.forEach(t=>{if(t.supplier===origName) t.supplier=newName;});
+    }
+    suppliers[idx]=saved;
+    closeSupModal();
+    renderSuppliers();
+    renderTariffs(); // refresh tariff list in case supplier name changed
+    showStatus(st,'ok',`Saved — "${newName}" updated.`);
+  } catch(e){showStatus(st,'err','Save failed: '+e.message);}
 }
-function removeSupplier(name){
+async function removeSupplier(name){
   if(tariffs.some(t=>t.supplier===name)){alert(`Remove tariffs under "${name}" first.`);return;}
   if(!confirm(`Remove supplier "${name}"?\n\nThis cannot be undone.`)) return;
-  suppliers=suppliers.filter(s=>supName(s)!==name);renderSuppliers();
+  const st=document.getElementById('sup-status');
+  showStatus(st,'ok','Saving…');
+  try{
+    const resp=await fetch(_adminApiBase+'/api/admin/suppliers/'+encodeURIComponent(name),{method:'DELETE',headers:authHeaders()});
+    if(resp.status===401){showLogin('Session expired.');return;}
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(st,'err','Delete failed: '+(e.detail||resp.status));return;}
+    suppliers=suppliers.filter(s=>supName(s)!==name);
+    renderSuppliers();
+    showStatus(st,'ok',`Saved — "${name}" removed.`);
+  } catch(e){showStatus(st,'err','Delete failed: '+e.message);}
 }
 function renderSuppliers(){
   const el=document.getElementById('supplier-list');
@@ -1854,7 +1892,7 @@ function renderSuppliers(){
 /* ─────────────────────────────────────────
    PROFILE PARSER — DSO transposed format
    ───────────────────────────────────────── */
-function parseAndAddProfile(){
+async function parseAndAddProfile(){
   const name=document.getElementById('prof-name').value.trim();
   const desc=document.getElementById('prof-desc').value.trim();
   const raw=document.getElementById('prof-raw').value.trim();
@@ -1938,36 +1976,66 @@ function parseAndAddProfile(){
   const covW =months.filter(m=>m.hasW).length;
   const covNW=months.filter(m=>m.hasNW).length;
 
-  const profile={id:uid(),name,desc,months,covW,covNW,rows:parsed,colCount:colMap.length};
-
   const ex=profiles.findIndex(p=>p.name===name);
-  if(ex>=0){if(!confirm(`Overwrite profile "${name}"?`))return;profiles[ex]=profile;}
-  else profiles.push(profile);
+  if(ex>=0&&!confirm(`Overwrite profile "${name}"?`))return;
+  // Reuse the existing profile's id on overwrite so tariffs referencing it via
+  // profileId keep pointing at the same row — only brand-new profiles get a new id.
+  const profile={id:ex>=0?profiles[ex].id:uid(),name,desc,months,covW,covNW,rows:parsed,colCount:colMap.length};
 
-  document.getElementById('prof-name').value='';
-  document.getElementById('prof-raw').value='';
-  showStatus(status,'ok',
-    `✓ Profile "${name}" saved — ${parsed} time slots, ${colMap.length} columns (W:${covW}/12 months, NW:${covNW}/12 months), ${skipped} skipped rows.`
-  );
-  renderProfiles();
-  refreshProfileDropdowns();
+  showStatus(status,'ok','Saving…');
+  try{
+    const url=ex>=0
+      ?_adminApiBase+'/api/admin/profiles/'+encodeURIComponent(profile.id)
+      :_adminApiBase+'/api/admin/profiles';
+    const resp=await fetch(url,{method:ex>=0?'PUT':'POST',headers:authHeaders(),body:JSON.stringify(profile)});
+    if(resp.status===401){showLogin('Session expired.');return;}
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(status,'err','Save failed: '+(e.detail||resp.status));return;}
+    const saved=await resp.json();
+    if(ex>=0) profiles[ex]=saved; else profiles.push(saved);
+    document.getElementById('prof-name').value='';
+    document.getElementById('prof-raw').value='';
+    renderProfiles();
+    refreshProfileDropdowns();
+    showStatus(status,'ok',
+      `✓ Profile "${name}" saved — ${parsed} time slots, ${colMap.length} columns (W:${covW}/12 months, NW:${covNW}/12 months), ${skipped} skipped rows.`
+    );
+  } catch(e){showStatus(status,'err','Save failed: '+e.message);}
 }
 
-function editProfileName(id){
+async function editProfileName(id){
   const p=profiles.find(x=>x.id===id);
   if(!p) return;
   const newName=prompt('Rename profile:', p.name);
   if(!newName||!newName.trim()||newName.trim()===p.name) return;
-  p.name=newName.trim();
-  renderProfiles();
-  refreshProfileDropdowns();
+  const st=document.getElementById('profile-list-status');
+  showStatus(st,'ok','Saving…');
+  const body={...p,name:newName.trim()};
+  try{
+    const resp=await fetch(_adminApiBase+'/api/admin/profiles/'+encodeURIComponent(id),{method:'PUT',headers:authHeaders(),body:JSON.stringify(body)});
+    if(resp.status===401){showLogin('Session expired.');return;}
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(st,'err','Save failed: '+(e.detail||resp.status));return;}
+    const saved=await resp.json();
+    const idx=profiles.findIndex(x=>x.id===id);
+    if(idx>=0) profiles[idx]=saved;
+    renderProfiles();
+    refreshProfileDropdowns();
+    showStatus(st,'ok',`Saved — renamed to "${saved.name}".`);
+  } catch(e){showStatus(st,'err','Save failed: '+e.message);}
 }
 
-function deleteProfile(id){
+async function deleteProfile(id){
   if(tariffs.some(t=>t.profileId===id)){alert('Unassign from tariffs first.');return;}
   if(!confirm('Delete this profile?'))return;
-  profiles=profiles.filter(p=>p.id!==id);
-  renderProfiles();refreshProfileDropdowns();
+  const st=document.getElementById('profile-list-status');
+  showStatus(st,'ok','Saving…');
+  try{
+    const resp=await fetch(_adminApiBase+'/api/admin/profiles/'+encodeURIComponent(id),{method:'DELETE',headers:authHeaders()});
+    if(resp.status===401){showLogin('Session expired.');return;}
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(st,'err','Delete failed: '+(e.detail||resp.status));return;}
+    profiles=profiles.filter(p=>p.id!==id);
+    renderProfiles();refreshProfileDropdowns();
+    showStatus(st,'ok','Saved — profile deleted.');
+  } catch(e){showStatus(st,'err','Delete failed: '+e.message);}
 }
 
 function renderProfiles(){
@@ -3390,11 +3458,6 @@ function exportChangelog(){
   a.download='tariff_changelog_'+new Date().toISOString().slice(0,10)+'.csv';
   document.body.appendChild(a);a.click();document.body.removeChild(a);
 }
-function clearChangelog(){
-  if(!confirm('Clear the entire changelog? This cannot be undone.'))return;
-  changelog=[];renderChangelog();
-}
-
 function renderTariffMiniLog(tariffId){
   const entries=changelog.filter(function(e){return e.tariffId===tariffId;}).slice(0,5);
   if(!entries.length) return '';
@@ -3960,6 +4023,17 @@ function clearDAM(){
   damDailyData=Array.from({length:12},()=>[]);
   if(damWeekChart){damWeekChart.destroy();damWeekChart=null;}
 }
+async function saveDamData(){
+  const st=document.getElementById('dam-status');
+  showStatus(st,'ok','Saving…');
+  try{
+    const body={damMonthly,damBySlot,damDailyData,damRowCount,damYear:fv('dam-year')};
+    const resp=await fetch(_adminApiBase+'/api/admin/dam',{method:'PUT',headers:authHeaders(),body:JSON.stringify(body)});
+    if(resp.status===401){showLogin('Session expired.');return;}
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(st,'err','Save failed: '+(e.detail||resp.status));return;}
+    showStatus(st,'ok','Saved ✓ — DAM data now live.');
+  } catch(e){showStatus(st,'err','Save failed: '+e.message);}
+}
 
 /* ── Regulated tariffs ── */
 function getRegulated(){
@@ -3984,15 +4058,20 @@ function setRegulated(r){
   set('reg-fpa-hv',r.fpaHV||r.fpa||0);
   set('reg-pso',r.pso);
   set('reg-res',r.res||0);
-  const tsEls=document.querySelectorAll('.reg-ts');
-  if(r.updated_at){
-    const dt=new Date(r.updated_at);
-    const fmt=dt.toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
-    const label=T('REG_LAST_UPDATED').replace('{dt}',fmt);
-    tsEls.forEach(el=>{el.textContent=label;el.style.display='block';});
-  } else {
-    tsEls.forEach(el=>{el.style.display='none';});
-  }
+  const setTs=(cls,iso)=>{
+    const els=document.querySelectorAll(cls);
+    if(iso){
+      const dt=new Date(iso);
+      const fmt=dt.toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+      const label=T('REG_LAST_UPDATED').replace('{dt}',fmt);
+      els.forEach(el=>{el.textContent=label;el.style.display='block';});
+    } else {
+      els.forEach(el=>{el.style.display='none';});
+    }
+  };
+  setTs('.reg-ts-grid',r.grid_updated_at);
+  setTs('.reg-ts-fpa',r.fpa_updated_at);
+  setTs('.reg-ts-universal',r.universal_updated_at);
 }
 
 async function saveRegulated(){
@@ -4168,6 +4247,16 @@ function setNotices(n){
   s('legal-el', n.legal_el||'');
   s('vulnerable-en', n.vulnerable_en||'');
   s('vulnerable-el', n.vulnerable_el||'');
+}
+async function saveNotices(){
+  const st=document.getElementById('notices-status');
+  showStatus(st,'ok','Saving…');
+  try{
+    const resp=await fetch(_adminApiBase+'/api/admin/notices',{method:'PUT',headers:authHeaders(),body:JSON.stringify(getNotices())});
+    if(resp.status===401){showLogin('Session expired.');return;}
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(st,'err','Save failed: '+(e.detail||resp.status));return;}
+    showStatus(st,'ok','Saved ✓ — now live on the customer calculator.');
+  } catch(e){showStatus(st,'err','Save failed: '+e.message);}
 }
 
 /* ── Audit calculator ── */
@@ -4806,8 +4895,16 @@ function buildPubSummary(){
 function pubTile(l,v,s){
   return `<div class="pub-tile"><div class="pub-tile-lbl">${l}</div><div class="pub-tile-val">${v}</div><div class="pub-tile-sub">${s}</div></div>`;
 }
-async function saveAll(){
-  const ps=document.getElementById('pub-status');
+// Shared persist path: bundles the current in-memory suppliers/profiles/tariffs/
+// regulated/notices/DAM state and publishes it in one PUT — this is what "Save &
+// publish" always did. Individual panes (Suppliers, Profiles, Notices, DAM) call
+// this right when their own Save/Add/Delete action fires, so those edits reach the
+// database immediately instead of silently staying in this browser tab until
+// someone separately visits the Publish page. Returns the server's result summary
+// on success, or null on failure (status message is shown inline either way).
+async function persistConfig(statusElId, successMsg){
+  const st=statusElId?document.getElementById(statusElId):null;
+  if(st) showStatus(st,'ok','Saving…');
   try{
     const payload={
       version:5,suppliers,profiles,tariffs,
@@ -4815,7 +4912,6 @@ async function saveAll(){
       notices:getNotices(),
       damMonthly,damBySlot,damDailyData,damRowCount,
       damYear:fv('dam-year'),
-      changelog,
       savedAt:new Date().toISOString()
     };
     const resp=await fetch(_adminApiBase+'/api/admin/config',{
@@ -4823,14 +4919,22 @@ async function saveAll(){
       headers:authHeaders(),
       body:JSON.stringify(payload)
     });
-    if(resp.status===401){showLogin('Session expired — please sign in again.');return;}
+    if(resp.status===401){showLogin('Session expired — please sign in again.');return null;}
     if(!resp.ok){const err=await resp.json().catch(()=>({}));throw new Error(err.detail||('HTTP '+resp.status));}
     const result=await resp.json();
     const ts=new Date().toLocaleTimeString();
-    showStatus(ps,'ok',`Published at ${ts} — ${result.approved_tariffs} approved tariff(s) live.`);
-    document.getElementById('saved-label').textContent='Published '+ts;
+    const savedLabel=document.getElementById('saved-label');
+    if(savedLabel) savedLabel.textContent='Published '+ts;
     localStorage.setItem('elec-config-v5',JSON.stringify(payload)); // local backup
-  }catch(e){showStatus(ps,'err','Publish failed: '+e.message);}
+    if(st) showStatus(st,'ok',typeof successMsg==='function'?successMsg(result,ts):(successMsg||'Saved ✓'));
+    return result;
+  }catch(e){
+    if(st) showStatus(st,'err','Save failed: '+e.message);
+    return null;
+  }
+}
+async function saveAll(){
+  await persistConfig('pub-status',(result,ts)=>`Published at ${ts} — ${result.approved_tariffs} approved tariff(s) live.`);
 }
 function loadSnapshot(){
   const box=document.getElementById('snapshot-box');

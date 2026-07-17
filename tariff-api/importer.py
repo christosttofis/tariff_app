@@ -4,7 +4,11 @@ Used by both seed.py (CLI) and the admin "Publish" endpoint (PUT /api/admin/conf
 
 The cfg JSON shape is produced by admin.html's saveAll() function:
   {version, suppliers, profiles, tariffs, regulated, notices,
-   damMonthly, damBySlot, damDailyData, damRowCount, damYear, changelog, savedAt}
+   damMonthly, damBySlot, damDailyData, damRowCount, damYear, savedAt}
+
+Note: the changelog (audit trail) is deliberately NOT part of this import — it's
+written directly to the database by the individual create/update/delete endpoints
+and must survive a bulk publish untouched, regardless of what the client sends.
 """
 
 import json
@@ -24,7 +28,10 @@ def import_cfg(cfg: dict[str, Any], db: Session) -> dict:
     enforce foreign keys by default.
     """
     # Clear existing data (order matters conceptually even without FK enforcement)
-    db.query(models.Changelog).delete()
+    # NOTE: models.Changelog is intentionally NOT cleared/reimported here — it's an
+    # append-only audit trail written directly by the individual create/update/delete
+    # endpoints (_add_changelog in routers/admin.py), and must survive a bulk publish
+    # regardless of what the client's in-memory snapshot happens to contain.
     db.query(models.Tariff).delete()
     db.query(models.Profile).delete()
     db.query(models.Supplier).delete()
@@ -120,18 +127,6 @@ def import_cfg(cfg: dict[str, Any], db: Session) -> dict:
         vulnerable_en=n.get("vulnerable_en", ""),
         vulnerable_el=n.get("vulnerable_el", ""),
     ))
-
-    # ── Changelog ──────────────────────────────────────────────────────────
-    for c in cfg.get("changelog", []):
-        db.add(models.Changelog(
-            id=c.get("id", ""),
-            tariffId=c.get("tariffId"),
-            tariffName=c.get("tariffName"),
-            supplier=c.get("supplier"),
-            action=c.get("action", ""),
-            changes=json.dumps(c.get("changes", [])),
-            ts=c.get("ts"),
-        ))
 
     db.commit()
 
