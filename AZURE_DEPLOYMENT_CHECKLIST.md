@@ -9,7 +9,7 @@
 
 ## What this document covers
 
-Step-by-step instructions to deploy the CERA Tariff Comparison Tool to Microsoft Azure App Service, with secrets stored in Azure Key Vault (not in plain configuration) and a custom domain (`tariffs.cera.org.cy`) added via Cloudflare DNS. This is the companion document referenced in `AZURE_DEPLOYMENT_BRIEF_v2.md`.
+Step-by-step instructions to deploy the CERA Tariff Comparison Tool to Microsoft Azure App Service, running on Azure Database for PostgreSQL Flexible Server from day one (with its automated backups), with secrets stored in Azure Key Vault (not in plain configuration) and a custom domain (`tariffs.cera.org.cy`) added via Cloudflare DNS. This is the companion document referenced in `AZURE_DEPLOYMENT_BRIEF_v2.md`.
 
 ---
 
@@ -17,10 +17,10 @@ Step-by-step instructions to deploy the CERA Tariff Comparison Tool to Microsoft
 
 Before starting, confirm the following:
 
-- [ ] You have access to the CERA Azure portal (`portal.azure.com`) with permission to create App Service, Key Vault, and DNS-related resources
+- [ ] You have access to the CERA Azure portal (`portal.azure.com`) with permission to create App Service, Azure Database for PostgreSQL, Key Vault, and DNS-related resources
 - [ ] You have the application folder (`Tariff backend/`) — copy from the CERA desktop or shared drive
-- [ ] You have the Azure Zip Deploy tool or VS Code with the Azure App Service extension installed (see Step 6)
-- [ ] You have access to the Cloudflare dashboard for the `cera.org.cy` zone (Step 9)
+- [ ] You have the Azure Zip Deploy tool or VS Code with the Azure App Service extension installed (see Step 7)
+- [ ] You have access to the Cloudflare dashboard for the `cera.org.cy` zone (Step 10)
 
 ---
 
@@ -48,7 +48,7 @@ Tariff backend/           ← this entire folder gets zipped and uploaded
     └── (do NOT include .env — settings are entered in Azure, not uploaded)
 ```
 
-> **Important:** Do NOT include the `.env` file in the zip. Secrets are stored in Azure Key Vault (Step 3) and referenced from App Service settings (Step 4).
+> **Important:** Do NOT include the `.env` file in the zip. Secrets are stored in Azure Key Vault (Step 4) and referenced from App Service settings (Step 5).
 > Do NOT include the `tariff.db` database file if you are starting fresh.
 > Do NOT include the `venv/` or `.venv/` virtual environment folder — Azure creates its own.
 
@@ -88,11 +88,40 @@ https://cera-tariff-tool.azurewebsites.net
 6. **Enable Managed Identity** — this lets the App Service read Key Vault secrets without storing any credential:
    - Open the App Service → **Settings → Identity**
    - Under **System assigned**, set **Status** to **On** → **Save**
-   - Note the **Object (principal) ID** shown — needed in Step 3
+   - Note the **Object (principal) ID** shown — needed in Step 4
 
 ---
 
-## Step 3 — Create the Key Vault and store secrets
+## Step 3 — Create the Azure Database for PostgreSQL Flexible Server
+
+The application runs on PostgreSQL (not SQLite) from day one — this gets Azure's automated daily backups in place immediately, with no later migration required. See `AZURE_DEPLOYMENT_BRIEF_v2.md`, Section 8 for backup/restore details.
+
+1. In the Azure portal, click **Create a resource** → search for **Azure Database for PostgreSQL** → **Create** → choose **Flexible server**
+2. Fill in the form:
+
+| Field | Value |
+|---|---|
+| **Subscription** | CERA's Azure subscription |
+| **Resource Group** | `rg-tariff-tool` (same as the App Service) |
+| **Server name** | `cera-tariff-db` (or similar — must be globally unique) |
+| **Region** | West Europe (same as the App Service) |
+| **PostgreSQL version** | 16 (or latest available) |
+| **Workload type** | Development (Burstable tier, B1ms — ~€25/month) |
+| **Authentication method** | PostgreSQL authentication |
+| **Admin username** | `tariffadmin` (or similar — avoid `postgres`/`admin`) |
+| **Password** | Generate a strong password and record it securely — needed below |
+
+3. Under **Networking**: choose **Public access**, then add a firewall rule **Allow public access from any Azure service within Azure** (this permits the App Service to connect without needing a VNet). If CERA's security policy requires it, a private VNet-integrated setup is also possible but is more involved — discuss with IT before choosing this.
+4. Click **Review + create** → **Create**. Provisioning takes a few minutes.
+5. Once created, open the server → **Databases** → **+ Add** → create a database named `tariffdb`
+6. Note the **server hostname** (shown on the server's Overview page, e.g. `cera-tariff-db.postgres.database.azure.com`) — needed for the `DATABASE-URL` secret in Step 4
+7. **Confirm automated backups are enabled** (they are by default) — server → **Backup and restore** — note the retention period (35 days by default) and confirm with Regulatory Affairs whether that's sufficient, or whether it should be extended
+
+> **Backup retention and geo-redundancy** are set at server creation and are harder to change afterward. Decide before this step whether CERA needs geo-redundant backup storage (protects against a full regional outage, at extra cost) — see the Backup & Disaster Recovery section of `AZURE_DEPLOYMENT_BRIEF_v2.md`.
+
+---
+
+## Step 4 — Create the Key Vault and store secrets
 
 Secrets are never stored in a configuration file. They live in Key Vault; the App Service reads them at startup via its Managed Identity.
 
@@ -122,9 +151,9 @@ Secrets are never stored in a configuration file. They live in Key Vault; the Ap
 | `TARIFF-EMAIL-FROM` | Shared/service mailbox address (e.g. `tariffs@cera.org.cy`) — do not use a personal mailbox in production |
 | `TARIFF-ADMIN-EMAIL` | Real CERA admin distribution address |
 | `TARIFF-SECRET-KEY` | *(generate a new random string — see note below)* |
-| `DATABASE-URL` | `sqlite:////home/tariff.db` |
+| `DATABASE-URL` | `postgresql+psycopg://tariffadmin:<password>@cera-tariff-db.postgres.database.azure.com/tariffdb?sslmode=require` *(use the actual admin username, password, and server hostname from Step 3)* |
 
-> **Key Vault secret names cannot contain underscores** — use hyphens (`AZURE-TENANT-ID`, not `AZURE_TENANT_ID`). The reference syntax in Step 4 maps these back to the underscore-named environment variables the application expects.
+> **Key Vault secret names cannot contain underscores** — use hyphens (`AZURE-TENANT-ID`, not `AZURE_TENANT_ID`). The reference syntax in Step 5 maps these back to the underscore-named environment variables the application expects.
 
 > **Generate a new Azure client secret** (do not reuse the one from local development): Azure Portal → **App registrations** → the CERA app registration used for tariff-tool email sending → **Certificates & secrets** → **New client secret** → expiry **12 months**. Copy the value immediately (shown once) into the `AZURE-CLIENT-SECRET` Key Vault entry above. Delete the old development secret from the app registration once the new one is confirmed working.
 
@@ -136,9 +165,9 @@ Secrets are never stored in a configuration file. They live in Key Vault; the Ap
 
 ---
 
-## Step 4 — Configure App Service settings to reference Key Vault
+## Step 5 — Configure App Service settings to reference Key Vault
 
-Instead of pasting secret values directly, App Service settings point at the Key Vault entries created in Step 3. Azure resolves them at runtime using the Managed Identity — no secret ever touches a config file or the deployment package.
+Instead of pasting secret values directly, App Service settings point at the Key Vault entries created in Step 4. Azure resolves them at runtime using the Managed Identity — no secret ever touches a config file or the deployment package.
 
 1. Open the App Service (`cera-tariff-tool`) → **Settings → Environment variables**
 2. Add each setting below using **+ Add**. The value is a Key Vault reference, not the secret itself:
@@ -152,15 +181,15 @@ Instead of pasting secret values directly, App Service settings point at the Key
 | `TARIFF_ADMIN_EMAIL` | `@Microsoft.KeyVault(SecretUri=https://kv-tariff-tool.vault.azure.net/secrets/TARIFF-ADMIN-EMAIL/)` |
 | `TARIFF_SECRET_KEY` | `@Microsoft.KeyVault(SecretUri=https://kv-tariff-tool.vault.azure.net/secrets/TARIFF-SECRET-KEY/)` |
 | `DATABASE_URL` | `@Microsoft.KeyVault(SecretUri=https://kv-tariff-tool.vault.azure.net/secrets/DATABASE-URL/)` |
-| `TARIFF_BASE_URL` | `https://tariffs.cera.org.cy` *(plain value — not a secret; update once the custom domain in Step 9 is live, or use the `azurewebsites.net` URL until then)* |
+| `TARIFF_BASE_URL` | `https://tariffs.cera.org.cy` *(plain value — not a secret; update once the custom domain in Step 10 is live, or use the `azurewebsites.net` URL until then)* |
 | `SCM_DO_BUILD_DURING_DEPLOYMENT` | `true` *(plain value)* |
 
 3. Click **Apply** → **Confirm**
-4. After saving, refresh the page and confirm each Key Vault–referenced setting shows a green checkmark (resolved) rather than a warning icon — a warning means the Managed Identity role assignment (Step 3.4) has not propagated yet or the secret name doesn't match exactly.
+4. After saving, refresh the page and confirm each Key Vault–referenced setting shows a green checkmark (resolved) rather than a warning icon — a warning means the Managed Identity role assignment (Step 4.4) has not propagated yet or the secret name doesn't match exactly.
 
 ---
 
-## Step 5 — Set the startup command
+## Step 6 — Set the startup command
 
 In the Azure portal:
 
@@ -175,7 +204,7 @@ cd tariff-api && python -m uvicorn main:app --host 0.0.0.0 --port 8000
 
 ---
 
-## Step 6 — Deploy the application
+## Step 7 — Deploy the application
 
 **Option A — Azure CLI (recommended for IT)**
 
@@ -201,7 +230,7 @@ az webapp deploy --resource-group rg-tariff-tool --name cera-tariff-tool --src-p
 
 ---
 
-## Step 7 — Verify the deployment
+## Step 8 — Verify the deployment
 
 After deployment completes (allow 2–3 minutes for the first start):
 
@@ -217,11 +246,11 @@ After deployment completes (allow 2–3 minutes for the first start):
    ```
    The admin login screen should appear.
 
-3. Log in with the admin account credentials (create one first — see Step 8).
+3. Log in with the admin account credentials (create one first — see Step 9).
 
-If pages do not load, check the application logs (Step 7a).
+If pages do not load, check the application logs (Step 8a).
 
-### Step 7a — Checking logs if something goes wrong
+### Step 8a — Checking logs if something goes wrong
 
 In the Azure portal:
 
@@ -233,14 +262,14 @@ Common issues:
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Page shows "Application Error" | Startup command wrong, or missing dependency | Check Log stream for Python error |
-| Login fails with server error | `TARIFF_SECRET_KEY` not resolving | Check the Key Vault reference shows a green checkmark (Step 4.4) |
-| Settings show a warning icon instead of resolving | Managed Identity role assignment missing or secret name mismatch | Re-check Step 3.4 (role assignment) and that secret names match exactly |
+| Login fails with server error | `TARIFF_SECRET_KEY` not resolving | Check the Key Vault reference shows a green checkmark (Step 5.4) |
+| Settings show a warning icon instead of resolving | Managed Identity role assignment missing or secret name mismatch | Re-check Step 4.4 (role assignment) and that secret names match exactly |
 | Emails not sent | `AZURE_CLIENT_SECRET` missing, expired, or wrong mailbox configured | Verify the Key Vault secret value and that `TARIFF_EMAIL_FROM` is a mailbox the app registration can send as |
-| Data disappears after restart | `DATABASE_URL` not set to `/home/` path | Confirm the `DATABASE-URL` Key Vault secret is `sqlite:////home/tariff.db` |
+| Page shows "Application Error" and logs mention a database connection failure | `DATABASE_URL` malformed, wrong password, or the PostgreSQL server's firewall doesn't allow the App Service | Confirm the `DATABASE-URL` Key Vault secret matches Step 4's format exactly, and that Step 3's firewall rule (allow Azure services) is in place |
 
 ---
 
-## Step 8 — Create the first admin account
+## Step 9 — Create the first admin account
 
 On first deployment, there are no admin accounts in the database. Create one from the Azure console:
 
@@ -255,7 +284,7 @@ python create_user.py --email yourname@cera.org.cy --role admin
 
 ---
 
-## Step 9 — Add the custom domain (`tariffs.cera.org.cy`) via Cloudflare
+## Step 10 — Add the custom domain (`tariffs.cera.org.cy`) via Cloudflare
 
 The `cera.org.cy` DNS zone is hosted on Cloudflare. Follow these steps rather than a generic DNS provider's flow:
 
@@ -271,7 +300,7 @@ The `cera.org.cy` DNS zone is hosted on Cloudflare. Follow these steps rather th
 6. Once validated, click **Add**
 7. Back in the custom domain list, click **Add binding** next to `tariffs.cera.org.cy` → choose **App Service Managed Certificate** → **Create App Service Managed Certificate**, then bind it
    - Certificate issuance can take a few minutes; refresh the page to check status
-8. Once bound, update the `TARIFF_BASE_URL` setting from Step 4 to `https://tariffs.cera.org.cy` if it wasn't already set to that value
+8. Once bound, update the `TARIFF_BASE_URL` setting from Step 5 to `https://tariffs.cera.org.cy` if it wasn't already set to that value
 
 After this, both `https://cera-tariff-tool.azurewebsites.net` and `https://tariffs.cera.org.cy` will serve the application; only the custom domain should be shared with users.
 
@@ -302,9 +331,9 @@ This restricts `admin.html` to the CERA office network while `customer.html` and
 
 ## Ongoing maintenance
 
-- **Rotate the Azure client secret once per year** (before its 12-month expiry set in Step 3). Generate a new secret in the app registration, update the `AZURE-CLIENT-SECRET` value in Key Vault (same secret name — Azure picks up the new version automatically), then delete the old secret from the app registration. No redeploy needed. Set a calendar reminder ~11 months from creation.
+- **Rotate the Azure client secret once per year** (before its 12-month expiry set in Step 4). Generate a new secret in the app registration, update the `AZURE-CLIENT-SECRET` value in Key Vault (same secret name — Azure picks up the new version automatically), then delete the old secret from the app registration. No redeploy needed. Set a calendar reminder ~11 months from creation.
 - **Monitor Log stream / Azure Security Centre** periodically (monthly or quarterly) for application errors and platform recommendations.
-- **Back up the database:** for the SQLite pilot, periodically download `tariff.db` via the SSH console (`Development Tools → SSH`). When migrated to PostgreSQL (see `AZURE_DEPLOYMENT_BRIEF_v2.md`, Section 8), Azure's automated daily backups take over.
+- **Database backup:** handled automatically by Azure Database for PostgreSQL Flexible Server (daily backups, 35-day point-in-time restore by default) — no manual download or ongoing task required. See the Backup & Disaster Recovery section of `AZURE_DEPLOYMENT_BRIEF_v2.md` (Section 8), and do the one-time test restore recommended there before go-live.
 - **Bug reports:** the Regulatory Affairs team is first point of contact for application-level issues; IT's involvement is limited to infrastructure problems (App Service down, certificate errors, Key Vault access failures).
 
 ---
@@ -327,12 +356,13 @@ To delete everything when the tryout is complete:
 |---|---|---|
 | App Service | B1 Basic, West Europe | ~€13/month |
 | Key Vault | Standard tier | ~€2/month |
+| Azure Database for PostgreSQL Flexible Server | Burstable B1ms, includes automated backups | ~€25/month |
 | Storage (persistent `/home`) | Included in B1 | €0 |
 | Custom domain + managed certificate | Included, no extra cost | €0 |
 | Outbound data transfer | First 5 GB/month free | ~€0 for tryout |
-| **Total** | | **~€15/month** |
+| **Total** | | **~€40/month** |
 
-The app can be stopped when not in use to reduce compute costs. A stopped App Service is not billed for compute (Key Vault's small monthly cost still applies).
+The App Service can be stopped when not in use to reduce compute costs — a stopped App Service is not billed for compute. The PostgreSQL Flexible Server can also be stopped (for up to 7 days at a time) to save its compute cost during an extended pause; Key Vault's small monthly cost applies regardless.
 
 ---
 
@@ -340,4 +370,4 @@ The app can be stopped when not in use to reduce compute costs. A stopped App Se
 
 For questions about the application code, configuration values, or environment variables, contact the CERA Tariff Tool project lead.
 
-*Document version 2.0 — July 2026. Revised to add Key Vault-based secret storage, Cloudflare custom-domain steps, and admin.html-specific access restriction, per IT review of v1.0.*
+*Document version 2.1 — July 2026. v2.0 added Key Vault-based secret storage, Cloudflare custom-domain steps, and admin.html-specific access restriction, per IT review of v1.0. v2.1 replaces the deferred-SQLite pilot with PostgreSQL from day one (new Step 3), updates the cost summary and all subsequent step numbers accordingly, and points backup guidance at the Backup & Disaster Recovery section of `AZURE_DEPLOYMENT_BRIEF_v2.md`.*

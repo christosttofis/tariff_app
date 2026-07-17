@@ -5,6 +5,8 @@
 **Purpose:** Recommendation for hosting the CERA Tariff Comparison Tool on Microsoft Azure  
 **Revision note:** This version addresses questions raised on the June 2026 draft.
 
+> **📝 PK (2026-07-17):** Removed the "SQLite pilot, upgrade to PostgreSQL later" plan that appeared throughout earlier drafts of this document — the application has since been migrated to PostgreSQL during development and no longer supports a SQLite pilot phase. Deploying straight to Azure Database for PostgreSQL Flexible Server avoids a redundant migration and gets automated backups in place from day one. Section 8 (formerly the SQLite→PostgreSQL migration guide) has been replaced with a Backup & Disaster Recovery section.
+
 ---
 
 ## 1. Background
@@ -37,7 +39,7 @@ HTTPS certificates on Azure App Service are issued and renewed by Microsoft with
 
 **Encryption — data at rest and in transit**
 - *In transit:* All traffic between users and the application is encrypted via TLS 1.2/1.3, enforced by Azure App Service. Communication between the application and Azure Key Vault, and between the application and the Microsoft Graph mail service, also takes place over TLS.
-- *At rest:* Azure App Service storage and Azure Database for PostgreSQL both encrypt data at rest using AES-256 by default, with no additional configuration required. For the SQLite pilot database stored on the App Service `/home` mount, the underlying Azure Files storage is also AES-256 encrypted at rest.
+- *At rest:* Azure App Service storage and Azure Database for PostgreSQL both encrypt data at rest using AES-256 by default, with no additional configuration required.
 
 **Secrets are stored securely in Azure Key Vault**
 The application requires several sensitive credentials — a JWT signing key, and the Azure client secret used for email. On a self-managed server these would be stored in a plain text configuration file on disk. Azure Key Vault stores them encrypted, with access logging and no file on disk. The App Service accesses Key Vault using a Managed Identity — no credential is needed to retrieve a credential, eliminating a class of secret-exposure risk entirely.
@@ -68,14 +70,12 @@ The following Azure services are required:
 |---|---|---|
 | Azure App Service — Basic B1 | Hosts and runs the Python web application | ~€13/month |
 | Azure Key Vault | Secure storage for application secrets and credentials | ~€2/month |
-| Azure Database for PostgreSQL Flexible Server | Production-grade database (pilot can defer this — see note) | ~€25/month |
+| Azure Database for PostgreSQL Flexible Server | Production-grade database, including automated daily backups | ~€25/month |
 | *(Azure App Registration)* | Already exists — used for email sending, no changes needed | No cost |
 
-**Estimated total: ~€40/month at full production.**
+**Estimated total: ~€40/month, from the pilot onward.**
 
-For the initial pilot period, the PostgreSQL database can be deferred and the application can run with a built-in SQLite database at no additional cost, reducing the pilot cost to approximately **€15/month**.
-
-*Regarding SQLite for the pilot:* SQLite is appropriate for the pilot because user concurrency will be very low (a small number of CERA staff and a handful of suppliers). SQLite is stored on the Azure `/home` persistent mount, which is AES-256 encrypted at rest. It is not exposed to the network — only the application itself can access the file. The security posture is equivalent to PostgreSQL for a single-server pilot scenario. The migration to PostgreSQL when concurrency becomes a concern is covered in Section 7.
+*Regarding PostgreSQL from day one:* the application already runs on PostgreSQL in development (it is no longer built against SQLite), so the pilot deploys directly to Azure Database for PostgreSQL Flexible Server rather than starting on a temporary SQLite database and migrating later. This avoids a redundant data migration and means the pilot gets Azure's automated backup and point-in-time restore coverage (see Section 8) from the first day it's live, rather than only after a later upgrade.
 
 ---
 
@@ -120,11 +120,11 @@ For the initial pilot period, the PostgreSQL database can be deferred and the ap
 │  ┌──────────────┐ ┌──────────────┐  ┌──────────────────────┐   │
 │  │   STORAGE    │ │  KEY VAULT   │  │  AZURE ACTIVE DIR.   │   │
 │  │              │ │              │  │  (CERA Tenant)       │   │
-│  │ SQLite (pilot│ │ JWT key      │  │                      │   │
-│  │ /home mount) │ │ Client secret│  │ App Registration     │   │
-│  │     ──or──   │ │ Tenant ID    │  │ Mail.Send permission │   │
-│  │ PostgreSQL   │ │ Client ID    │  │ (already granted)    │   │
-│  │ (production) │ │ DB creds     │  │        │             │   │
+│  │ PostgreSQL   │ │ JWT key      │  │                      │   │
+│  │ Flexible     │ │ Client secret│  │ App Registration     │   │
+│  │ Server       │ │ Tenant ID    │  │ Mail.Send permission │   │
+│  │ (auto backup)│ │ Client ID    │  │ (already granted)    │   │
+│  │              │ │ DB creds     │  │        │             │   │
 │  └──────────────┘ └──────────────┘  │   Azure Mail ────────┼──►│
 │                                     └──────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
@@ -237,54 +237,38 @@ Yes. Both admin and supplier users can change their own password from within the
 - **Rotate the Azure client secret once per year** — a calendar reminder should be set. The process: generate a new secret in the App Registration, update the value in Key Vault, delete the old secret. The application picks up the new value automatically on next restart. Estimated time: 15 minutes.
 - **Bug detection and fixing:** Application errors are logged in Azure App Service → Monitoring → Log stream. For the pilot period, the Regulatory Affairs team (who owns the application) should be the first point of contact for reported issues. IT's involvement would be limited to infrastructure-level problems (App Service unavailability, certificate issues, Key Vault access problems). Application-level bugs are handled by the development team.
 - **Review Azure Security Centre recommendations** periodically (monthly or quarterly)
-- **Database backup:** For the SQLite pilot, a periodic manual download of the `tariff.db` file from the App Service SSH console is sufficient. For PostgreSQL production, Azure provides automated daily backups with point-in-time restore for up to 35 days — no action required.
+- **Database backup:** Azure Database for PostgreSQL Flexible Server provides automated daily backups with point-in-time restore for up to 35 days by default — no action required to enable it. IT should confirm the retention window is sufficient for CERA's audit requirements at setup time, and perform one test restore before go-live (see Section 8).
 
 ### Source code administration
 The application source code is currently held on the CERA workstation where it was developed. For production, it is recommended that the source code be transferred to a CERA-controlled repository — either an Azure DevOps repository (already available within CERA's Microsoft tenant at no extra cost) or a private GitHub repository. This ensures that code changes are tracked, deployments are repeatable, and the application is not dependent on a single workstation. The Regulatory Affairs team and the development team should agree on ownership. IT can create the Azure DevOps repository if preferred.
 
 ---
 
-## 8. Production upgrade path — SQLite to PostgreSQL
+## 8. Backup & disaster recovery
 
-The pilot will run with SQLite. When the tool moves to full production — or when the number of active suppliers makes concurrent access a concern — the database should be upgraded to Azure Database for PostgreSQL Flexible Server.
+The application runs on Azure Database for PostgreSQL Flexible Server from day one (see Section 3), so backup coverage is in place from the pilot's first day live rather than only after a later database migration.
 
-**Additional cost:** ~€25/month on top of the App Service. Total production cost ~€40/month.
+### What's automatic
 
-### How the migration works (step by step)
+- **Automated daily backups**, retained for **35 days** by default, with **point-in-time restore** to any moment within that window. This is a built-in feature of the Flexible Server tier — no configuration, script, or ongoing action is required to enable it.
+- Backups are stored encrypted (AES-256) and, by default, in the same region as the database. **Geo-redundant backup storage** can be enabled at server creation time for an additional cost if cross-region disaster recovery is required — worth considering given CERA's regulatory role; confirm with IT/Regulatory Affairs whether this is needed before the server is provisioned, since it cannot be changed after the fact without recreating the server.
 
-1. **Create the Azure Database for PostgreSQL Flexible Server** in the Azure Portal (same resource group as the App Service)
-   - Choose the same region (West Europe)
-   - Select the Burstable B1ms tier (~€25/month) — sufficient for this workload
-   - Note the server hostname, database name, admin username, and password
+### What IT should still do
 
-2. **Store the database credentials in Key Vault** (hostname, database name, username, password as separate secrets)
+1. **At server creation:** decide on the 35-day default vs. a longer retention period, and whether geo-redundant backup storage is needed. Both are one-time choices made when the PostgreSQL Flexible Server is provisioned.
+2. **Before go-live:** perform one test restore (Azure Portal → PostgreSQL Flexible Server → Backup and restore → Restore) into a temporary server, and confirm the application connects to it and the data looks correct. This is the only way to be confident the backup actually works, rather than assuming it does — see the note below.
+3. **Ongoing:** no scheduled task is needed for the database itself. Azure Security Centre recommendations (already reviewed periodically per Section 7) will flag any backup-related configuration issues.
 
-3. **Export the existing SQLite data:**
-   ```bash
-   # On the App Service SSH console
-   cd /home/site/wwwroot/tariff-api
-   python -c "
-   import sqlite3, json
-   conn = sqlite3.connect('/home/tariff.db')
-   conn.row_factory = sqlite3.Row
-   tables = conn.execute(\"SELECT name FROM sqlite_master WHERE type='table'\").fetchall()
-   data = {}
-   for t in tables:
-       data[t['name']] = [dict(r) for r in conn.execute(f'SELECT * FROM {t[\"name\"]}')]
-   print(json.dumps(data))
-   " > /tmp/export.json
-   ```
+### Why the test restore matters
 
-4. **Update the application connection string** — in the App Service environment variables, set:
-   ```
-   DATABASE_URL = postgresql://username:password@hostname.postgres.database.azure.com/tariffdb?sslmode=require
-   ```
+During development, a bug in the application's own "bulk publish" feature caused one specific table (the audit/changelog log) to be silently wiped — not a database failure, but the application itself overwriting its own data via a since-fixed code path. No backup existed for that environment at the time, so the history was not recoverable. The bug is fixed, but the incident is the reason a **verified, tested restore path** is called out explicitly here rather than just noting that "Azure handles backups automatically." Automatic backups only protect you if a restore has actually been proven to work.
 
-5. **Import the data** into PostgreSQL using the development team's migration script (a one-time operation, estimated time: a few hours including testing)
+### What's not covered by database backups
 
-6. **Restart the App Service** — the application detects the PostgreSQL connection string automatically and connects to the new database
-
-The application code does not change. SQLAlchemy (the database layer used by the application) supports both SQLite and PostgreSQL with the same code — only the connection string differs.
+Azure's PostgreSQL backups protect the database only. They do **not** cover:
+- Application source code — see the "Source code administration" recommendation in Section 7 (a version-controlled repository, not the database, is the source of truth for code)
+- Uploaded tariff documents, if stored on the App Service filesystem rather than in the database — confirm with the development team where these live and whether they need separate backup coverage
+- Azure Key Vault secrets — Key Vault has its own soft-delete/purge-protection settings, which are separate from database backups and should be enabled independently
 
 ---
 
@@ -297,7 +281,7 @@ The application code does not change. SQLAlchemy (the database layer used by the
 | Email notifications | Existing CERA Azure app registration (Mail.Send already granted) |
 | Data sovereignty | CERA Azure tenant, EU datacentre |
 | GDPR compliance | Azure EU hosting, inherited Microsoft certifications |
-| Encryption at rest | AES-256 on Azure Files (SQLite) and PostgreSQL storage |
+| Encryption at rest | AES-256 on PostgreSQL storage and Azure Files |
 | Encryption in transit | TLS 1.2/1.3 enforced on all connections |
 | Two-factor authentication | Email OTP on every login |
 | Password security | bcrypt hashing — passwords never stored in plain text |
@@ -308,7 +292,8 @@ The application code does not change. SQLAlchemy (the database layer used by the
 | High availability (pilot) | App Service Basic B1 (99.95% SLA) |
 | Cloudflare DNS compatibility | CNAME + DNS-only mode — full instructions in Section 4a |
 | Source code administration | Recommended: Azure DevOps repository within CERA tenant |
-| Cost | ~€15/month pilot · ~€40/month full production |
+| Database backup | Automated daily, 35-day point-in-time restore — see Section 8 |
+| Cost | ~€40/month, from the pilot onward |
 
 ---
 
@@ -316,4 +301,4 @@ The application code does not change. SQLAlchemy (the database layer used by the
 
 For questions about the application code, configuration values, or deployment steps, contact the Regulatory Affairs / CERA project lead.
 
-*Document version 2.1 — July 2026. v2.0 addressed IT review comments on v1.0; v2.1 adds the idle-session auto sign-out security feature.*
+*Document version 2.2 — July 2026. v2.0 addressed IT review comments on v1.0; v2.1 added the idle-session auto sign-out security feature; v2.2 removes the SQLite pilot phase (the application now runs on PostgreSQL from day one) and replaces the SQLite→PostgreSQL migration guide with a Backup & Disaster Recovery section.*
