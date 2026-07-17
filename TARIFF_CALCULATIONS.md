@@ -86,12 +86,12 @@ Because of this simplification, once the customer enters a value the UI shows a 
 
 ### Regulated charges (network/PSO/RES/MDM)
 - Not part of the supplier ranking/comparison — always shown as a separate line item, added on top of the supplier's own cost.
-- `regulatedAnnual(voltage, annualKwh, mdm)`: `annualKwh × (gridRate + psoRate + resRate) + mdm × 12`.
+- `regulatedAnnual(voltage, annualKwh, mdm)` returns `regulatedBreakdown(...).total`: `annualKwh × (gridRate + psoRate + resRate) + mdm × 12`.
   - `gridRate` = network charge, selected by voltage level (`lv`/`mv`/`hv` from `cfg.regulated`).
   - `pso` = Public Service Obligation levy (per kWh, flat across voltage levels).
   - `res` = RES & Energy Conservation Fund levy (per kWh, flat across voltage levels).
   - `mdm` = Meter Data Management, a **fixed monthly** charge (not per-kWh) that is tariff-specific (`t.mdm`), annualised ×12.
-- `regulatedBreakdown(...)` provides the same figures split into individually labelled rows (Grid / PSO / RES / MDM) for the itemised bill view.
+- `regulatedBreakdown(...)` is the single source of truth for these figures — it computes the same total plus individually labelled rows (Grid / PSO / RES / MDM) for the itemised bill view; `regulatedAnnual` is a thin wrapper so the two never drift apart.
 - Regulated charges are **not** discounted — the discount system only applies to the supplier's own energy/standing charges.
 - Each regulated row's label is clickable (`openRegInfo`, same info-popup mechanism as FPA) and shows its rate in parentheses next to the label — €/kWh for Grid/PSO/RES, a flat €/month figure (via `LBL_FIXED_ROW`) for MDM. This applies in both the annual ranked-list breakdown and the monthly single-bill breakdown.
 
@@ -99,6 +99,7 @@ Because of this simplification, once the customer enters a value the UI shows a 
 - Flat, tariff-specific monthly fee (`t.standing`), added once per month regardless of consumption.
 - Subject to the tariff's `standingFactor` discount (if any `type: 'standing'` discount is active and in-period).
 - For Variable tariffs, any reached tier's `fixedCharge` is folded into "standing" (for discount-eligibility purposes) rather than kept separate.
+- The annual/ranked-list breakdown table always derives its displayed "Standing" total by summing each month's already-discounted `monthlyBreakdown(...).standing` (`moBd.reduce(...)`) — never `t.standing×12` — so the row's Energy+FPA+Standing always foots to the same total shown in the Total column, even when a standing discount is active. (Prior to 2026-07-17 the annual table used `t.standing×12` for all non-Variable pricing types, which silently ignored standing discounts in the displayed breakdown while the ranked total itself was already correct — a display-only bug, now fixed.)
 
 ---
 

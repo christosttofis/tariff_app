@@ -70,7 +70,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .kwh-input:focus{border-color:var(--accent);background:var(--bg2)}
 .kwh-unit{background:var(--bg4);border:1px solid var(--border);border-left:none;border-radius:0 2px 2px 0;padding:10px 12px;font-size:13px;font-family:var(--mono);color:var(--text3);white-space:nowrap}
 /* Annual mode info */
-.annual-note{font-size:12px;color:var(--text2);margin-top:10px;padding:10px 12px;background:var(--accent-light);border-radius:2px;border-left:3px solid var(--accent);line-height:1.6}
 /* Monthly mode */
 .monthly-input-wrap{display:flex;flex-direction:column;gap:8px}
 
@@ -99,8 +98,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .badge-ToU{background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe}
 .badge-Dynamic{background:#fffbeb;color:#d97706;border:1px solid #fde68a}
 .badge-Variable{background:#f0fdfa;color:#0d9488;border:1px solid #99f6e4}
-.badge-prof{background:rgba(16,185,129,.1);color:#047857;font-size:11px;padding:2px 6px;border-radius:2px;font-family:var(--mono)}
-.badge-fallback{background:rgba(245,158,11,.1);color:#92400e;font-size:11px;padding:2px 6px;border-radius:2px;font-family:var(--mono)}
 .rank-cost-col{flex-shrink:0;width:265px;border-left:1px solid var(--border);padding-left:14px;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
 .rank-annual-val{font-size:22px;font-weight:600;font-family:var(--mono);text-align:right;color:var(--accent)}
 .rank-annual-lbl{font-size:11px;color:var(--text3);font-family:var(--mono);text-align:right}
@@ -121,12 +118,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .ranked-list.intro>.rank-card:nth-child(6){animation-delay:.34s}
 .ranked-list.intro>.rank-card:nth-child(n+7){animation-delay:.4s}
 @media (prefers-reduced-motion:reduce){.ranked-list.intro>.rank-card{animation:none}.rank-detail,.rank-detail-inner{transition:none}}
-.contact-card{background:var(--bg3);border-radius:2px;padding:12px 14px;margin-bottom:12px}
-.contact-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px}
-.contact-details{display:flex;flex-direction:column;gap:4px}
-.contact-line{font-size:12px;color:var(--text2);font-family:var(--mono);display:flex;align-items:center;gap:8px}
-.contact-line a{color:var(--accent);text-decoration:none}
-.contact-line a:hover{text-decoration:underline}
 .calc-note{font-size:11px;font-family:var(--mono);color:var(--text3);padding:7px 11px;background:var(--bg3);border-radius:2px;border-left:2px solid var(--border2);margin-bottom:12px;line-height:1.6}
 .mo-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px}
 .mo-table th{text-align:left;padding:5px 6px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:.07em;white-space:nowrap;line-height:1.4}
@@ -254,7 +245,6 @@ body{
   font-size:22px;padding:12px 16px;min-height:52px}
 .kwh-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-light)}
 .kwh-unit{background:var(--bg3);border-color:var(--border2);border-radius:0 var(--radius-sm) var(--radius-sm) 0;color:var(--text2)}
-.annual-note{border-radius:var(--radius-sm);background:var(--accent-light);border-left-width:3px;border-left-color:var(--accent)}
 
 /* Results header */
 .results-title{font-size:15px}
@@ -514,7 +504,6 @@ body{
             <input type="number" class="kwh-input" id="annual-kwh" placeholder="e.g. 6000" min="0" step="1" oninput="onAnnualInput()" onfocus="onConsumptionFocus()">
             <span class="kwh-unit">kWh / year</span>
           </div>
-          <div class="annual-note" id="annual-note" style="display:none"></div>
         </div>
 
         <!-- Monthly mode -->
@@ -622,21 +611,17 @@ const LANG = {
     TAG_DOMESTIC: "Domestic",
     TAG_CI: "Commercial / Industrial",
     CARD_CONSUMPTION: "Your consumption",
-    CARD_TARIFFS: "Available tariffs",
     BTN_ANNUAL: "Annual",
     BTN_MONTHLY: "Monthly",
     BTN_BACK_TO_TOP: "Back to top",
     LBL_ANNUAL_KWH: "Annual consumption",
     UNIT_KWH_YEAR: "kWh / year",
-    LBL_MONTHLY_KWH: "Monthly consumption",
-    UNIT_KWH_MONTH: "kWh / month",
     HINT_ANNUAL: "As per CERA's Power supply rules - Chapter 7.1.7 (a) all power suppliers are obliged to send to each consumer, at least once a year, their total consumption for the previous year, and the expected consumption for the current year.",
     RESULTS_SUB_ANNUAL: "cheapest supplier cost first · annual · profile-distributed · {YEAR} calendar",
     RESULTS_SUB_MONTHLY: "cheapest bill first · {KWH} kWh per bill · {YEAR} calendar",
     LBL_STANDING: "/mo standing",
     LBL_NO_MIN: "No minimum period",
     LBL_MIN_MONTHS: "{N}-month-contract",
-    LBL_NO_PROFILE: "no profile",
     LBL_INCL_DISC: "Price incl. promotional discounts. Expand to review conditions.",
     LBL_SUP_YEAR: "/ year",
     LBL_SUP_MONTH: "/ month",
@@ -645,8 +630,6 @@ const LANG = {
     BILLING_M1: "Monthly",
     BILLING_M2: "Bi-monthly",
     MONTHLY_CONS_LBL: "Consumption per bill",
-    MONTHLY_UNIT_1: "kWh / month",
-    MONTHLY_UNIT_2: "kWh / 2 mo.",
     MONTHLY_CALC_NOTE: "This calculation is based on your consumption for the current month of {MONTH}. For more accurate results, please use the annual calculator.",
     BILL_BREAKDOWN_HDR: "Bill breakdown",
     BILL_YEAR_NOTE: "× {N} bills/year ≈ €{X} / year (excl. VAT)",
@@ -655,12 +638,10 @@ const LANG = {
     LBL_VULNERABLE_INFO: "Who qualifies?",
     LBL_OFFERS_CHECK: "Show/Hide special offers",
     TITLE_VULNERABLE_MODAL: "Vulnerable consumer / social tariff — eligible cases",
-    LBL_REGULATED: "regulated",
     LBL_INCL_REGULATED: "+ {X} regulated charges",
     LBL_WITHOUT_VAT: "Without VAT",
     BTN_CONTACT: "📋 View contact details",
     TH_MONTH: "Month",
-    TH_DAYS: "Days",
     TH_KWH: "kWh",
     TH_ENERGY: "Energy Cost",
     FPA_SHORT: "FPA",
@@ -672,9 +653,6 @@ const LANG = {
     ROW_TOTAL_REG: "Total (incl. regulated charges, without VAT)",
     CHART_ANNUAL: "Annual cost comparison — all tariffs (competitive costs only)",
     CHART_MONTHLY_COST: "Monthly cost",
-    VAR_NOTE_TITLE: "Dynamic tariffs — not shown in monthly view",
-    VAR_NOTE_BODY: "Dynamic (market-linked) tariffs depend on DAM prices that fluctuate throughout the year. A single month snapshot can be misleading — the selected month may be atypically cheap or expensive. Switch to Annual mode for an accurate comparison of variable tariffs.",
-    VAR_NOTE_ANNUAL: "Switch to Annual mode",
     VAR_NO_DAM_TITLE: "Dynamic tariffs — DAM data missing",
     VAR_ONLY_TITLE: "Dynamic tariffs require Annual mode",
     VAR_ONLY_BODY: "A single month's DAM price does not represent the annual cost of a dynamic tariff accurately. Please switch to Annual mode to compare variable tariffs.",
@@ -683,7 +661,6 @@ const LANG = {
     NO_CONFIG_TITLE: "No configuration found",
     NO_CONFIG_BODY: "Open <strong>admin.html</strong> in the same browser, set up your suppliers and tariffs, then click <em>Save &amp; publish</em>.",
     PROMPT_ENTER: "Enter your consumption above to compare tariffs.",
-    CONTACT_NO_DETAILS: "No contact details available yet.",
     DISC_HEADER: "🏷 Available discounts — uncheck if not applicable",
     DISC_ENERGY_LABEL: "⚡ Energy discount",
     DISC_STANDING_LABEL: "📋 Standing discount",
@@ -699,7 +676,6 @@ const LANG = {
     TARIFFS_AVAILABLE_ONE: "{N} tariff available",
     TARIFFS_AVAILABLE: "{N} tariffs available",
     LBL_VIEW_CONTACT: "View contact details",
-    LBL_REGULATED_ROW: "regulated costs",
     LBL_FIXED_ROW: "Fixed €{N}/month",
     REGULATED_GRID: "Network Charge",
     REGULATED_PSO: "Public Service Obligation (PSO)",
@@ -801,21 +777,17 @@ const LANG = {
     TAG_DOMESTIC: "Οικιακή",
     TAG_CI: "Εμπορική/Βιομηχανική",
     CARD_CONSUMPTION: "Η κατανάλωσή σας",
-    CARD_TARIFFS: "Διαθέσιμες διατιμήσεις",
     BTN_ANNUAL: "Ετήσια",
     BTN_MONTHLY: "Μηνιαία",
     BTN_BACK_TO_TOP: "Επιστροφή στην κορυφή",
     LBL_ANNUAL_KWH: "Ετήσια κατανάλωση",
     UNIT_KWH_YEAR: "kWh / έτος",
-    LBL_MONTHLY_KWH: "Μηνιαία κατανάλωση",
-    UNIT_KWH_MONTH: "kWh / μήνα",
     HINT_ANNUAL: "Βάσει των Κανόνων Προμηθειας Ηλεκτρισμού Άρθρο 7.1.7 (α) της ΡΑΕΚ, όλοι οι προμηθευτές υποχρεούνται να ενημερώνουν τους πελάτες τους κατ' ελάχιστο μια φορά τον χρόνο, για την συνολική τους κατανάλωση κατά το προηγούμενο έτος καθώς επίσης και την εκτίμιση κατανάλωσης για το τρέχον έτος.",
     RESULTS_SUB_ANNUAL: "Φθηνότερος προμηθευτής πρώτα · Ετήσια · Κατανομή-προφίλ · {YEAR}",
     RESULTS_SUB_MONTHLY: "Φθηνότερος λογαριασμός πρώτα · {KWH} kWh ανά λογαριασμό · {YEAR}",
     LBL_STANDING: "/μήνα πάγιο",
     LBL_NO_MIN: "Αορίστου χρόνου",
     LBL_MIN_MONTHS: "{N} μήνες συμβόλαιο",
-    LBL_NO_PROFILE: "Χωρίς προφίλ",
     LBL_INCL_DISC: "Τιμή με εκπτώσεις. Αναπτύξτε για λεπτομέρειες.",
     LBL_SUP_YEAR: "/έτος",
     LBL_SUP_MONTH: "/μήνα",
@@ -824,8 +796,6 @@ const LANG = {
     BILLING_M1: "Μηνιαία",
     BILLING_M2: "Διμηνιαία",
     MONTHLY_CONS_LBL: "Κατανάλωση ανά λογαριασμό",
-    MONTHLY_UNIT_1: "kWh / μήνα",
-    MONTHLY_UNIT_2: "kWh / 2 μήν.",
     MONTHLY_CALC_NOTE: "Ο υπολογισμός βασίζεται στην κατανάλωσή σας για τον τρέχοντα μήνα {MONTH}. Για πιο ακριβή αποτελέσματα, χρησιμοποιήστε τον ετήσιο υπολογιστή.",
     BILL_BREAKDOWN_HDR: "Ανάλυση λογαριασμού",
     BILL_YEAR_NOTE: "× {N} λογ./έτος ≈ €{X} / έτος (χωρίς ΦΠΑ)",
@@ -834,12 +804,10 @@ const LANG = {
     LBL_VULNERABLE_INFO: "Ποιοι δικαιούνται;",
     LBL_OFFERS_CHECK: "Εμφάνιση/Απόκρυψη ειδικών προσφορών",
     TITLE_VULNERABLE_MODAL: "Κοινωνική διατίμηση / ευπαθείς καταναλωτές — επιλέξιμες περιπτώσεις",
-    LBL_REGULATED: "ρυθμιζόμενα",
     LBL_INCL_REGULATED: "+ {X} ρυθμιζόμενες χρεώσεις",
     LBL_WITHOUT_VAT: "Χωρίς ΦΠΑ",
     BTN_CONTACT: "📋 Στοιχεία Επικοινωνίας",
     TH_MONTH: "Μήνας",
-    TH_DAYS: "Μέρες",
     TH_KWH: "kWh",
     TH_ENERGY: "Κόστος Ενέργειας",
     FPA_SHORT: "ΑΤΚ",
@@ -851,9 +819,6 @@ const LANG = {
     ROW_TOTAL_REG: "Ολικό (συμπ. ρυθμιζόμενες χρεώσεις, χωρίς ΦΠΑ)",
     CHART_ANNUAL: "Σύγκριση ετήσιου κόστους — ανταγωνιστικές χρεώσεις μόνο",
     CHART_MONTHLY_COST: "Μηνιαίο κόστος",
-    VAR_NOTE_TITLE: "Δυναμικές διατιμήσεις — δεν δίνονται για μηνιαία σύγκριση",
-    VAR_NOTE_BODY: "Οι δυναμικές διατιμήσεις εξαρτώνται από τιμές ΠΗΑ που μεταβάλλονται καθ\'όλη τη διάρκεια του έτους. Ένας μεμονωμένος μήνας μπορεί να είναι παραπλανητικός — ο επιλεγμένος μήνας μπορεί να είναι ασυνήθιστα φθηνός ή ακριβός. Επιλέξτε ετήσια σύγκριση για ακριβή αποτελέσματα.",
-    VAR_NOTE_ANNUAL: "Αλλαγή σε ετήσια σύγκριση",
     VAR_NO_DAM_TITLE: "Δυναμική διατίμηση — Δεν υπάρχουν δεδομένα ΠΗΑ",
     VAR_ONLY_TITLE: "Οι δυναμικές διατιμήσεις είναι μόνο στην ετήσια σύγκριση",
     VAR_ONLY_BODY: "Οι τιμές ΠΗΑ ενός μεμονωμένου μήνα δεν αντιπροσωπεύουν ορθά όλο το έτος για τη δυναμική τιμολόγηση. Παρακαλώ επιλέξτε ετήσια σύγκριση για να συγκρίνετε και δυναμικές τιμολογήσεις.",
@@ -862,7 +827,6 @@ const LANG = {
     NO_CONFIG_TITLE: "Δεν βρέθηκε σχετική ρύθμιση",
     NO_CONFIG_BODY: "Ανοίξτε το αρχείο <strong>admin.html</strong> στο ίδιο πρόγραμμα περιήγησης, ρυθμίστε τους προμηθευτές και τις τιμές, και κάντε κλικ στην επιλογή <em>Αποθήκευση &amp; δημοσίευση</em>.",
     PROMPT_ENTER: "Εισάγετε την κατανάλωση σας πιο πάνω για σύγκριση διατιμήσεων.",
-    CONTACT_NO_DETAILS: "Δεν υπάρχουν στοιχεία επικοινωνίας ακόμα.",
     DISC_HEADER: "🏷 Διαθέσιμες εκπτώσεις — επιλέξτε ότι ισχύει",
     DISC_ENERGY_LABEL: "⚡ Έκπτωση στην ενέργεια",
     DISC_STANDING_LABEL: "📋 Έκπτωση στο Πάγιο",
@@ -878,7 +842,6 @@ const LANG = {
     TARIFFS_AVAILABLE_ONE: "{N} διατίμηση διαθέσιμη",
     TARIFFS_AVAILABLE: "{N} διατιμήσεις διαθέσιμες",
     LBL_VIEW_CONTACT: "Στοιχεία προμηθευτή",
-    LBL_REGULATED_ROW: "ρυθμιζόμενα κόστη",
     LBL_FIXED_ROW: "Σταθερό €{N}/μήνα",
     REGULATED_GRID: "Κόστος Δικτύου",
     REGULATED_PSO: "Υποχρεώσεις Δημόσιας Ωφέλειας (ΥΔΩ)",
@@ -1154,40 +1117,8 @@ function updateConnSummary(){
   const pr=document.querySelector('#sel-pricing option:checked');
   if(pr) chips.push(pr.textContent.trim());
 }
-function onConsumptionBlur(){}
 
 /* ── Derive monthly kWh array for a tariff ── */
-function getMonthlyKwhForTariff(tariff){
-  if(inputMode==='monthly'){
-    const v=(parseFloat(document.getElementById('monthly-kwh').value)||0)/_billingPeriod;
-    return new Array(12).fill(v);
-  }
-  // Annual mode — distribute using tariff's profile monthlyFractions
-  const annual=parseFloat(document.getElementById('annual-kwh').value)||0;
-  if(annual<=0) return new Array(12).fill(0);
-  const prof=getProfile(tariff);
-  if(prof&&prof.monthlyFractions&&prof.monthlyFractions.length===12){
-    return prof.monthlyFractions.map(f=>f*annual);
-  }
-  // Fallback: distribute by days in month
-  const totalDays=DAYS_IN_MONTH.reduce((a,x)=>a+x,0);
-  return DAYS_IN_MONTH.map(d=>(d/totalDays)*annual);
-}
-
-/* ── Annual note showing profile-based monthly split ── */
-function updateAnnualNote(tariff){
-  const note=document.getElementById('annual-note');
-  if(!note) return;
-  const annual=parseFloat(document.getElementById('annual-kwh').value)||0;
-  if(annual<=0){note.style.display='none';return;}
-  const monthly=getMonthlyKwhForTariff(tariff);
-  const prof=getProfile(tariff);
-  const method=prof&&prof.monthlyFractions?`profile "${esc(prof.name)}"`:'day-proportional fallback';
-  note.style.display='';
-  note.innerHTML=`Distribution method: ${method}<br>`
-    +getMonths().map((m,i)=>`<span style="font-family:var(--mono);font-size:11px">${m}: <strong>${monthly[i].toFixed(0)}</strong></span>`).join(' · ');
-}
-
 // Cyprus holidays
 function easterDate(y){
   const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25);
@@ -1316,9 +1247,7 @@ function getDiscountFactors(t, monthIdx1){
 }
 
 function regulatedAnnual(voltage, annualKwh, mdm){
-  const r=getRegulated();
-  const gridRate=voltage==='LV'?r.lv:voltage==='MV'?r.mv:r.hv;
-  return annualKwh*(gridRate+r.pso+r.res) + (mdm||0)*12;
+  return regulatedBreakdown(voltage, annualKwh, mdm).total;
 }
 
 function regulatedBreakdown(voltage, annualKwh, mdm){
@@ -1726,23 +1655,6 @@ function calcNote(t){
     :T('CALC_DAM_AVG',{NOTE:distNote,PROFILE:esc(prof.name)});
 }
 
-function renderContact(name){
-  // Try supplierDetails first (legacy), then new suppliers array
-  const s=cfg.supplierDetails?.find(x=>x.name===name)||getSupplierObj(name);
-  if(!s) return '';
-  const lines=[];
-  if(s.phone) lines.push(`<div class="contact-line">📞 <a href="tel:${esc(s.phone)}">${esc(s.phone)}</a></div>`);
-  if(s.email) lines.push(`<div class="contact-line">✉️ <a href="mailto:${esc(s.email)}">${esc(s.email)}</a></div>`);
-  if(s.website) lines.push(`<div class="contact-line">🌐 <a href="${safeUrl(s.website)}" target="_blank" rel="noopener">${esc(s.website)}</a></div>`);
-  if(s.address) lines.push(`<div class="contact-line">📍 ${esc(s.address)}</div>`);
-  if(!lines.length) return '';
-  return `<div class="contact-card">
-    <div class="contact-name">${esc(s.tradingName||s.name)}${s.licenseType?` <span style="font-size:11px;color:var(--text3);font-family:var(--mono)">${esc(s.licenseType)}</span>`:''}</div>
-    <div class="contact-details">${lines.join('')}</div>
-    ${s.notes?`<div style="font-size:11px;color:var(--text3);margin-top:6px;font-family:var(--mono)">${esc(s.notes)}</div>`:''}
-  </div>`;
-}
-
 function renderPage(){
   // Update all static text elements
   const setText=(id,key)=>{ const el=document.getElementById(id); if(el) el.textContent=T(key); };
@@ -1838,11 +1750,7 @@ function applyFilters(){
     return true;
   });
 
-  // Monthly mode now annualises (monthlyKwh × 12) — Variable tariffs included
-  const excludedVariable=[];
-  const filteredMatched=matched;
-
-  const scored=filteredMatched.map(t=>{
+  const scored=matched.map(t=>{
     const base=annualCostForTariff(t,dc);
     if(base===null) return {t,base:null,reg:null,fullBase:null};
     const reg=regulatedAnnual(t.voltage,annualKwh,t.mdm);
@@ -1924,9 +1832,7 @@ function applyFilters(){
     const totKwh=moKwh.reduce((a,x)=>a+x,0);
     const annEnergy=moBd.reduce((a,v)=>a+(v?v.energy:0),0);
     const annFpa=moBd.reduce((a,v)=>a+(v?v.fpa:0),0);
-    const annStanding=t.pricing==='Variable'
-      ? moBd.reduce((a,v)=>a+(v?v.standing:0),0)
-      : t.standing*12;
+    const annStanding=moBd.reduce((a,v)=>a+(v?v.standing:0),0);
 
     const regInfoMap={grid:['REGULATED_GRID','REG_GRID_DESC'],pso:['REGULATED_PSO','REG_PSO_DESC'],res:['REGULATED_RES','REG_RES_DESC'],mdm:['REGULATED_MDM','REG_MDM_DESC']};
     const regRows=Object.entries(regBd).filter(([k])=>k!=='total').map(([k,v])=>{
@@ -2145,29 +2051,6 @@ function renderDiscountToggles(t){
     +'<div style="font-size:11px;font-family:var(--mono);color:var(--green);letter-spacing:.07em;margin-bottom:8px">'+T('DISC_HEADER')+'</div>'
     +'<div style="display:flex;flex-direction:column;gap:6px">'+rows+'</div>'
     +'</div>';
-}
-
-function renderDiscountTogglesMo(t){
-  if(!t.discounts||!t.discounts.length) return '';
-  const rows=t.discounts.map((d,di)=>{
-    const key=t.id+'_disc_'+di;
-    const checked=!window._discountState||!(window._discountState[t.id])||window._discountState[t.id][key]!==false;
-    const typeLabel=d.type==='energy'?T('DISC_ENERGY_LABEL'):T('DISC_STANDING_LABEL');
-    const durLabel=d.durationMonths?T('DISC_DURATION_FIRST',{N:d.durationMonths}):'<strong>'+T('DISC_DURATION_PERM')+'</strong>';
-    const condLabel=d.conditions?' — '+d.conditions:'';
-    return '<label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;cursor:pointer">'
-      +'<input type="checkbox" '+(checked?'checked':'')
-      +' data-tariff="'+t.id+'" data-idx="'+di+'"'
-      +' style="margin-top:2px;accent-color:var(--accent)"'
-      +' onchange="toggleDiscount(this.dataset.tariff,+this.dataset.idx,this.checked)">'
-      +'<span style="color:var(--text2)">'+typeLabel+': <strong>'+d.percentage+'%</strong> '+durLabel+condLabel+'</span>'
-      +'</label>';
-  }).join('');
-  return '<div style="border-top:1px solid var(--border);padding:12px 16px;background:rgba(16,185,129,.04)">'
-    +'<div style="background:rgba(16,185,129,.05);border:1px solid rgba(16,185,129,.2);border-radius:2px;padding:10px 12px">'
-    +'<div style="font-size:11px;font-family:var(--mono);color:var(--green);letter-spacing:.07em;margin-bottom:8px">'+T('DISC_HEADER')+'</div>'
-    +'<div style="display:flex;flex-direction:column;gap:6px">'+rows+'</div>'
-    +'</div></div>';
 }
 
 function toggleDiscount(tariffId, discIdx, active){
