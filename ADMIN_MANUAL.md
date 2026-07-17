@@ -556,7 +556,7 @@ If the page loads, the server is running. If not, start it using `start.bat`.
 ### The database is unreachable or data appears to be missing
 - The application stores its data in a PostgreSQL database, configured via the `DATABASE_URL` value in `tariff-api/.env` — not in a local file. If the panel fails to load data at all, first confirm the PostgreSQL service is running and reachable at the configured host/port.
 - If specific data (e.g. tariffs, suppliers, or the audit log) appears to have disappeared while the server itself is running fine, this points to a database-level change, not a missing file — do not assume it will reappear on its own.
-- **There is currently no automated backup schedule configured for this database.** Until one is set up, the only protection against data loss is a manual `pg_dump` taken before any risky operation (bulk imports, schema changes, etc.). Contact IT/the development team to set up scheduled backups if this has not been done yet.
+- **Automated backups (local dev environment):** a scheduled Windows Task (`TariffApp-DB-Backup`, runs daily at 03:00) takes a `pg_dump` of `tariff_app` and writes it to `OneDrive - Cyprus Energy Regulatory Authority\Tariff-App-DB-Backups\` (14 days of daily backups, 8 weeks of weekly backups, pruned automatically). This is temporary insurance for the current local development environment only — it is superseded once the application moves to Azure Database for PostgreSQL Flexible Server, which provides automated backups natively (see `AZURE_DEPLOYMENT_BRIEF_v2.md`, Section 8). The task can be inspected or run manually via Task Scheduler, or by running `tariff-api\scripts\backup_db.ps1` directly. Check `Tariff-App-DB-Backups\backup.log` if a backup appears to be missing.
 
 ---
 
