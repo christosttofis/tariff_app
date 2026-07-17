@@ -522,6 +522,46 @@ http://localhost:8000/customer.html
 ```
 If the page loads, the server is running. If not, start it using `start.bat`.
 
+### 15.5 Restoring the database from a backup
+
+**Local development environment**
+
+Daily backups are taken automatically (see Section 16, "The database is unreachable or data appears to be missing") and stored in:
+```
+C:\Users\<you>\OneDrive - Cyprus Energy Regulatory Authority\Tariff-App-DB-Backups\
+```
+with `daily\` (last 14 days) and `weekly\` (last 8 weeks) subfolders, each containing timestamped `.dump` files, plus a `backup.log` showing the history of each run.
+
+To restore one:
+
+1. **Stop the server first** ([Section 15.2](#152-stopping-the-server)) so nothing is writing to the database mid-restore.
+2. Open PowerShell and find the backup you want, e.g.:
+   ```powershell
+   dir "C:\Users\<you>\OneDrive - Cyprus Energy Regulatory Authority\Tariff-App-DB-Backups\daily"
+   ```
+3. **Take a fresh backup of the current state first**, even if it's the thing you're trying to fix — this is your undo button if you pick the wrong backup file:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File "C:\Projects\Tariff app\tariff-api\scripts\backup_db.ps1"
+   ```
+4. **Restore over the live database:**
+   ```powershell
+   & "C:\Program Files\PostgreSQL\17\bin\pg_restore.exe" -h 127.0.0.1 -p 5433 -U postgres -d tariff_app --clean --if-exists "<path to the .dump file you chose>"
+   ```
+   `--clean --if-exists` drops and recreates each table before restoring it, so this fully replaces the current contents of `tariff_app` with the backup's contents. (Credentials are read automatically from `%APPDATA%\postgresql\pgpass.conf` — no password prompt.)
+5. **Restart the server** ([Section 15.1](#151-starting-the-server)) and confirm the data looks correct — check the Tariffs list, Suppliers list, and Changelog page in the admin panel.
+
+**To inspect a backup without touching the live database at all** (e.g. to compare it against current data before deciding to restore):
+```powershell
+& "C:\Program Files\PostgreSQL\17\bin\createdb.exe" -h 127.0.0.1 -p 5433 -U postgres tariff_app_test
+& "C:\Program Files\PostgreSQL\17\bin\pg_restore.exe" -h 127.0.0.1 -p 5433 -U postgres -d tariff_app_test "<path to the .dump file>"
+```
+This restores into a separate, throwaway database (`tariff_app_test`) rather than `tariff_app`. Point a temporary `DATABASE_URL` at it to browse the data, or query it directly with `psql`. Drop it when done:
+```powershell
+& "C:\Program Files\PostgreSQL\17\bin\dropdb.exe" -h 127.0.0.1 -p 5433 -U postgres tariff_app_test
+```
+
+**On Azure (production)** — once the application has been migrated to Azure Database for PostgreSQL Flexible Server (`AZURE_DEPLOYMENT_BRIEF_v2.md`), restores are done through the Azure Portal — **PostgreSQL Flexible Server → Backup and restore → Restore** — rather than the command-line steps above, and always restore to a **new** server rather than overwriting the live one. See the Backup & Disaster Recovery section (Section 8) of that document.
+
 ---
 
 ## 16. Troubleshooting
