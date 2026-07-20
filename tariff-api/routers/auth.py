@@ -12,8 +12,8 @@ import email_utils
 import models
 from auth import (
     CurrentUser, check_password_reuse, clear_auth_cookie, create_pending_token, create_token,
-    decode_pending_token, get_current_user, record_password_change, set_auth_cookie,
-    validate_password_strength, verify_password,
+    decode_pending_token, get_current_user, record_password_change, resolve_supplier_name,
+    set_auth_cookie, validate_password_strength, verify_password,
 )
 from database import get_db
 
@@ -131,7 +131,7 @@ def login(body: LoginIn, request: Request, response: Response, db: Session = Dep
         set_auth_cookie(response, create_token(user))
         return {
             "role": user.role,
-            "supplier": user.supplier_name,
+            "supplier": resolve_supplier_name(db, user),
             "email": user.email,
         }
 
@@ -214,7 +214,7 @@ def verify_otp(body: VerifyOtpIn, request: Request, response: Response, db: Sess
     set_auth_cookie(response, create_token(user))
     return {
         "role": user.role,
-        "supplier": user.supplier_name,
+        "supplier": resolve_supplier_name(db, user),
         "email": user.email,
     }
 

@@ -133,7 +133,7 @@ def create_token(user: models.User, session_start: datetime | None = None) -> st
         "sub": str(user.id),
         "email": user.email,
         "role": user.role,
-        "supplier": user.supplier_name,
+        "supplier_id": user.supplier_id,
         "iat": now,
         # Preserved across sliding renewals so ABSOLUTE_SESSION_HOURS can be enforced
         # from the original login, not from whichever renewal issued this token.
@@ -186,12 +186,23 @@ def decode_pending_token(token: str) -> str:
 
 # ── Current-user dependency ───────────────────────────────────────────────────
 
+def resolve_supplier_name(db: Session, user: models.User) -> str | None:
+    """Look up a user's supplier name live via supplier_id, so a supplier
+    rename is reflected immediately everywhere without needing to cascade
+    an update to any User row."""
+    if user.supplier_id is None:
+        return None
+    supplier = db.get(models.Supplier, user.supplier_id)
+    return supplier.name if supplier else None
+
+
 class CurrentUser:
-    def __init__(self, id: int, email: str, role: str, supplier_name: str | None):
+    def __init__(self, id: int, email: str, role: str, supplier_name: str | None, supplier_id: int | None = None):
         self.id = id
         self.email = email
         self.role = role
         self.supplier_name = supplier_name
+        self.supplier_id = supplier_id
 
     @property
     def is_admin(self) -> bool:
@@ -251,7 +262,8 @@ def get_current_user(
         id=user.id,
         email=user.email,
         role=user.role,
-        supplier_name=user.supplier_name,
+        supplier_name=resolve_supplier_name(db, user),
+        supplier_id=user.supplier_id,
     )
 
 

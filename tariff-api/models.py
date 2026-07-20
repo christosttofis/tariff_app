@@ -234,7 +234,7 @@ class MessageRead(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     message_id = Column(String, nullable=False, index=True)
-    supplier_name = Column(String, nullable=False, index=True)
+    supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True, index=True)
     read_at = Column(String, nullable=False)          # ISO-8601
     acknowledged_at = Column(String, nullable=True)   # ISO-8601 — null until supplier acknowledges
 
@@ -264,9 +264,8 @@ class User(Base):
     email = Column(String, unique=True, nullable=False, index=True)
     password_hash = Column(String, nullable=False)
     role = Column(String, nullable=False)           # admin | supplier
-    # For supplier role: must match a name in the suppliers table.
-    # For admin role: null.
-    supplier_name = Column(String, nullable=True)
+    # For supplier role: FK to suppliers.id. For admin role: null.
+    supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True, index=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(String, nullable=True)      # ISO-8601 string
     failed_attempts = Column(Integer, default=0)    # consecutive failed logins

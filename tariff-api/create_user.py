@@ -88,6 +88,14 @@ def main():
         if args.role == "supplier" and not args.supplier:
             args.supplier = pick_supplier(db)
 
+        supplier_id = None
+        if args.role == "supplier":
+            supplier = db.query(models.Supplier).filter(models.Supplier.name == args.supplier).first()
+            if not supplier:
+                print(f'Supplier "{args.supplier}" does not exist in the suppliers table — create it first.')
+                sys.exit(1)
+            supplier_id = supplier.id
+
         password = getpass.getpass(f"Password for {args.email}: ")
         if len(password) < 8:
             print("Password must be at least 8 characters.")
@@ -102,7 +110,7 @@ def main():
                 return
             existing.password_hash = hash_password(password)
             existing.role = args.role
-            existing.supplier_name = args.supplier
+            existing.supplier_id = supplier_id
             existing.is_active = True
             existing.password_changed_at = now
             existing.must_change_password = False
@@ -114,7 +122,7 @@ def main():
                 email=args.email,
                 password_hash=hash_password(password),
                 role=args.role,
-                supplier_name=args.supplier,
+                supplier_id=supplier_id,
                 is_active=True,
                 created_at=now,
                 password_changed_at=now,

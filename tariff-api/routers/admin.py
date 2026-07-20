@@ -32,7 +32,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 import models
-from auth import CurrentUser, get_current_user, hash_password, require_admin
+from auth import CurrentUser, get_current_user, hash_password, require_admin, resolve_supplier_name
 from database import get_db
 from importer import import_cfg
 from schemas import (
@@ -114,9 +114,13 @@ def _fmt_rate(v: float) -> str:
 
 
 def _supplier_emails(db, supplier_name: str) -> list[str]:
-    """Return email addresses of all active users for a given supplier."""
+    """Return email addresses of all active users for a given supplier (looked
+    up by name, e.g. from Tariff.supplier, then matched to users via supplier_id)."""
+    supplier = db.query(models.Supplier).filter(models.Supplier.name == supplier_name).first()
+    if not supplier:
+        return []
     users = db.query(models.User).filter(
-        models.User.supplier_name == supplier_name,
+        models.User.supplier_id == supplier.id,
         models.User.is_active == True,
     ).all()
     return [u.email for u in users if u.email]
@@ -394,7 +398,22 @@ def update_supplier(name: str, body: SupplierIn, db: Session = Depends(get_db), 
     if not s:
         raise HTTPException(404, "Supplier not found")
     if body.name != name:
+        # Tariff.supplier and Message.target_suppliers are still plain strings
+        # (no FK — see migrate_supplier_fk.sql for why User/MessageRead don't
+        # need this treatment anymore), so a rename must still cascade to them
+        # or those records silently stop resolving to this supplier.
         db.query(models.Tariff).filter(models.Tariff.supplier == name).update({"supplier": body.name})
+        for msg in db.query(models.Message).filter(models.Message.audience == "selected").all():
+            targets = json.loads(msg.target_suppliers or "[]")
+            if name in targets:
+                msg.target_suppliers = json.dumps([body.name if t == name else t for t in targets])
+        for sched in db.query(models.ScheduledNotification).filter(models.ScheduledNotification.audience == "selected").all():
+            targets = json.loads(sched.target_suppliers or "[]")
+            if name in targets:
+                sched.target_suppliers = json.dumps([body.name if t == name else t for t in targets])
+        # models.Changelog.supplier is intentionally left untouched — it's an append-only
+        # audit trail and should keep recording the supplier name as it was at the time
+        # of each historical entry, not be rewritten to match the current name.
     for k, v in body.model_dump().items():
         setattr(s, k, v)
     db.commit()
@@ -520,7 +539,7 @@ def list_users(db: Session = Depends(get_db), user: CurrentUser = Depends(requir
             "id": u.id,
             "email": u.email,
             "role": u.role,
-            "supplier_name": u.supplier_name,
+            "supplier_name": resolve_supplier_name(db, u),
             "is_active": u.is_active,
             "is_locked": bool(u.locked_until and datetime.fromisoformat(u.locked_until) > now),
             "otp_enabled": u.otp_enabled if u.otp_enabled is not None else True,
@@ -536,13 +555,14 @@ def create_user(body: CreateUserIn, db: Session = Depends(get_db), user: Current
         raise HTTPException(400, "Email is required.")
     if db.query(models.User).filter(models.User.email == email).first():
         raise HTTPException(409, f"A user with email '{email}' already exists.")
-    if not db.query(models.Supplier).filter(models.Supplier.name == body.supplier_name).first():
+    supplier = db.query(models.Supplier).filter(models.Supplier.name == body.supplier_name).first()
+    if not supplier:
         raise HTTPException(404, f"Supplier '{body.supplier_name}' not found.")
     new_user = models.User(
         email=email,
         password_hash=hash_password(secrets.token_urlsafe(32)),
         role="supplier",
-        supplier_name=body.supplier_name,
+        supplier_id=supplier.id,
         is_active=True,
     )
     db.add(new_user)
@@ -607,7 +627,7 @@ def reinvite_user(user_id: int, db: Session = Depends(get_db), user: CurrentUser
     db.add(models.PasswordReset(token=token, email=target.email, expires_at=expires))
     db.commit()
     invite_url = f"{_BASE_URL}/reset-password.html?token={token}&portal=supplier&setup=1"
-    email_utils.notify_supplier_invite(target.email, target.supplier_name or "", invite_url)
+    email_utils.notify_supplier_invite(target.email, resolve_supplier_name(db, target) or "", invite_url)
     return {"ok": True, "invite_url": invite_url}
 
 
@@ -667,11 +687,14 @@ def list_messages(db: Session = Depends(get_db), user: CurrentUser = Depends(get
     messages = db.query(models.Message).order_by(models.Message.created_at.desc()).all()
 
     if user.is_admin:
+        sid_to_name = {s.id: s.name for s in db.query(models.Supplier).all()}
         out = []
         for m in messages:
             targets = _message_targets(db, m)
             reads = db.query(models.MessageRead).filter(models.MessageRead.message_id == m.id).all()
-            reads_by_supplier = {r.supplier_name: r for r in reads}
+            # Keyed by the supplier's *current* name (resolved live via supplier_id)
+            # so a rename doesn't orphan read/ack tracking for historical messages.
+            reads_by_supplier = {sid_to_name[r.supplier_id]: r for r in reads if r.supplier_id in sid_to_name}
             read_by = list(reads_by_supplier.keys())
             acked_by = [s for s, r in reads_by_supplier.items() if r.acknowledged_at]
             d = message_to_dict(m)
@@ -705,7 +728,7 @@ def list_messages(db: Session = Depends(get_db), user: CurrentUser = Depends(get
             continue
         rec = db.query(models.MessageRead).filter(
             models.MessageRead.message_id == m.id,
-            models.MessageRead.supplier_name == supplier_name,
+            models.MessageRead.supplier_id == user.supplier_id,
         ).first()
         d = message_to_dict(m)
         d["read"] = rec is not None
@@ -742,10 +765,11 @@ def _send_message(db: Session, *, subject: str, body_text: str, audience: str,
     db.commit()
 
     targets = _message_targets(db, msg)
+    target_ids = [s.id for s in db.query(models.Supplier).filter(models.Supplier.name.in_(targets)).all()]
     emails = [
         u.email for u in db.query(models.User).filter(
             models.User.role == "supplier",
-            models.User.supplier_name.in_(targets),
+            models.User.supplier_id.in_(target_ids),
             models.User.is_active == True,  # noqa: E712
         ).all()
     ]
@@ -773,10 +797,10 @@ def mark_message_read(message_id: str, db: Session = Depends(get_db), user: Curr
         raise HTTPException(404, "Message not found.")
     existing = db.query(models.MessageRead).filter(
         models.MessageRead.message_id == message_id,
-        models.MessageRead.supplier_name == user.supplier_name,
+        models.MessageRead.supplier_id == user.supplier_id,
     ).first()
     if not existing:
-        db.add(models.MessageRead(message_id=message_id, supplier_name=user.supplier_name, read_at=_now()))
+        db.add(models.MessageRead(message_id=message_id, supplier_id=user.supplier_id, read_at=_now()))
         db.commit()
     return {"ok": True}
 
@@ -790,10 +814,10 @@ def acknowledge_message(message_id: str, db: Session = Depends(get_db), user: Cu
         raise HTTPException(404, "Message not found.")
     rec = db.query(models.MessageRead).filter(
         models.MessageRead.message_id == message_id,
-        models.MessageRead.supplier_name == user.supplier_name,
+        models.MessageRead.supplier_id == user.supplier_id,
     ).first()
     if not rec:
-        rec = models.MessageRead(message_id=message_id, supplier_name=user.supplier_name, read_at=_now())
+        rec = models.MessageRead(message_id=message_id, supplier_id=user.supplier_id, read_at=_now())
         db.add(rec)
     if not rec.acknowledged_at:
         rec.acknowledged_at = _now()
