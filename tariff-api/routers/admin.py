@@ -252,7 +252,15 @@ def get_tariff(
     return tariff_to_dict(t)
 
 
-def _diff_fields(old: models.Tariff, body: TariffIn) -> list[dict]:
+def _profile_label(db: Session, profile_id) -> str:
+    """Render a profile id as 'Name' for changelog display, falling back to the raw id."""
+    if not profile_id:
+        return ""
+    p = db.get(models.Profile, profile_id)
+    return p.name if p else str(profile_id)
+
+
+def _diff_fields(db: Session, old: models.Tariff, body: TariffIn) -> list[dict]:
     """Compare old DB record against incoming body; return list of {field, from, to}."""
     changes = []
     for field, ov, nv in [
@@ -269,9 +277,14 @@ def _diff_fields(old: models.Tariff, body: TariffIn) -> list[dict]:
         ("profileId",       old.profileId,       body.profileId),
     ]:
         if str(ov if ov is not None else "") != str(nv if nv is not None else ""):
-            changes.append({"field": field,
-                            "from": "" if ov is None else str(ov),
-                            "to":   "" if nv is None else str(nv)})
+            if field == "profileId":
+                changes.append({"field": field,
+                                "from": _profile_label(db, ov),
+                                "to":   _profile_label(db, nv)})
+            else:
+                changes.append({"field": field,
+                                "from": "" if ov is None else str(ov),
+                                "to":   "" if nv is None else str(nv)})
     old_rates = json.loads(old.rates) if old.rates else {}
     if old_rates != body.rates:
         changes.append({"field": "rates", "from": json.dumps(old_rates), "to": json.dumps(body.rates)})
@@ -294,7 +307,7 @@ def update_tariff(
     if not t:
         raise HTTPException(404, "Tariff not found")
     _assert_tariff_owner(t, user)
-    changes = _diff_fields(t, body)   # capture diff before modifying t
+    changes = _diff_fields(db, t, body)   # capture diff before modifying t
     t.name = body.name; t.supplier = body.supplier
     t.contract = body.contract; t.voltage = body.voltage; t.pricing = body.pricing
     t.standing = body.standing; t.mdm = body.mdm; t.rates = json.dumps(body.rates)

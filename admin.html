@@ -3368,6 +3368,14 @@ function fmtLocalTs(isoStr){
       ' '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   } catch(e){return isoStr||'—';}
 }
+const CL_FIELD_LABELS={
+  name:'Name', contract:'Contract', voltage:'Voltage', pricing:'Pricing type',
+  standing:'Standing charge', fpaSource:'FPA source', fpaCustom:'FPA custom rate',
+  durationMonths:'Duration (months)', loadEntitlement:'Load entitlement',
+  vulnerable:'Vulnerable-consumer flag', profileId:'Load profile',
+  rates:'Rates', discounts:'Discounts'
+};
+function clFieldLabel(field){ return CL_FIELD_LABELS[field]||field; }
 function renderChangelogRow(entry){
   const actionCls='cl-action-'+entry.action;
   const actionLabel=entry.action.charAt(0).toUpperCase()+entry.action.slice(1);
@@ -3376,10 +3384,11 @@ function renderChangelogRow(entry){
     changesHtml+='<span class="cl-change">Tariff removed</span>';
   } else if(entry.changes&&entry.changes.length){
     entry.changes.forEach(function(c){
+      const label=clFieldLabel(c.field);
       if(c.from===undefined||c.from===null||c.from===''){
-        changesHtml+='<span class="cl-change"><span class="field-name">'+esc(c.field)+':</span> <span class="to-val">'+esc(c.to)+'</span></span>';
+        changesHtml+='<span class="cl-change"><span class="field-name">'+esc(label)+':</span> <span class="to-val">'+esc(c.to)+'</span></span>';
       } else {
-        changesHtml+='<span class="cl-change"><span class="field-name">'+esc(c.field)+':</span> <span class="from-val">'+esc(c.from)+'</span> → <span class="to-val">'+esc(c.to)+'</span></span>';
+        changesHtml+='<span class="cl-change"><span class="field-name">'+esc(label)+':</span> <span class="from-val">'+esc(c.from)+'</span> → <span class="to-val">'+esc(c.to)+'</span></span>';
       }
     });
   } else {
