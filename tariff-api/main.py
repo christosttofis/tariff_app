@@ -31,7 +31,7 @@ import jwt
 
 import models
 from auth import ACCESS_COOKIE_NAME, ALGORITHM, SECRET_KEY, run_password_expiry_check
-from database import SessionLocal, engine, get_db
+from database import SessionLocal, get_db
 from routers import admin as admin_router
 from routers import auth as auth_router
 from routers.admin import run_due_scheduled_notifications
@@ -39,44 +39,21 @@ from serializers import profile_to_dict, supplier_to_dict, tariff_to_dict
 
 logger = logging.getLogger(__name__)
 
-models.Base.metadata.create_all(bind=engine)
+# Schema is managed by Alembic (tariff-api/migrations/) rather than
+# metadata.create_all() + hand-rolled ALTER TABLE statements — see
+# migrations/README_MIGRATIONS.md for why and how to add a new migration.
+# Running "upgrade head" here on every startup keeps the previous
+# no-manual-step workflow (start.bat just works) while gaining versioning,
+# ordering, and a rollback path that the old approach didn't have.
+from alembic import command as _alembic_command
+from alembic.config import Config as _AlembicConfig
+
+_alembic_cfg = _AlembicConfig(str(Path(__file__).parent / "alembic.ini"))
+_alembic_cfg.set_main_option("script_location", str(Path(__file__).parent / "migrations"))
+_alembic_command.upgrade(_alembic_cfg, "head")
 
 # Ensure uploads directory exists
 (Path(__file__).parent / "uploads").mkdir(exist_ok=True)
-
-# Add columns introduced after initial schema creation
-from sqlalchemy import text as _text
-with engine.connect() as _c:
-    for _col in [
-        "ALTER TABLE tariffs ADD COLUMN rejection_reason TEXT",
-        "ALTER TABLE tariffs ADD COLUMN mdm REAL DEFAULT 0.0",
-        "ALTER TABLE regulated ADD COLUMN res REAL DEFAULT 0.0",
-        "ALTER TABLE regulated ADD COLUMN updated_at TEXT",
-        "ALTER TABLE regulated ADD COLUMN fpa_updated_at TEXT",
-        "ALTER TABLE regulated ADD COLUMN grid_updated_at TEXT",
-        "ALTER TABLE regulated ADD COLUMN universal_updated_at TEXT",
-        "ALTER TABLE changelog ADD COLUMN \"actorRole\" TEXT",
-        "ALTER TABLE changelog ADD COLUMN \"actorEmail\" TEXT",
-        "ALTER TABLE otp_codes ADD COLUMN created_at TEXT",
-        "ALTER TABLE users ADD COLUMN otp_enabled INTEGER DEFAULT 1",
-        "ALTER TABLE users ADD COLUMN password_changed_at TEXT",
-        "ALTER TABLE users ADD COLUMN must_change_password INTEGER DEFAULT 0",
-        "ALTER TABLE users ADD COLUMN password_expiry_notified_at TEXT",
-    ]:
-        try:
-            _c.execute(_text(_col)); _c.commit()
-        except Exception:
-            # Postgres aborts the whole transaction on error (unlike SQLite,
-            # which tolerates it per-statement) — roll back so the next
-            # statement in the loop can still run.
-            _c.rollback()
-
-    # One-time backfill: existing users get password_changed_at = now so nobody
-    # is instantly flagged as expired by the new rotation policy.
-    _c.execute(_text(
-        "UPDATE users SET password_changed_at = :now WHERE password_changed_at IS NULL"
-    ), {"now": datetime.now(timezone.utc).isoformat()})
-    _c.commit()
 
 app = FastAPI(
     title="CERA Tariff API",

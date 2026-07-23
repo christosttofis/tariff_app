@@ -35,7 +35,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 import models
-from database import Base
 
 DEMO_PASSWORD = "Demo123!"
 
@@ -55,8 +54,19 @@ def main():
         print("Delete it first or pass a different output path.")
         sys.exit(1)
 
-    engine = create_engine(f"sqlite:///{out_path}", connect_args={"check_same_thread": False})
-    Base.metadata.create_all(bind=engine)
+    # Build the schema the same way the app itself does — via Alembic
+    # migrations — rather than a separate create_all() path, so this demo
+    # database is structurally identical to what start.bat/main.py produce.
+    from alembic import command as alembic_command
+    from alembic.config import Config as AlembicConfig
+
+    db_url = f"sqlite:///{out_path}"
+    alembic_cfg = AlembicConfig(str(Path(__file__).parent / "alembic.ini"))
+    alembic_cfg.set_main_option("script_location", str(Path(__file__).parent / "migrations"))
+    alembic_cfg.attributes["sqlalchemy.url"] = db_url
+    alembic_command.upgrade(alembic_cfg, "head")
+
+    engine = create_engine(db_url, connect_args={"check_same_thread": False})
     db = sessionmaker(bind=engine)()
 
     # ---- Suppliers ----

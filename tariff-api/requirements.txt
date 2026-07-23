@@ -9,3 +9,4 @@ msal>=1.28.0
 requests>=2.32.0
 python-multipart>=0.0.9
 email-validator>=2.0.0
+alembic>=1.13.0
