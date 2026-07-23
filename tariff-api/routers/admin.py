@@ -15,7 +15,6 @@ Tariff ownership
 
 import calendar
 import json
-import os
 import random
 import secrets
 import string
@@ -33,6 +32,7 @@ from sqlalchemy.orm import Session
 
 import models
 from auth import CurrentUser, get_current_user, hash_password, require_admin, resolve_supplier_name
+from config import TARIFF_BASE_URL
 from database import get_db
 from importer import import_cfg
 from schemas import (
@@ -534,7 +534,7 @@ def download_document(
 
 # ── User management (admin only) ──────────────────────────────────────────────
 
-_BASE_URL = os.getenv("TARIFF_BASE_URL", "http://localhost:8000").rstrip("/")
+_BASE_URL = TARIFF_BASE_URL
 
 
 @router.get("/users", summary="List all portal users")

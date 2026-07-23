@@ -9,11 +9,15 @@ No passwords — only the client secret from the Azure app registration.
 
 import html
 import logging
-import os
 import threading
 
 import msal
 import requests
+
+from config import (
+    AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID,
+    TARIFF_ADMIN_EMAIL, TARIFF_BASE_URL, TARIFF_EMAIL_FROM,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -25,12 +29,12 @@ def _esc(v) -> str:
     rendered in someone else's mail client (admin or supplier)."""
     return html.escape(str(v), quote=True)
 
-TENANT_ID     = os.getenv("AZURE_TENANT_ID", "")
-CLIENT_ID     = os.getenv("AZURE_CLIENT_ID", "")
-CLIENT_SECRET = os.getenv("AZURE_CLIENT_SECRET", "")
-FROM_EMAIL    = os.getenv("TARIFF_EMAIL_FROM", "")
-ADMIN_TO      = os.getenv("TARIFF_ADMIN_EMAIL", "")
-BASE_URL      = os.getenv("TARIFF_BASE_URL", "http://localhost:8000").rstrip("/")
+TENANT_ID     = AZURE_TENANT_ID
+CLIENT_ID     = AZURE_CLIENT_ID
+CLIENT_SECRET = AZURE_CLIENT_SECRET
+FROM_EMAIL    = TARIFF_EMAIL_FROM
+ADMIN_TO      = TARIFF_ADMIN_EMAIL
+BASE_URL      = TARIFF_BASE_URL
 
 _GRAPH_SCOPE  = ["https://graph.microsoft.com/.default"]
 _msal_app: msal.ConfidentialClientApplication | None = None

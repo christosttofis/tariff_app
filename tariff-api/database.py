@@ -1,13 +1,11 @@
-import os
-from pathlib import Path
-
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
-# Set DATABASE_URL (e.g. postgresql+psycopg://user:pass@host:5432/dbname) to use
-# PostgreSQL. Falls back to the local SQLite file only if it's not set.
-DB_PATH = Path(__file__).parent / "tariff.db"
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DB_PATH}")
+from config import DATABASE_URL
+
+# Kept as an alias — migrations/env.py and other external readers import this
+# name specifically.
+SQLALCHEMY_DATABASE_URL = DATABASE_URL
 
 if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
     # SQLite requires this flag when the same connection is used across threads

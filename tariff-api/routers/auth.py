@@ -1,6 +1,5 @@
 """Auth router — login, forgot-password, reset-password endpoints."""
 
-import os
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -15,11 +14,12 @@ from auth import (
     decode_pending_token, get_current_user, record_password_change, resolve_supplier_name,
     set_auth_cookie, validate_password_strength, verify_password,
 )
+from config import TARIFF_BASE_URL
 from database import get_db
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-_BASE_URL = os.getenv("TARIFF_BASE_URL", "http://localhost:8000").rstrip("/")
+_BASE_URL = TARIFF_BASE_URL
 
 _MAX_ATTEMPTS = 3       # failed logins before lockout
 _LOCKOUT_MINUTES = 180  # how long the lockout lasts

@@ -13,7 +13,6 @@ Then open:
 import asyncio
 import json
 import logging
-import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -31,6 +30,7 @@ import jwt
 
 import models
 from auth import ACCESS_COOKIE_NAME, ALGORITHM, SECRET_KEY, run_password_expiry_check
+from config import TARIFF_BASE_URL
 from database import SessionLocal, get_db
 from routers import admin as admin_router
 from routers import auth as auth_router
@@ -131,7 +131,7 @@ async def rate_limit_middleware(request, call_next):
 # than "*". Set TARIFF_BASE_URL per-environment; it's already used for email links.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.getenv("TARIFF_BASE_URL", "http://localhost:8000")],
+    allow_origins=[TARIFF_BASE_URL],
     allow_methods=["*"],
     allow_headers=["*"],
 )

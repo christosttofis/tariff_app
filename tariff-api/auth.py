@@ -3,9 +3,9 @@ JWT authentication utilities and FastAPI dependencies.
 
 Secret key
 ----------
-Set the TARIFF_SECRET_KEY environment variable in production.
-The fallback here is for local development only — any token signed with the
-dev key would be accepted by any other dev install, so never deploy it.
+Read from config.py (TARIFF_SECRET_KEY env var). The fallback there is for
+local development only — any token signed with the dev key would be
+accepted by any other dev install, so never deploy it.
 
 Token lifetime: sliding — each authenticated request extends the session by
 TOKEN_EXPIRE_HOURS, capped at ABSOLUTE_SESSION_HOURS from the original login
@@ -17,7 +17,6 @@ Roles
   supplier — licensed supplier; can only manage their own tariffs
 """
 
-import os
 import re
 from datetime import datetime, timedelta, timezone
 
@@ -28,6 +27,7 @@ from sqlalchemy.orm import Session
 
 import email_utils
 import models
+from config import TARIFF_SECRET_KEY
 from database import get_db
 
 # Endpoints reachable even while a user's password has expired (must_change_password=True) —
@@ -41,10 +41,7 @@ PASSWORD_REUSE_HISTORY = 5        # block reuse of the last N passwords
 
 # ── Secret & algorithm ────────────────────────────────────────────────────────
 
-SECRET_KEY = os.getenv(
-    "TARIFF_SECRET_KEY",
-    "dev-only-do-not-deploy-cera-tariff-2026-xK9mP3qR7sN1wL5",
-)
+SECRET_KEY = TARIFF_SECRET_KEY
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_HOURS = 1      # sliding window — renewed on each authenticated request
 ABSOLUTE_SESSION_HOURS = 12  # hard cap from login, regardless of activity
