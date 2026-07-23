@@ -26,10 +26,12 @@ config = context.config
 # that override takes priority here. Otherwise use the same DATABASE_URL the
 # app itself resolves (env var, falling back to the local SQLite file),
 # keeping migrations and the running app pointed at the same database.
-config.set_main_option(
-    "sqlalchemy.url",
-    config.attributes.get("sqlalchemy.url", SQLALCHEMY_DATABASE_URL),
-)
+_db_url = config.attributes.get("sqlalchemy.url", SQLALCHEMY_DATABASE_URL)
+# alembic.ini is parsed with configparser, which treats "%" as the start of
+# an interpolation sequence (e.g. "%(here)s") — a real Postgres URL with a
+# URL-encoded password (containing "%21", "%25", etc.) crashes set_main_option
+# unless every literal "%" is escaped as "%%" first.
+config.set_main_option("sqlalchemy.url", _db_url.replace("%", "%%"))
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
