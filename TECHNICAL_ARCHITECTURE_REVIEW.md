@@ -1,6 +1,6 @@
 # CERA Tariff Comparison Tool — Technical Architecture & Security Review
 
-**Document purpose:** technical reference for an expert/external reviewer (functional + security assessment) prior to production go-live. Originally written 2026-07-14; updated 2026-07-15 to reflect the `SECURITY_REMEDIATION_CHECKLIST.md` hardening pass, a follow-on security review covering SQL injection, buffer overflow, broken access control, email injection, OTP brute-force, dependency CVEs, and JWT storage (see §13 and §14), and a later same-day pass covering accidental-overload protection, sliding session expiry, and two cross-portal access-control gaps found during manual testing (see §15).
+**Document purpose:** technical reference for an expert/external reviewer (functional + security assessment) prior to production go-live. Originally written 2026-07-14; updated 2026-07-15 to reflect the `SECURITY_REMEDIATION_CHECKLIST.md` hardening pass, a follow-on security review covering SQL injection, buffer overflow, broken access control, email injection, OTP brute-force, dependency CVEs, and JWT storage (see §13 and §14), and a later same-day pass covering accidental-overload protection, sliding session expiry, and two cross-portal access-control gaps found during manual testing (see §15). Updated again 2026-07-23 (see §16) to reflect five days of subsequent functional/data-integrity work: a supplier↔user foreign key replacing string matching, a scheduled local database backup, and an append-only-changelog bug fix.
 
 **Scope:** full-stack review of `tariff-api/` (FastAPI backend) and the three static frontend applications (`admin.html`, `supplier.html`, `customer.html`) plus supporting scripts.
 
@@ -42,6 +42,7 @@ tariff-api/
   create_user.py     CLI: create/update/deactivate a user account
   unlock_user.py     CLI: clear an account lockout
   seed.py            CLI: bulk-load a legacy JSON config into the DB
+  scripts/           One-off migration SQL (supplier FK backfill/cleanup) + backup_db.ps1 (§16.2)
   uploads/           Uploaded PDF documents (server-side, uuid-named)
   .env               Local secrets (see §5 — currently plaintext; excluded from version control via .gitignore)
 admin.html / supplier.html / customer.html / reset-password.html   Static frontend pages
@@ -71,7 +72,7 @@ start.bat            Dev launcher: creates venv, installs deps, runs uvicorn
 - **Market data**: `dam_data` — single-row table holding Day-Ahead Market price data as JSON arrays (monthly, half-hourly-by-slot, and raw daily)
 - **Content**: `notices` (bilingual EN/EL rich text shown in the calculator)
 - **Audit**: `changelog` (field-level diffs on every tariff/regulated-charge change, records actor role+email), `login_activity` (every login attempt, success or failure, with IP/user-agent)
-- **Auth/accounts**: `users`, `password_history` (last 5 hashes, reuse prevention), `password_resets` (1-hour single-use tokens, also reused for the supplier invite-link flow), `otp_codes` (10-minute single-use 6-digit codes)
+- **Auth/accounts**: `users`, `password_history` (last 5 hashes, reuse prevention), `password_resets` (1-hour single-use tokens, also reused for the supplier invite-link flow), `otp_codes` (10-minute single-use 6-digit codes). **Updated 2026-07-20 (§16.1)**: `User.supplier_id` is now a real FK to `suppliers.id` (was a plain `supplier_name` string that had to exactly match `Supplier.name`, with no enforced relationship); `MessageRead` got the same FK treatment. `Tariff.supplier` and `Message`/`ScheduledNotification.target_suppliers` remain plain strings.
 - **Documents**: `tariff_documents` — uploaded PDF metadata; the file itself lives in `uploads/<uuid>.pdf`, decoupled from the user-supplied filename
 - **Messaging**: `messages`, `message_reads` (read + acknowledge tracking per supplier), `scheduled_notifications` (recurring broadcast rules, e.g. "remind suppliers every 6 months")
 
@@ -284,14 +285,28 @@ Fixed with a new response header rather than reactive error handling: `main.py` 
 
 ---
 
-## 16. Known outstanding risks (pre-production checklist)
+## 16. Functional/data-integrity work, 2026-07-17 to 2026-07-20 (not a security review pass)
+
+Five days of ordinary feature and bugfix work followed §15, none of it prompted by a security review, but three items are relevant to this document and are recorded here so the doc stays an accurate description of the running system.
+
+**16.1 Supplier↔user linkage replaced with a real foreign key.** Previously `User.supplier_name` (and `MessageRead.supplier_name`) were plain strings that had to exactly match `Supplier.name`, with no FK enforcing the relationship — renaming a supplier in the admin panel silently orphaned any user row still holding the old name, with no error. This wasn't a hypothetical: renaming "EAC Supply" cut off a real supplier user (`cera.progress@gmail.com`) from all 6 of their tariffs. Fixed by adding a real `supplier_id` FK (`ForeignKey("suppliers.id")`) to both tables, backfilled via `scripts/migrate_supplier_fk.sql` (verified zero NULLs before the old string columns were dropped via `scripts/drop_supplier_name_columns.sql`). `CurrentUser.supplier_name` is now resolved live on every request via `auth.resolve_supplier_name()` (a `db.get(Supplier, user.supplier_id)` lookup) rather than read from a stored column, so a rename is reflected instantly everywhere with nothing left to cascade. `Tariff.supplier` and `Message`/`ScheduledNotification.target_suppliers` were deliberately left as plain strings (a bigger normalization effort, and not where the actual bug lived); `update_supplier()`'s existing rename-cascade logic now also covers `ScheduledNotification.target_suppliers`, which the original cascade had missed.
+
+**16.2 Scheduled local database backup.** §17 previously listed "no managed backup" as an open risk with zero mitigation in place. There is now a **daily local `pg_dump`** (`tariff-api/scripts/backup_db.ps1`, Windows Scheduled Task, 10:00 daily) producing a custom-format (`-Fc`) archive with 14-day daily + 8-week weekly rolling retention and automatic pruning, written to a OneDrive-synced folder (giving it off-machine redundancy without a manual step). Credentials are read from `%APPDATA%\postgresql\pgpass.conf`, not embedded in the script. Verified end-to-end: both a manual run and an actual Scheduled Task trigger produced an archive that `pg_restore -l` confirmed contains all 101 database objects. The restore procedure (overwrite-in-place vs. restore-to-a-throwaway-database-to-inspect-first) is documented in `ADMIN_MANUAL.md` §15.5. This is explicitly **temporary insurance for the current dev-only Postgres instance**, not a replacement for real managed backups once migrated to Azure Database for PostgreSQL (Flexible Server's built-in automated backups supersede this local script at that point) — §17 item 4 below is updated to reflect partial mitigation, not closure.
+
+**16.3 Changelog data-loss bug found and fixed — worth the external reviewer's attention.** The `changelog` table is meant to be an append-only audit trail (§3), but the legacy bulk "Save & publish" flow (`importer.py`'s `import_cfg()`) was deleting and rebuilding it from whatever snapshot the browser happened to hold in memory at the time — **this had already silently wiped the production changelog table before the bug was found**, with no backup in place at the time to recover it (predates §16.2). Fixed by making every admin section (suppliers, load profiles, notices, DAM data — tariffs and regulated charges already worked this way) save itself immediately via its own REST endpoint instead of staging changes for a bulk publish step, and by removing `import_cfg()`'s changelog-clearing behavior entirely; "Save & publish" is now an optional manual full-resync checkpoint rather than the only way changes reached the database. A related orphaning bug was fixed alongside it: "overwrite profile by name" previously generated a fresh random id every time, silently breaking any tariff's `profileId` reference to the old row — it now reuses the existing profile's id. Also: the changelog UI now resolves `profileId` changes to the profile's current name and maps raw camelCase field keys to human-readable labels, and a "Clear log" button was removed (no longer appropriate for an append-only audit trail). `ADMIN_MANUAL.md` (now v1.4) documents the new per-section save behavior.
+
+**Why this belongs in a security-facing document:** an append-only audit trail silently losing data on a routine admin action, with no backup to recover it, is exactly the kind of integrity gap an external assessment would flag — worth disclosing proactively rather than letting it surface as a "finding." It is now fixed and the backup in §16.2 provides a recovery path if a similar bug recurs.
+
+---
+
+## 17. Known outstanding risks (pre-production checklist)
 
 These are tracked items, not yet remediated, in priority order for an external certification review:
 
 1. **Secrets in plaintext `.env`** (§5) — highest priority, easiest finding for any reviewer.
 2. **Azure `Mail.Send` application permission not yet scoped** via Exchange Application Access Policy (§5) — requires a Global/Exchange admin.
 3. **No HTTPS/reverse proxy** in the current setup — must sit behind TLS termination before external exposure. Now load-bearing, not just best practice: the session cookie's `Secure` flag (§14.7) means login will silently fail without it.
-4. **Dev-only PostgreSQL instance** — user-owned, non-service process, no managed backup/TLS/HA. Needs a real managed Postgres (e.g. Azure Database for PostgreSQL) before production.
+4. **Dev-only PostgreSQL instance** — user-owned, non-service process, no TLS/HA. **Partially mitigated 2026-07-17 (§16.2)**: a daily local `pg_dump` with rolling retention now exists, so the data is no longer unrecoverable — but this is temporary insurance, not a substitute for a real managed Postgres (e.g. Azure Database for PostgreSQL) with proper TLS/HA before production.
 5. **No Alembic migrations** — schema changes are hand-rolled `ALTER TABLE` statements at startup; works but has no rollback path.
 6. **Minor audit-trail gaps**: OTP-toggle-per-user and document-upload-triggered-resubmission are not written to `changelog` (only explicit status-patch actions are).
 7. Document-upload feature has no malware/content scanning (acceptable today given admin-gated approval, worth reassessing if exposure changes).
@@ -303,6 +318,6 @@ An external IT company is expected to perform a combined functional/UAT walkthro
 
 ---
 
-## 17. Summary assessment
+## 18. Summary assessment
 
 The backend shows a consistent, deliberate security design for its size, strengthened further by the 2026-07-14/15 hardening passes: cookie-based session auth with `httpOnly`/`Secure`/`SameSite=Strict` (immune to both XSS-based token theft and CSRF), sliding expiry with an absolute session cap (§15.2), server-side ownership checks on every mutating endpoint (including the changelog/supplier-list gaps closed in §14.3, and re-verified end-to-end during the §15.4 cross-portal review), account lockout with audit logging extended to cover OTP guessing as well as password attempts (§14.5), password history/expiry/reuse enforcement, session invalidation on password change, Pydantic-enforced input validation matching the frontend's actual value sets (§13.3), a Content-Security-Policy header, DOMPurify sanitization on the one deliberate raw-HTML rendering path, consistent output escaping across all 116 audited `innerHTML` sinks, and per-IP rate limiting against accidental overload (§15.1). SQL injection and dependency CVEs were checked and found clean; buffer overflow is not an applicable risk for this stack. The two cross-portal UI gaps found in §15.4/§15.5 were UX/access-routing issues, not authorization bypasses — the underlying permission checks held throughout, confirmed by direct API attack attempts, not just code reading. The remaining gaps are entirely operational/infrastructure (secrets storage, TLS, managed DB, Alembic migrations) rather than architectural — none of the previously-open code-level findings remain outstanding.
