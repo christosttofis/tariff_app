@@ -471,9 +471,16 @@ async def upload_document(
     # Supplier uploading a new doc on a live/rejected tariff → back to pending review
     resubmitted = False
     if user.role == "supplier" and t.status in ("approved", "rejected"):
+        old_status = t.status
         t.status = "pending"
         t.rejection_reason = None
         resubmitted = True
+        _add_changelog(
+            db, action="updated", tariff_id=tariff_id, tariff_name=t.name, supplier=t.supplier,
+            changes=[{"field": "status", "from": old_status, "to": "pending"},
+                     {"field": "documents", "from": "", "to": f"uploaded {original}"}],
+            actor=user,
+        )
     db.commit()
     db.refresh(doc)
     return {"id": doc.id, "original_name": original, "uploaded_at": now, "uploaded_by": user.email, "resubmitted": resubmitted, "new_status": t.status}
@@ -598,7 +605,15 @@ def set_user_otp(user_id: int, body: UserOtpToggleIn, db: Session = Depends(get_
     target = db.get(models.User, user_id)
     if not target:
         raise HTTPException(404, "User not found.")
+    old_value = target.otp_enabled if target.otp_enabled is not None else True
     target.otp_enabled = body.otp_enabled
+    if old_value != body.otp_enabled:
+        _add_changelog(
+            db, action="updated", tariff_id=f"user:{target.id}", tariff_name=target.email,
+            supplier=resolve_supplier_name(db, target) or "CERA",
+            changes=[{"field": "otp_enabled", "from": old_value, "to": body.otp_enabled}],
+            actor=user,
+        )
     db.commit()
     return {"id": target.id, "otp_enabled": target.otp_enabled}
 
