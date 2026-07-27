@@ -25,6 +25,7 @@ for /f "tokens=*" %%v in ('python --version 2^>^&1') do echo [OK] %%v found
 cd /d "%~dp0tariff-api"
 
 :: ── 3. Create virtual environment if missing ─────────────────
+set NEED_INSTALL=0
 if not exist ".venv\Scripts\activate.bat" (
     echo [INFO] Creating virtual environment...
     python -m venv .venv
@@ -34,6 +35,7 @@ if not exist ".venv\Scripts\activate.bat" (
         exit /b 1
     )
     echo [OK] Virtual environment created.
+    set NEED_INSTALL=1
 ) else (
     echo [OK] Virtual environment already exists.
 )
@@ -41,16 +43,21 @@ if not exist ".venv\Scripts\activate.bat" (
 :: ── 4. Activate virtual environment ──────────────────────────
 call .venv\Scripts\activate.bat
 
-:: ── 5. Install / update dependencies ─────────────────────────
-echo [INFO] Checking dependencies...
-pip install -q --upgrade pip --trusted-host pypi.org --trusted-host files.pythonhosted.org
-pip install -q -r requirements.txt --trusted-host pypi.org --trusted-host files.pythonhosted.org
-if errorlevel 1 (
-    echo [ERROR] Failed to install dependencies.
-    pause
-    exit /b 1
+:: ── 5. Install / update dependencies (only on first-time setup) ──
+if "!NEED_INSTALL!"=="1" (
+    echo [INFO] Installing dependencies...
+    pip install -q --upgrade pip --trusted-host pypi.org --trusted-host files.pythonhosted.org
+    pip install -q -r requirements.txt --trusted-host pypi.org --trusted-host files.pythonhosted.org
+    if errorlevel 1 (
+        echo [WARNING] Could not install dependencies ^(no internet connection?^).
+        echo           Continuing anyway - the server may fail to start if
+        echo           required packages are missing.
+    ) else (
+        echo [OK] Dependencies installed.
+    )
+) else (
+    echo [OK] Dependencies already installed, skipping check.
 )
-echo [OK] Dependencies up to date.
 
 :: ── 6. Start the server ───────────────────────────────────────
 echo.
