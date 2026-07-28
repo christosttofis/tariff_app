@@ -34,17 +34,28 @@ Tariff backend/           ← this entire folder gets zipped and uploaded
 ├── admin.html
 ├── supplier.html
 ├── reset-password.html
+├── Logo_Transparent.png
 └── tariff-api/
     ├── main.py
+    ├── config.py
     ├── requirements.txt
     ├── models.py
+    ├── schemas.py
+    ├── serializers.py
     ├── database.py
     ├── auth.py
     ├── email_utils.py
+    ├── importer.py
+    ├── create_user.py
+    ├── unlock_user.py
+    ├── alembic.ini
+    ├── migrations/            ← required — main.py runs "alembic upgrade
+    │   ├── env.py                head" on every startup; the app will not
+    │   ├── script.py.mako        start without this folder
+    │   └── versions/
     ├── routers/
     │   ├── admin.py
     │   └── auth.py
-    ├── unlock_user.py
     └── (do NOT include .env — settings are entered in Azure, not uploaded)
 ```
 
@@ -370,4 +381,4 @@ The App Service can be stopped when not in use to reduce compute costs — a sto
 
 For questions about the application code, configuration values, or environment variables, contact the CERA Tariff Tool project lead.
 
-*Document version 2.1 — July 2026. v2.0 added Key Vault-based secret storage, Cloudflare custom-domain steps, and admin.html-specific access restriction, per IT review of v1.0. v2.1 replaces the deferred-SQLite pilot with PostgreSQL from day one (new Step 3), updates the cost summary and all subsequent step numbers accordingly, and points backup guidance at the Backup & Disaster Recovery section of `AZURE_DEPLOYMENT_BRIEF_v2.md`.*
+*Document version 2.2 — July 2026. v2.0 added Key Vault-based secret storage, Cloudflare custom-domain steps, and admin.html-specific access restriction, per IT review of v1.0. v2.1 replaces the deferred-SQLite pilot with PostgreSQL from day one (new Step 3), updates the cost summary and all subsequent step numbers accordingly, and points backup guidance at the Backup & Disaster Recovery section of `AZURE_DEPLOYMENT_BRIEF_v2.md`. v2.2 corrects Step 1's file list, which had fallen out of sync with the codebase — adds `config.py`, `schemas.py`, `serializers.py`, `importer.py`, `create_user.py`, `Logo_Transparent.png`, and (critically) `alembic.ini`/`migrations/`, since the app has run schema migrations via Alembic on every startup since 2026-07-23 and will not start without them.*

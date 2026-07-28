@@ -83,55 +83,37 @@ The following Azure services are required:
 
 ### Architecture diagram
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        END USERS                                │
-│                                                                 │
-│  👤 General Public    👤 CERA Admin     👤 Licensed Suppliers   │
-│  customer.html        admin.html        supplier.html           │
-│  Read-only, no login  Login required    Login required          │
-└───────────────────────┬─────────────────────────────────────────┘
-                        │ HTTPS request
-                        ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                        INTERNET                                 │
-│                                                                 │
-│  tariffs.cera.org.cy  ──(CNAME)──►  appname.azurewebsites.net  │
-│                                                                 │
-│  (DNS hosted on Cloudflare — see Section 4a)                    │
-└───────────────────────┬─────────────────────────────────────────┘
-                        │ Encrypted HTTPS
-                        ▼
-┌─────────────────────────────────────────────────────────────────┐
-│         MICROSOFT AZURE — CERA TENANT (EU Datacentre)           │
-│                                                                 │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │  Azure App Service — Basic B1                            │   │
-│  │                                                          │   │
-│  │  SSL/TLS Certificate  ◄── Managed & auto-renewed         │   │
-│  │         │                                                │   │
-│  │         ▼                                                │   │
-│  │  Uvicorn + FastAPI (Python)                              │   │
-│  │  Business logic · REST API · JWT authentication          │   │
-│  │  Auto-restart & always-on — built-in                     │   │
-│  └────────┬───────────────┬──────────────────┬─────────────┘   │
-│           │               │                  │                  │
-│           ▼               ▼                  ▼                  │
-│  ┌──────────────┐ ┌──────────────┐  ┌──────────────────────┐   │
-│  │   STORAGE    │ │  KEY VAULT   │  │  AZURE ACTIVE DIR.   │   │
-│  │              │ │              │  │  (CERA Tenant)       │   │
-│  │ PostgreSQL   │ │ JWT key      │  │                      │   │
-│  │ Flexible     │ │ Client secret│  │ App Registration     │   │
-│  │ Server       │ │ Tenant ID    │  │ Mail.Send permission │   │
-│  │ (auto backup)│ │ Client ID    │  │ (already granted)    │   │
-│  │              │ │ DB creds     │  │        │             │   │
-│  └──────────────┘ └──────────────┘  │   Azure Mail ────────┼──►│
-│                                     └──────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-                                                    │ Email
-                                                    ▼
-                                    📧 Supplier inboxes
-                                    📧 CERA admin inbox
+```mermaid
+flowchart TB
+    subgraph Users["END USERS"]
+        direction LR
+        Public["👤 General Public<br/>customer.html<br/><i>Read-only, no login</i>"]
+        Admin["👤 CERA Admin<br/>admin.html<br/><i>Login required</i>"]
+        Supplier["👤 Licensed Suppliers<br/>supplier.html<br/><i>Login required</i>"]
+    end
+
+    Domain["🌐 tariffs.cera.org.cy<br/>DNS hosted on Cloudflare — CNAME<br/>(see Section 4a)"]
+
+    Users -- "HTTPS request" --> Domain
+
+    subgraph Azure["MICROSOFT AZURE — CERA TENANT (EU Datacentre)"]
+        subgraph AppSvc["Azure App Service — Basic B1"]
+            TLS["SSL/TLS certificate<br/>managed & auto-renewed"]
+            App["Uvicorn + FastAPI (Python)<br/>Business logic · REST API · JWT auth<br/>Auto-restart & always-on — built-in"]
+            TLS --> App
+        end
+
+        DB[("PostgreSQL Flexible Server<br/>(automated daily backups)")]
+        KV["Key Vault<br/>JWT key · client secret<br/>tenant ID · client ID · DB creds"]
+        AAD["Azure Active Directory (CERA Tenant)<br/>App Registration<br/>Mail.Send permission — already granted"]
+
+        App --> DB
+        App --> KV
+        App --> AAD
+    end
+
+    Domain -- "Encrypted HTTPS" --> AppSvc
+    AAD -- "Azure Mail" --> Inboxes["📧 Supplier inboxes<br/>📧 CERA admin inbox"]
 ```
 
 ### Step-by-step request flow
