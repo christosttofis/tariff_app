@@ -75,6 +75,22 @@ def scheduled_notification_to_dict(s: models.ScheduledNotification) -> dict:
     }
 
 
+def tariff_report_to_dict(r: models.TariffReport) -> dict:
+    return {
+        "id": r.id,
+        "tariffId": r.tariffId,
+        "tariffName": r.tariffName,
+        "supplier": r.supplier,
+        "note": r.note,
+        "status": r.status,
+        "adminNote": r.adminNote,
+        "createdAt": r.createdAt,
+        "resolvedAt": r.resolvedAt,
+        "resolvedBy": r.resolvedBy,
+        # ipAddress intentionally omitted — internal-only, never sent to any frontend
+    }
+
+
 def supplier_to_dict(s: models.Supplier) -> dict:
     return {
         "name": s.name,

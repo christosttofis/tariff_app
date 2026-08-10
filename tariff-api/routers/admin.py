@@ -37,10 +37,13 @@ from database import get_db
 from importer import import_cfg
 from schemas import (
     CreateUserIn, DamIn, MessageArchiveIn, MessageIn, NoticesIn, ProfileIn, RegulatedIn,
-    ScheduledNotificationEnabledIn, ScheduledNotificationIn, SupplierIn, TariffIn, TariffStatusIn,
-    UserOtpToggleIn, UserStatusIn,
+    ScheduledNotificationEnabledIn, ScheduledNotificationIn, SupplierIn, TariffIn, TariffReportStatusIn,
+    TariffStatusIn, UserOtpToggleIn, UserStatusIn,
 )
-from serializers import message_to_dict, profile_to_dict, scheduled_notification_to_dict, supplier_to_dict, tariff_to_dict
+from serializers import (
+    message_to_dict, profile_to_dict, scheduled_notification_to_dict, supplier_to_dict,
+    tariff_report_to_dict, tariff_to_dict,
+)
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -153,6 +156,11 @@ def get_admin_config(
     if user.is_supplier:
         cq = cq.filter(models.Changelog.supplier == user.supplier_name)
     changelog = cq.order_by(models.Changelog.ts.desc()).all()
+    # Reports are admin-only — suppliers must not see reports about their own tariffs
+    reports = (
+        db.query(models.TariffReport).order_by(models.TariffReport.createdAt.desc()).all()
+        if user.is_admin else []
+    )
 
     tariff_ids = [t.id for t in tariffs]
     doc_tariff_ids = [
@@ -178,6 +186,7 @@ def get_admin_config(
             for c in changelog
         ],
         "docTariffIds": doc_tariff_ids,
+        "reports": [tariff_report_to_dict(r) for r in reports],
         "savedAt": _now(),
     }
 
@@ -1132,3 +1141,24 @@ def get_changelog(db: Session = Depends(get_db), user: CurrentUser = Depends(get
          "actorRole": c.actorRole, "actorEmail": c.actorEmail}
         for c in q.order_by(models.Changelog.ts.desc()).all()
     ]
+
+
+# ── Tariff reports (Article 121(ζ) — customer-reported issues) ─────────────────
+
+@router.patch("/reports/{report_id}", summary="Update a tariff report's status (admin only)")
+def update_report_status(
+    report_id: str,
+    body: TariffReportStatusIn,
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(require_admin),
+):
+    r = db.get(models.TariffReport, report_id)
+    if not r:
+        raise HTTPException(404, "Report not found")
+    r.status = body.status
+    r.adminNote = body.admin_note
+    r.resolvedAt = _now()
+    r.resolvedBy = user.email
+    db.commit()
+    db.refresh(r)
+    return tariff_report_to_dict(r)

@@ -180,6 +180,23 @@ class Changelog(Base):
     actorEmail = Column(String, nullable=True)
 
 
+class TariffReport(Base):
+    """Customer-submitted reports of erroneous tariff information — Article 121(ζ)."""
+    __tablename__ = "tariff_reports"
+
+    id = Column(String, primary_key=True)       # uid
+    tariffId = Column(String, nullable=False)   # not FK-enforced, matches Changelog.tariffId
+    tariffName = Column(String, nullable=False) # snapshot at submission time
+    supplier = Column(String, nullable=False)   # snapshot at submission time
+    note = Column(Text, nullable=True)          # optional free text from reporter, max 2000 chars (enforced in schema)
+    status = Column(String, default="open")     # open | reviewed | resolved | dismissed
+    adminNote = Column(String, nullable=True)
+    createdAt = Column(String, nullable=False)  # ISO-8601
+    resolvedAt = Column(String, nullable=True)  # ISO-8601
+    resolvedBy = Column(String, nullable=True)  # admin email
+    ipAddress = Column(String, nullable=True)   # abuse tracing only, never serialized to any frontend
+
+
 class PasswordReset(Base):
     """Single-use password reset tokens, valid for 1 hour."""
     __tablename__ = "password_resets"

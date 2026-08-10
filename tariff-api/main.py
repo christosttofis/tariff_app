@@ -13,6 +13,8 @@ Then open:
 import asyncio
 import json
 import logging
+import random
+import string
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,7 +22,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()  # loads tariff-api/.env if present
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -28,6 +30,7 @@ from sqlalchemy.orm import Session
 
 import jwt
 
+import email_utils
 import models
 from auth import ACCESS_COOKIE_NAME, ALGORITHM, SECRET_KEY, run_password_expiry_check
 from config import TARIFF_BASE_URL
@@ -35,6 +38,7 @@ from database import SessionLocal, get_db
 from routers import admin as admin_router
 from routers import auth as auth_router
 from routers.admin import run_due_scheduled_notifications
+from schemas import TariffReportIn
 from serializers import profile_to_dict, supplier_to_dict, tariff_to_dict
 
 logger = logging.getLogger(__name__)
@@ -258,6 +262,10 @@ def get_public_config(db: Session = Depends(get_db)):
             "pso":   reg.pso   if reg else 0,
             "res":   reg.res   if reg else 0,
             "mdm":   reg.mdm   if reg else 0,
+            "updated_at":         reg.updated_at         if reg else None,
+            "fpa_updated_at":     reg.fpa_updated_at     if reg else None,
+            "grid_updated_at":    reg.grid_updated_at    if reg else None,
+            "universal_updated_at": reg.universal_updated_at if reg else None,
         },
         "notices": {
             "assumptions_en": notices.assumptions_en or "" if notices else "",
@@ -283,6 +291,38 @@ def get_public_config(db: Session = Depends(get_db)):
         ],
         "savedAt": datetime.now(timezone.utc).isoformat(),
     }
+
+
+def _uid() -> str:
+    ts = int(time.time() * 1000)
+    rand = "".join(random.choices(string.ascii_lowercase + string.digits, k=4))
+    return f"{ts:x}{rand}"
+
+
+@app.post("/api/public/report-tariff", summary="Report an issue with a published tariff")
+def report_tariff(body: TariffReportIn, request: Request, db: Session = Depends(get_db)):
+    """Article 121(ζ) — customer-facing "report erroneous offer info" process.
+    No login required (customer.html has no auth); tariff_name/supplier are
+    looked up server-side rather than trusted from the client."""
+    t = db.query(models.Tariff).filter(
+        models.Tariff.id == body.tariff_id, models.Tariff.status == "approved"
+    ).first()
+    if not t:
+        raise HTTPException(404, "Tariff not found")
+    r = models.TariffReport(
+        id=_uid(),
+        tariffId=t.id,
+        tariffName=t.name,
+        supplier=t.supplier,
+        note=body.note,
+        status="open",
+        createdAt=datetime.now(timezone.utc).isoformat(),
+        ipAddress=request.client.host if request.client else None,
+    )
+    db.add(r)
+    db.commit()
+    email_utils.notify_admin_tariff_report(t.name, t.supplier, body.note)
+    return {"ok": True}
 
 
 # ── Static file serving ───────────────────────────────────────────────────────

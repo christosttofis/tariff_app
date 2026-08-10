@@ -126,6 +126,16 @@ class MessageArchiveIn(BaseModel):
     archived: bool
 
 
+class TariffReportIn(BaseModel):
+    tariff_id: str = Field(..., max_length=100)
+    note: str | None = Field(None, max_length=2000)
+
+
+class TariffReportStatusIn(BaseModel):
+    status: Literal["open", "reviewed", "resolved", "dismissed"]
+    admin_note: str | None = Field(None, max_length=2000)
+
+
 class ScheduledNotificationIn(BaseModel):
     subject: str = Field(..., max_length=200)
     body: str = Field(..., max_length=20000)

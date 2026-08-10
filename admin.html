@@ -247,6 +247,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .cl-action-created{color:var(--green)}
 .cl-action-updated{color:var(--accent)}
 .cl-action-deleted{color:var(--red)}
+.rp-status-open{color:var(--yellow)}
+.rp-status-reviewed{color:var(--accent)}
+.rp-status-resolved{color:var(--green)}
+.rp-status-dismissed{color:var(--text3)}
 .cl-changes{display:flex;flex-direction:column;gap:2px}
 .cl-change{font-size:10px;color:var(--text3)}
 .cl-change .field-name{color:var(--text2)}
@@ -391,6 +395,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
     <div class="nav-item" onclick="showPane('audit')">🔍 <span data-t="NAV_AUDIT">Audit calculator</span></div>
     <div class="nav-item" onclick="showPane('notices')">📋 <span data-t="NAV_NOTICES">Notices</span></div>
     <div class="nav-item" onclick="showPane('changelog')">🕓 <span data-t="NAV_CHANGELOG">Changelog</span></div>
+    <div class="nav-item" onclick="showPane('reports')">🚩 <span data-t="NAV_REPORTS">Reported issues</span><span class="nav-pending-bubble" id="nav-reports-bubble" style="display:none"></span></div>
     <div class="nav-item" onclick="showPane('publish')">🚀 <span data-t="NAV_PUBLISH">Publish</span></div>
   </nav>
   <div class="sidebar-foot">
@@ -1123,6 +1128,38 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
     </div>
   </div>
 
+  <div class="pane" id="pane-reports">
+    <div class="page-head"><h1 data-t="PANE_REPORTS_TITLE">Reported issues</h1><p data-t="PANE_REPORTS_DESC">Issues customers have flagged about published tariff information, via the "Report an issue" link on the comparison tool.</p></div>
+    <div class="card">
+      <div class="cl-filters">
+        <select id="rp-filter-status" onchange="renderReports()" style="font-size:12px;font-family:var(--mono);padding:4px 8px;border:1px solid var(--border);border-radius:2px;background:var(--bg3);color:var(--text)">
+          <option value="" data-t="OPT_ALL_STATUSES">All statuses</option>
+          <option value="open" data-t="OPT_STATUS_OPEN">Open</option>
+          <option value="reviewed" data-t="OPT_STATUS_REVIEWED">Reviewed</option>
+          <option value="resolved" data-t="OPT_STATUS_RESOLVED">Resolved</option>
+          <option value="dismissed" data-t="OPT_STATUS_DISMISSED">Dismissed</option>
+        </select>
+        <span id="rp-count" style="font-size:11px;font-family:var(--mono);color:var(--text3);margin-left:4px"></span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="cl-table" id="rp-table">
+          <thead>
+            <tr>
+              <th data-t="TH_REPORTED_AT">Reported</th>
+              <th data-t="TH_TARIFF_RP">Tariff</th>
+              <th data-t="TH_SUPPLIER_RP">Supplier</th>
+              <th data-t="TH_NOTE">Note</th>
+              <th data-t="TH_STATUS">Status</th>
+              <th data-t="TH_ACTIONS">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="rp-tbody"></tbody>
+        </table>
+      </div>
+      <div id="rp-empty" class="empty-state" style="display:none" data-t="RP_EMPTY">No reported issues yet.</div>
+    </div>
+  </div>
+
   <!-- PUBLISH -->
   <div class="pane" id="pane-publish">
     <div class="page-head"><h1 data-t="PANE_PUB_TITLE">Publish</h1><p data-t="PANE_PUB_DESC">Save all configuration to localStorage. The customer calculator reads from the same browser storage.</p></div>
@@ -1401,7 +1438,7 @@ const LANG = {
     NAV_MARKET_DATA:'Market data', NAV_DEPLOY:'Deploy',
     NAV_SUPPLIERS:'Suppliers', NAV_PROFILES:'Consumption profiles', NAV_TARIFFS:'Tariffs',
     NAV_USERS:'Users', NAV_LOGIN_ACTIVITY:'Login activity', NAV_MESSAGES:'Notifications', NAV_DAM:'DAM price data', NAV_REGULATED:'Regulated tariffs',
-    NAV_AUDIT:'Audit calculator', NAV_NOTICES:'Notices', NAV_CHANGELOG:'Changelog', NAV_PUBLISH:'Publish',
+    NAV_AUDIT:'Audit calculator', NAV_NOTICES:'Notices', NAV_CHANGELOG:'Changelog', NAV_REPORTS:'Reported issues', NAV_PUBLISH:'Publish',
     BTN_MY_ACCOUNT:'My Account', BTN_SIGNOUT:'Sign out',
     // Dashboard pane
     PANE_DASH_TITLE:'Dashboard', PANE_DASH_DESC:'Overview of what needs your attention.',
@@ -1515,6 +1552,13 @@ const LANG = {
     TH_TIMESTAMP:'Timestamp', TH_TARIFF_CL:'Tariff', TH_SUPPLIER_CL:'User', TH_ACTOR:'Made by', TH_ACTION:'Action', TH_CHANGES:'Changes',
     CL_ACTOR_ADMIN:'CERA Admin', CL_ACTOR_SUPPLIER:'Supplier',
     CL_EMPTY:'No changelog entries yet. Changes to tariffs will appear here.',
+    // Reports pane
+    PANE_REPORTS_TITLE:'Reported issues',
+    PANE_REPORTS_DESC:'Issues customers have flagged about published tariff information, via the "Report an issue" link on the comparison tool.',
+    OPT_ALL_STATUSES:'All statuses', OPT_STATUS_OPEN:'Open', OPT_STATUS_REVIEWED:'Reviewed', OPT_STATUS_RESOLVED:'Resolved', OPT_STATUS_DISMISSED:'Dismissed',
+    TH_REPORTED_AT:'Reported', TH_TARIFF_RP:'Tariff', TH_SUPPLIER_RP:'Supplier', TH_NOTE:'Note', TH_STATUS:'Status', TH_ACTIONS:'Actions',
+    BTN_MARK_REVIEWED:'Mark reviewed', BTN_MARK_RESOLVED:'Mark resolved', BTN_DISMISS:'Dismiss', BTN_REOPEN:'Reopen',
+    RP_EMPTY:'No reported issues yet.',
     // Publish pane
     PANE_PUB_TITLE:'Publish',
     PANE_PUB_DESC:'Suppliers, profiles, tariffs, regulated charges, notices and DAM data all save immediately from their own page — this button is not required for day-to-day edits. Use it as a manual safety net to re-sync everything to the server in one go, and to record a "last published" snapshot below.',
@@ -1569,7 +1613,7 @@ const LANG = {
     NAV_MARKET_DATA:'Δεδομένα αγοράς', NAV_DEPLOY:'Ανάπτυξη',
     NAV_SUPPLIERS:'Προμηθευτές', NAV_PROFILES:'Προφίλ κατανάλωσης', NAV_TARIFFS:'Διατιμήσεις',
     NAV_USERS:'Χρήστες', NAV_LOGIN_ACTIVITY:'Δραστηριότητα σύνδεσης', NAV_MESSAGES:'Ειδοποιήσεις', NAV_DAM:'Δεδομένα ΠΗΑ', NAV_REGULATED:'Ρυθμιζόμενες διατιμήσεις',
-    NAV_AUDIT:'Έλεγχος υπολογισμού διατιμήσεων', NAV_NOTICES:'Ανακοινώσεις', NAV_CHANGELOG:'Ιστορικό αλλαγών', NAV_PUBLISH:'Δημοσίευση',
+    NAV_AUDIT:'Έλεγχος υπολογισμού διατιμήσεων', NAV_NOTICES:'Ανακοινώσεις', NAV_CHANGELOG:'Ιστορικό αλλαγών', NAV_REPORTS:'Αναφορές προβλημάτων', NAV_PUBLISH:'Δημοσίευση',
     BTN_MY_ACCOUNT:'Ο λογαριασμός μου', BTN_SIGNOUT:'Αποσύνδεση',
     // Dashboard pane
     PANE_DASH_TITLE:'Πίνακας ελέγχου', PANE_DASH_DESC:'Επισκόπηση όσων απαιτούν την προσοχή σας.',
@@ -1683,6 +1727,13 @@ const LANG = {
     TH_TIMESTAMP:'Χρόνος', TH_TARIFF_CL:'Τιμολόγιο', TH_SUPPLIER_CL:'Χρήστης', TH_ACTOR:'Έγινε από', TH_ACTION:'Ενέργεια', TH_CHANGES:'Αλλαγές',
     CL_ACTOR_ADMIN:'Διαχειριστής CERA', CL_ACTOR_SUPPLIER:'Προμηθευτής',
     CL_EMPTY:'Δεν υπάρχουν καταχωρήσεις ακόμα. Οι αλλαγές στα τιμολόγια θα εμφανίζονται εδώ.',
+    // Reports pane
+    PANE_REPORTS_TITLE:'Αναφορές προβλημάτων',
+    PANE_REPORTS_DESC:'Προβλήματα που ανέφεραν πελάτες σχετικά με δημοσιευμένες πληροφορίες διατιμήσεων, μέσω του συνδέσμου «Αναφορά προβλήματος» στο εργαλείο σύγκρισης.',
+    OPT_ALL_STATUSES:'Όλες οι καταστάσεις', OPT_STATUS_OPEN:'Ανοιχτή', OPT_STATUS_REVIEWED:'Ελέγχθηκε', OPT_STATUS_RESOLVED:'Επιλύθηκε', OPT_STATUS_DISMISSED:'Απορρίφθηκε',
+    TH_REPORTED_AT:'Αναφέρθηκε', TH_TARIFF_RP:'Διατίμηση', TH_SUPPLIER_RP:'Προμηθευτής', TH_NOTE:'Σημείωση', TH_STATUS:'Κατάσταση', TH_ACTIONS:'Ενέργειες',
+    BTN_MARK_REVIEWED:'Σήμανση ως ελέγχθηκε', BTN_MARK_RESOLVED:'Σήμανση ως επιλύθηκε', BTN_DISMISS:'Απόρριψη', BTN_REOPEN:'Άνοιγμα ξανά',
+    RP_EMPTY:'Δεν υπάρχουν αναφορές προβλημάτων ακόμα.',
     // Publish pane
     PANE_PUB_TITLE:'Δημοσίευση',
     PANE_PUB_DESC:'Οι προμηθευτές, τα προφίλ, τα τιμολόγια, οι ρυθμιζόμενες χρεώσεις, οι ανακοινώσεις και τα δεδομένα ΠΗΑ αποθηκεύονται αμέσως από τη δική τους σελίδα — αυτό το κουμπί δεν απαιτείται για καθημερινές αλλαγές. Χρησιμοποιήστε το ως χειροκίνητο δίχτυ ασφαλείας για επανασυγχρονισμό όλων με τον διακομιστή, και για να καταγράψετε ένα στιγμιότυπο «τελευταίας δημοσίευσης» παρακάτω.',
@@ -1747,7 +1798,7 @@ function renderPage(){
 
 const MONTHS_SHORT=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-let suppliers=[], profiles=[], tariffs=[], changelog=[], loginActivity=[];
+let suppliers=[], profiles=[], tariffs=[], changelog=[], loginActivity=[], reports=[];
 let docTariffIds=new Set();
 // suppliers is an array of objects: {name, tradingName, licence, address, website, email, tel}
 // For backwards compat, string entries are treated as {name: entry}
@@ -1768,7 +1819,7 @@ function showPane(id){
   document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('pane-'+id).classList.add('active');
-  const keys=['dashboard','suppliers','profiles','tariffs','users','login-activity','messages','dam','regulated','audit','notices','changelog','publish'];
+  const keys=['dashboard','suppliers','profiles','tariffs','users','login-activity','messages','dam','regulated','audit','notices','changelog','reports','publish'];
   const idx=keys.indexOf(id);
   if(idx>=0) document.querySelectorAll('.nav-item')[idx].classList.add('active');
   if(id==='dashboard') buildDashboard();
@@ -1776,6 +1827,7 @@ function showPane(id){
   if(id==='regulated') updateRegPreview();
   if(id==='audit') auditPopulateTariffs();
   if(id==='changelog') renderChangelog();
+  if(id==='reports') renderReports();
   if(id==='users') usersLoad();
   if(id==='login-activity') loginActivityLoad();
   if(id==='messages'){ messagesLoad(); schedulesLoad(); }
@@ -3439,6 +3491,62 @@ function renderChangelog(){
     if(countEl) countEl.textContent='('+filtered.length+' of '+changelog.length+' entries)';
   }
 }
+
+/* ── Tariff reports (Article 121(ζ)) ── */
+function renderReportRow(r){
+  const statusCls='rp-status-'+r.status;
+  const statusLabel=T('OPT_STATUS_'+r.status.toUpperCase());
+  const noteHtml=r.note?esc(r.note):'<span style="color:var(--text3)">—</span>';
+  const actions=r.status==='open'
+    ?`<button class="btn-sm" onclick="setReportStatus('${r.id}','reviewed')">${T('BTN_MARK_REVIEWED')}</button>
+      <button class="btn-sm" onclick="setReportStatus('${r.id}','resolved')">${T('BTN_MARK_RESOLVED')}</button>
+      <button class="btn-sm" onclick="setReportStatus('${r.id}','dismissed')">${T('BTN_DISMISS')}</button>`
+    :`<button class="btn-sm" onclick="setReportStatus('${r.id}','open')">${T('BTN_REOPEN')}</button>`;
+  return '<tr>'
+    +'<td style="white-space:nowrap;color:var(--text3)">'+fmtLocalTs(r.createdAt)+'</td>'
+    +'<td style="color:var(--text);font-weight:500">'+esc(r.tariffName)+'</td>'
+    +'<td>'+esc(r.supplier)+'</td>'
+    +'<td>'+noteHtml+'</td>'
+    +'<td class="'+statusCls+'">'+esc(statusLabel)+'</td>'
+    +'<td>'+actions+'</td>'
+    +'</tr>';
+}
+function renderReports(){
+  const fStatus=document.getElementById('rp-filter-status')?.value||'';
+  const filtered=reports.filter(r=>!fStatus||r.status===fStatus);
+  const tbody=document.getElementById('rp-tbody');
+  const empty=document.getElementById('rp-empty');
+  const table=document.getElementById('rp-table');
+  const countEl=document.getElementById('rp-count');
+  if(!filtered.length){
+    if(tbody) tbody.innerHTML='';
+    if(table) table.style.display='none';
+    if(empty) empty.style.display='';
+    if(countEl) countEl.textContent='';
+  } else {
+    if(table) table.style.display='';
+    if(empty) empty.style.display='none';
+    if(tbody) tbody.innerHTML=filtered.map(renderReportRow).join('');
+    if(countEl) countEl.textContent='('+filtered.length+' of '+reports.length+' entries)';
+  }
+}
+async function setReportStatus(id,status){
+  try{
+    const resp=await fetch(_adminApiBase+'/api/admin/reports/'+id,{method:'PATCH',headers:authHeaders(),body:JSON.stringify({status})});
+    if(resp.status===401){showLogin('Session expired.');return;}
+    if(!resp.ok){alert('Failed to update report.');return;}
+    const updated=await resp.json();
+    const i=reports.findIndex(r=>r.id===id);
+    if(i>=0) reports[i]=updated;
+    renderReports();
+    updateReportsBubble();
+  }catch(e){ alert('Network error.'); }
+}
+function updateReportsBubble(){
+  const n=reports.filter(r=>r.status==='open').length;
+  const b=document.getElementById('nav-reports-bubble');
+  if(b){ b.style.display=n?'':'none'; b.textContent=n; }
+}
 // Quotes a CSV cell (RFC4180 — doubles embedded quotes) and, if the value starts with
 // a character a spreadsheet app (Excel/Sheets/LibreOffice) would interpret as the start
 // of a formula (=, +, -, @, tab, CR), prefixes a leading ' so it's forced to plain text.
@@ -4098,7 +4206,7 @@ async function saveRegulated(){
     // won't be overwritten if the user clicks Save & publish afterwards
     try {
       const cfgResp=await fetch(_adminApiBase+'/api/admin/config',{headers:authHeaders()});
-      if(cfgResp.ok){const cfg=await cfgResp.json();if(cfg.changelog) changelog=cfg.changelog;}
+      if(cfgResp.ok){const cfg=await cfgResp.json();if(cfg.changelog) changelog=cfg.changelog;if(cfg.reports){reports=cfg.reports;updateReportsBubble();}}
     } catch {}
     showStatus(st,'ok','Saved ✓');
   } catch(e){showStatus(st,'err','Save failed: '+e.message);}
@@ -5329,6 +5437,7 @@ async function loadConfig(){
     if(cfg.notices) setNotices(cfg.notices);
     if(cfg.damDailyData) damDailyData=cfg.damDailyData;
     if(cfg.changelog) changelog=cfg.changelog;
+    if(cfg.reports) reports=cfg.reports;
     if(cfg.docTariffIds) docTariffIds=new Set(cfg.docTariffIds);
     if(cfg.savedAt) document.getElementById('saved-label').textContent='Last saved '+new Date(cfg.savedAt).toLocaleString();
   }catch(e){
@@ -5341,6 +5450,7 @@ async function loadConfig(){
   if(damMonthly.some(v=>v!==null)) renderMonthGrid();
   if(damDailyData.some(m=>m.length>0)) renderDamCoverage();
   buildDashboard();
+  updateReportsBubble();
 }
 
 // On page load: the session lives in an httpOnly cookie we can't read from

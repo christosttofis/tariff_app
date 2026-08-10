@@ -214,6 +214,22 @@ def notify_admin_resubmit(tariff_name: str, supplier: str) -> None:
         _html("Tariff resubmitted for review", body))
 
 
+def notify_admin_tariff_report(tariff_name: str, supplier: str, note: str | None) -> None:
+    if not ADMIN_TO:
+        return
+    rows = _row("Tariff", f"<strong>{_esc(tariff_name)}</strong>") + _row("Supplier", _esc(supplier))
+    if note:
+        rows += _row("Note", _esc(note).replace("\n", "<br>"))
+    body = (
+        f'<p style="margin:0 0 12px;{_FONT}">A customer has reported a possible issue with published tariff information.</p>'
+        + _detail_table(rows)
+        + _btn(f"{BASE_URL}/admin.html", "Review in Admin Panel")
+    )
+    _send_bg([ADMIN_TO],
+        f"[CERA Tariff] Issue reported — {tariff_name}",
+        _html("Tariff issue reported", body))
+
+
 def notify_supplier_approved(to_emails: list[str], tariff_name: str, supplier: str) -> None:
     if not to_emails:
         return
