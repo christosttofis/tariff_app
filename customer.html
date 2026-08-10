@@ -13,9 +13,9 @@
 :root{
   --bg:#eaeef4;--bg2:#fff;--bg3:#f1f4f8;--bg4:#e4e9f0;
   --border:#e2e7ef;--border2:#c2cad7;
-  --text:#15202e;--text2:#54606f;--text3:#6b7684;
+  --text:#15202e;--text2:#54606f;--text3:#4d5766;
   --accent:#1a3a5e;--accent-deep:#11283f;--accent-light:#e9eef4;
-  --accent2:#b06c2c;--accent2-deep:#8d551e;--accent2-light:#f7efe2;
+  --accent2:#8d551e;--accent2-deep:#6b3f16;--accent2-light:#f7efe2;
   --green:#1f7a4d;--red:#b03f38;
   --font:'Roboto',sans-serif;--mono:'Consolas','Liberation Mono','Menlo','Courier New',monospace;
   --radius:8px;--radius-sm:4px;
@@ -37,12 +37,16 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .a11y-toggle:hover{background:var(--accent-light);color:var(--accent)}
 .a11y-toggle[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
 @media(max-width:680px){.a11y-toggle{bottom:16px;left:12px;padding:8px 12px}}
-/* Accessible mode — guaranteed-AA-contrast color overrides (audit findings: default
-   --text3 on light-gray backgrounds and --accent2 both fall short of 4.5:1 for
-   normal-size text) plus a strong, unmissable focus indicator for keyboard users. */
-html.a11y-mode{--text3:#4d5766;--accent2:#8d551e}
+/* Accessible mode — AA-contrast colors (--text3/--accent2 above) are now the
+   default for everyone, not gated behind this toggle. What's left here is
+   opt-in on top of that baseline: a stronger, unmissable focus indicator and
+   underlined links for users who want maximum visibility over the default
+   (already-visible) browser focus ring / color-based link styling. */
 html.a11y-mode *:focus-visible{outline:3px solid #1a3a5e !important;outline-offset:2px}
 html.a11y-mode a{text-decoration:underline}
+.reg-info-trigger{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
+.skip-link{position:absolute;top:-40px;left:8px;z-index:1000;background:var(--accent);color:#fff;padding:10px 16px;border-radius:2px;font-size:13px;font-weight:500;text-decoration:none;transition:top .12s}
+.skip-link:focus{top:8px}
 .header{margin-bottom:32px;padding-bottom:18px;border-bottom:2px solid var(--accent);display:flex;align-items:flex-start;gap:20px}
 .header-logo{height:100px;width:auto;flex-shrink:0}
 .header-text{flex:1}
@@ -412,6 +416,7 @@ body{
 </style>
 </head>
 <body>
+<a href="#main-content" class="skip-link" id="skip-link">Skip to main content</a>
 <div class="lang-toggle">
   <button class="lang-btn" id="lang-btn-en" onclick="setLang('en')">EN</button>
   <button class="lang-btn active" id="lang-btn-el" onclick="setLang('el')">ΕΛ</button>
@@ -419,7 +424,7 @@ body{
 <div class="notices-fixed">
   <button id="notices-open-btn" class="notices-btn" onclick="openNotices()">ℹ️ Notices &amp; Disclaimers</button>
 </div>
-<div class="wrapper">
+<div class="wrapper" id="main-content" tabindex="-1">
 
 <div id="no-config" class="no-config" style="display:none">
   <div style="font-size:48px;margin-bottom:16px">⚡</div>
@@ -442,12 +447,12 @@ body{
   </div>
 
   <div class="card conn-card" id="conn-card">
-    <div class="cc-head" onclick="toggleConn()">
+    <div class="cc-head" id="cc-head" role="button" tabindex="0" aria-expanded="true" aria-controls="conn-card-body" onclick="toggleConn()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleConn();}">
       <div class="card-title" style="margin-bottom:0" id="ct-connection">Your connection</div>
       <div class="summary-chips" id="conn-summary-chips"></div>
-      <button class="collapse-toggle" aria-label="Collapse or expand">▼</button>
+      <button class="collapse-toggle" aria-label="Collapse or expand" tabindex="-1">▼</button>
     </div>
-    <div class="card-full">
+    <div class="card-full" id="conn-card-body">
     <div class="collapse-inner">
 
     <!-- Customer type tabs -->
@@ -665,6 +670,7 @@ const LANG = {
     REPORT_OFFLINE: "Reporting is unavailable in offline/demo mode.",
     BTN_CANCEL: "Cancel",
     BTN_SUBMIT_REPORT: "Submit",
+    SKIP_LINK: "Skip to main content",
     NOTICES_TAB_ABOUT: "About & independence",
     BTN_A11Y_OFF: "Accessible mode",
     BTN_A11Y_ON: "Accessible mode: on",
@@ -847,6 +853,7 @@ const LANG = {
     REPORT_OFFLINE: "Η αναφορά δεν είναι διαθέσιμη σε λειτουργία εκτός σύνδεσης/επίδειξης.",
     BTN_CANCEL: "Άκυρο",
     BTN_SUBMIT_REPORT: "Υποβολή",
+    SKIP_LINK: "Μετάβαση στο κύριο περιεχόμενο",
     NOTICES_TAB_ABOUT: "Σχετικά & ανεξαρτησία",
     BTN_A11Y_OFF: "Προσβάσιμη λειτουργία",
     BTN_A11Y_ON: "Προσβάσιμη λειτουργία: ενεργή",
@@ -1172,6 +1179,8 @@ function setConnCollapsed(v){
   connCollapsed=v;
   const c=document.getElementById('conn-card');
   if(c) c.classList.toggle('collapsed',v);
+  const h=document.getElementById('cc-head');
+  if(h) h.setAttribute('aria-expanded',v?'false':'true');
   if(v) updateConnSummary();
 }
 function toggleConn(){ setConnCollapsed(!connCollapsed); }
@@ -1644,6 +1653,12 @@ function openRegInfo(titleKey,descKey){
 function closeRegInfo(){
   document.getElementById('reg-info-overlay').style.display='none';
 }
+// Shared attributes for the small "ⓘ" info triggers (regulated-charge rows, FPA
+// labels) — keyboard-operable custom controls, not native buttons/links. Class
+// (not inline style) so call sites remain free to add their own inline color.
+function regInfoAttrs(titleKey,descKey){
+  return `class="reg-info-trigger" role="button" tabindex="0" onclick="openRegInfo('${titleKey}','${descKey}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openRegInfo('${titleKey}','${descKey}')}"`;
+}
 function switchNoticesTab(tab){
   _noticesTab=tab;
   document.getElementById('ntab-about').classList.toggle('active',tab==='about');
@@ -1801,6 +1816,7 @@ function renderPage(){
   setText('vulnerable-check-label','LBL_VULNERABLE_CHECK');
   setText('vulnerable-info-label','LBL_VULNERABLE_INFO');
   setText('offers-check-label','LBL_OFFERS_CHECK');
+  setText('skip-link','SKIP_LINK');
   updateA11yToggleUI(document.documentElement.classList.contains('a11y-mode'));
   setText('report-modal-title','REPORT_MODAL_TITLE');
   setText('report-lbl-tariff','REPORT_LBL_TARIFF');
@@ -1934,7 +1950,7 @@ function applyFilters(){
     const fpaRate=getTariffFpa(t);
     const showFpa=fpaRate>0;
     const fpaRateStr=`€${fpaRate.toFixed(4)}/kWh`;
-    const fpaInfoAttrs=`style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" onclick="openRegInfo('FPA_FULL','FPA_DESC')"`;
+    const fpaInfoAttrs=regInfoAttrs('FPA_FULL','FPA_DESC');
     const fpaLabelShort=`<span ${fpaInfoAttrs}>${esc(T('FPA_SHORT'))} <span style="font-size:11px;opacity:.6">ℹ</span><br><span style="font-size:11px;letter-spacing:normal">${fpaRateStr}</span></span>`;
     const fpaLabelFull=`<span ${fpaInfoAttrs}>${esc(T('FPA_FULL'))} <span style="font-size:11px">(${fpaRateStr})</span> <span style="font-size:11px;opacity:.6">ℹ</span></span>`;
 
@@ -1967,7 +1983,7 @@ function applyFilters(){
     const regRows=Object.entries(regBd).filter(([k])=>k!=='total').map(([k,v])=>{
       const info=regInfoMap[k]||[];
       return `<tr style="background:rgba(59,130,246,.04)">
-        <td style="color:#60a5fa;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" onclick="openRegInfo('${info[0]}','${info[1]}')">${v.label} <span style="font-size:11px;opacity:.6">ℹ</span></td>
+        <td style="color:#60a5fa" ${regInfoAttrs(info[0],info[1])}>${v.label} <span style="font-size:11px;opacity:.6">ℹ</span></td>
         <td style="color:var(--text3)">${v.perKwh?'€'+v.rate.toFixed(4)+'/kWh':T('LBL_FIXED_ROW',{N:v.rate.toFixed(2)})}</td>
         <td colspan="${showFpa?4:3}" style="color:#60a5fa">€${v.annual.toFixed(2)}</td>
       </tr>`;
@@ -1997,13 +2013,13 @@ function applyFilters(){
     </tr></thead>`;
 
     html+=`<div class="rank-card rank-${rank+1}" id="rc-${t.id}">
-      <div class="rank-header" onclick="toggleCard('${t.id}')">
+      <div class="rank-header" role="button" tabindex="0" aria-expanded="${isOpen?'true':'false'}" aria-controls="rd-${t.id}" onclick="toggleCard('${t.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleCard('${t.id}');}">
         <div class="rank-num">${rank+1}</div>
         <div class="rank-info">
           <div class="rank-name-row">
             <div class="rank-name">${esc(t.name)}</div>
             <span class="rank-sup-dash">–</span>
-            <span class="rank-sup-pill" data-supplier="${esc(t.supplier)}" onclick="event.stopPropagation();openSupContact(this.dataset.supplier)" title="${T('LBL_VIEW_CONTACT')}">${esc(t.supplier)}</span>
+            <span class="rank-sup-pill" data-supplier="${esc(t.supplier)}" role="button" tabindex="0" onclick="event.stopPropagation();openSupContact(this.dataset.supplier)" onkeydown="event.stopPropagation();if(event.key==='Enter'||event.key===' '){event.preventDefault();openSupContact(this.dataset.supplier);}" title="${T('LBL_VIEW_CONTACT')}">${esc(t.supplier)}</span>
             ${t.updatedAt?`<span class="rank-sup-dash">–</span><span style="font-size:11px;color:var(--text3);font-family:var(--mono)" title="${esc(fmtLocalTs(t.updatedAt))}">${esc(T('LAST_UPDATED',{DT:fmtLocalDate(t.updatedAt)}))}</span>`:''}
           </div>
           <div class="rank-meta">
@@ -2082,7 +2098,7 @@ function applyFilters(){
                   const info=regInfoMap[k]||[];
                   const rateStr=v.perKwh?'€'+v.rate.toFixed(4)+'/kWh':T('LBL_FIXED_ROW',{N:v.rate.toFixed(2)});
                   return `<tr style="background:rgba(59,130,246,.04)">
-                  <td style="color:#60a5fa;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" onclick="openRegInfo('${info[0]}','${info[1]}')">${v.label} <span style="font-size:11px">(${rateStr})</span> <span style="font-size:11px;opacity:.6">ℹ</span></td>
+                  <td style="color:#60a5fa" ${regInfoAttrs(info[0],info[1])}>${v.label} <span style="font-size:11px">(${rateStr})</span> <span style="font-size:11px;opacity:.6">ℹ</span></td>
                   <td class="cost-col" style="color:#60a5fa">€${(v.annual/12*_billingPeriod).toFixed(2)}</td>
                 </tr>`;}).join('')}
                 <tr style="background:var(--bg3)">
@@ -2216,6 +2232,7 @@ function toggleCard(id){
   if(openCards.has(id)) openCards.delete(id); else openCards.add(id);
   document.getElementById('rd-'+id)?.classList.toggle('open',openCards.has(id));
   document.querySelector(`#rc-${id} .rank-toggle`)?.classList.toggle('open',openCards.has(id));
+  document.querySelector(`#rc-${id} .rank-header`)?.setAttribute('aria-expanded',openCards.has(id)?'true':'false');
   if(openCards.has(id)){
     const t=cfg.tariffs.find(x=>x.id===id);
     if(t) drawCardChart(t,getDayCounts(new Date().getFullYear()));
@@ -2429,30 +2446,30 @@ function applyEstimate(){
       <p class="est-desc" id="est-desc"></p>
 
       <div class="est-field">
-        <label id="est-lbl-dwelling"></label>
+        <label id="est-lbl-dwelling" for="est-dwelling"></label>
         <select id="est-dwelling">
           <option value="apt2"></option>
         </select>
       </div>
 
       <div class="est-field">
-        <label id="est-lbl-persons"></label>
+        <label id="est-lbl-persons" for="est-persons"></label>
         <input type="number" id="est-persons" value="2" min="1" max="10" style="max-width:100px">
       </div>
 
       <div class="est-field">
         <label id="est-lbl-ac"></label>
-        <div class="est-radio-group" id="est-ac-group"></div>
+        <div class="est-radio-group" id="est-ac-group" role="radiogroup" aria-labelledby="est-lbl-ac"></div>
       </div>
 
       <div class="est-field">
         <label id="est-lbl-water"></label>
-        <div class="est-radio-group" id="est-water-group"></div>
+        <div class="est-radio-group" id="est-water-group" role="radiogroup" aria-labelledby="est-lbl-water"></div>
       </div>
 
       <div class="est-field">
         <label id="est-lbl-cooking"></label>
-        <div class="est-radio-group" id="est-cooking-group"></div>
+        <div class="est-radio-group" id="est-cooking-group" role="radiogroup" aria-labelledby="est-lbl-cooking"></div>
       </div>
 
       <div id="est-result-wrap" style="display:none">
