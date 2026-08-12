@@ -244,6 +244,7 @@ def get_public_config(db: Session = Depends(get_db)):
     regulated = db.query(models.Regulated).first()
     dam       = db.query(models.DamData).first()
     notices   = db.query(models.Notices).first()
+    sample_invoice_cfg = db.query(models.SampleInvoiceConfig).first()
     changelog = db.query(models.Changelog).order_by(models.Changelog.ts.desc()).all()
 
     reg = regulated
@@ -275,6 +276,7 @@ def get_public_config(db: Session = Depends(get_db)):
             "vulnerable_en":  notices.vulnerable_en  or "" if notices else "",
             "vulnerable_el":  notices.vulnerable_el  or "" if notices else "",
         },
+        "sampleInvoiceEnabled": bool(sample_invoice_cfg.enabled) if sample_invoice_cfg else False,
         "damMonthly":   json.loads(dam.damMonthly)   if dam and dam.damMonthly   else [None] * 12,
         "damBySlot":    json.loads(dam.damBySlot)    if dam and dam.damBySlot    else [],
         "damDailyData": json.loads(dam.damDailyData) if dam and dam.damDailyData else [[] for _ in range(12)],

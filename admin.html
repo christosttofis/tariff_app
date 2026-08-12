@@ -989,6 +989,16 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
     </div>
 
     <div class="card">
+      <div class="card-title" data-t="CARD_SAMPLE_INVOICE">Sample invoice</div>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;color:var(--text)">
+        <input type="checkbox" id="sample-invoice-enabled" style="width:15px;height:15px;accent-color:var(--accent)" onchange="saveSampleInvoiceConfig()">
+        <span data-t="LBL_SAMPLE_INVOICE_ENABLE">Enable sample invoice on customer calculator</span>
+      </label>
+      <p style="font-size:12px;color:var(--text2);margin-top:8px;line-height:1.6" data-t="DESC_SAMPLE_INVOICE_ENABLE">Shows a bill-styled cost breakdown with explanations for each tariff, based on the customer's own inputs. Disable if it causes display issues.</p>
+      <div class="status" id="sample-invoice-status"></div>
+    </div>
+
+    <div class="card">
       <div class="card-title" data-t="CARD_FMT_TOOLBAR">Formatting toolbar</div>
       <p style="font-size:12px;color:var(--text2);line-height:1.6">
         Select text then click a button to apply formatting. Use the toolbar above each editor.
@@ -1559,6 +1569,9 @@ const LANG = {
     PANE_NOTICES_TITLE:'Assumptions & Notices',
     PANE_NOTICES_DESC:'This content appears as a popup on the customer calculator. Use it to document calculation assumptions and provide legal notices. Click "Save notices" below to publish changes.',
     BTN_SAVE_NOTICES:'💾 Save notices',
+    CARD_SAMPLE_INVOICE:'Sample invoice',
+    LBL_SAMPLE_INVOICE_ENABLE:'Enable sample invoice on customer calculator',
+    DESC_SAMPLE_INVOICE_ENABLE:"Shows a bill-styled cost breakdown with explanations for each tariff, based on the customer's own inputs. Disable if it causes display issues.",
     CARD_FMT_TOOLBAR:'Formatting toolbar',
     CARD_ASSUMPTIONS:'Assumptions', CARD_LEGAL:'Legal notices',
     CARD_VULNERABLE:'🛡 Vulnerable consumer / social tariff — eligible cases',
@@ -1738,6 +1751,9 @@ const LANG = {
     PANE_NOTICES_TITLE:'Σημειώσεις & Αποποιήσεις Ευθυνών',
     PANE_NOTICES_DESC:'Αυτό το περιεχόμενο εμφανίζεται ως αναδυόμενο παράθυρο στην αριθμομηχανή. Χρησιμοποιήστε το για να τεκμηριώσετε υπολογιστικές παραδοχές και νομικές ανακοινώσεις. Πατήστε «Αποθήκευση ανακοινώσεων» παρακάτω για δημοσίευση.',
     BTN_SAVE_NOTICES:'💾 Αποθήκευση ανακοινώσεων',
+    CARD_SAMPLE_INVOICE:'Δείγμα λογαριασμού',
+    LBL_SAMPLE_INVOICE_ENABLE:'Ενεργοποίηση δείγματος λογαριασμού στην αριθμομηχανή πελατών',
+    DESC_SAMPLE_INVOICE_ENABLE:'Εμφανίζει ανάλυση κόστους σε μορφή λογαριασμού με επεξηγήσεις για κάθε τιμολόγιο, βάσει των στοιχείων που εισήγαγε ο πελάτης. Απενεργοποιήστε το αν προκαλεί προβλήματα εμφάνισης.',
     CARD_FMT_TOOLBAR:'Γραμμή μορφοποίησης',
     CARD_ASSUMPTIONS:'Σημειώσεις', CARD_LEGAL:'Αποποιήσεις Ευθυνών',
     CARD_VULNERABLE:'🛡 Ευάλωτοι καταναλωτές / κοινωνικό τιμολόγιο',
@@ -4463,6 +4479,18 @@ async function saveNotices(){
   } catch(e){showStatus(st,'err','Save failed: '+e.message);}
 }
 
+async function saveSampleInvoiceConfig(){
+  const cb=document.getElementById('sample-invoice-enabled');
+  const st=document.getElementById('sample-invoice-status');
+  showStatus(st,'ok','Saving…');
+  try{
+    const resp=await fetch(_adminApiBase+'/api/admin/sample-invoice',{method:'PUT',headers:authHeaders(),body:JSON.stringify({enabled:cb.checked})});
+    if(resp.status===401){showLogin('Session expired.');return;}
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(st,'err','Save failed: '+(e.detail||resp.status));return;}
+    showStatus(st,'ok','Saved ✓ — now live on the customer calculator.');
+  } catch(e){showStatus(st,'err','Save failed: '+e.message);}
+}
+
 /* ── Audit calculator ── */
 function auditPopulateTariffs(){
   const sel=document.getElementById('audit-tariff-sel');
@@ -5521,6 +5549,8 @@ async function loadConfig(){
     if(cfg.damYear) document.getElementById('dam-year').value=cfg.damYear;
     if(cfg.regulated) setRegulated(cfg.regulated);
     if(cfg.notices) setNotices(cfg.notices);
+    const sampleInvCb=document.getElementById('sample-invoice-enabled');
+    if(sampleInvCb) sampleInvCb.checked=!!cfg.sampleInvoiceEnabled;
     if(cfg.damDailyData) damDailyData=cfg.damDailyData;
     if(cfg.changelog) changelog=cfg.changelog;
     if(cfg.reports) reports=cfg.reports;

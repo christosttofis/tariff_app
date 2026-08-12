@@ -332,6 +332,10 @@ Content is entered as HTML, allowing basic formatting (headings, paragraphs, bul
 
 Click **💾 Save notices** at the bottom of the page after making any changes — this saves and publishes all the notices content in one step; nothing is written to the server until you click it.
 
+### Sample invoice toggle
+
+At the top of the Notices page is a **"Sample invoice"** switch: **Enable sample invoice on customer calculator**. When on, customers see a "📄 Sample invoice" button on each tariff card that opens a bill-styled cost breakdown (based on the customer's own inputs) with explanations for each charge. This switch saves immediately when clicked — no separate Save button. It defaults to **off**. If the feature ever looks wrong or confusing for a particular tariff type, turn it off here — this disables it site-wide immediately, no code changes needed.
+
 ---
 
 ## 11. Audit Log

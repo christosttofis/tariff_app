@@ -173,6 +173,15 @@ class Notices(Base):
     vulnerable_el = Column(Text, default="")
 
 
+class SampleInvoiceConfig(Base):
+    """Single-row table (id always 1). Admin on/off switch for the
+    customer-facing sample invoice feature."""
+    __tablename__ = "sample_invoice_config"
+
+    id = Column(Integer, primary_key=True, default=1)
+    enabled = Column(Boolean, default=False)
+
+
 class Changelog(Base):
     """Audit log of tariff creates / updates / deletes."""
     __tablename__ = "changelog"

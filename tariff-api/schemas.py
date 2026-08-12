@@ -109,6 +109,10 @@ class RegulatedIn(BaseModel):
     mdm: float = 0.0
 
 
+class SampleInvoiceConfigIn(BaseModel):
+    enabled: bool
+
+
 class NoticesIn(BaseModel):
     assumptions_en: str = Field("", max_length=50000)
     assumptions_el: str = Field("", max_length=50000)

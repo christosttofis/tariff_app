@@ -37,8 +37,8 @@ from database import get_db
 from importer import import_cfg
 from schemas import (
     CreateUserIn, DamIn, MessageArchiveIn, MessageIn, NoticesIn, ProfileIn, RegulatedIn,
-    ScheduledNotificationEnabledIn, ScheduledNotificationIn, SupplierIn, TariffIn, TariffReportStatusIn,
-    TariffStatusIn, UserOtpToggleIn, UserStatusIn,
+    SampleInvoiceConfigIn, ScheduledNotificationEnabledIn, ScheduledNotificationIn, SupplierIn, TariffIn,
+    TariffReportStatusIn, TariffStatusIn, UserOtpToggleIn, UserStatusIn,
 )
 from serializers import (
     message_to_dict, profile_to_dict, scheduled_notification_to_dict, supplier_to_dict,
@@ -152,6 +152,7 @@ def get_admin_config(
     regulated = db.query(models.Regulated).first()
     dam       = db.query(models.DamData).first()
     notices   = db.query(models.Notices).first()
+    sample_invoice_cfg = db.query(models.SampleInvoiceConfig).first()
     cq = db.query(models.Changelog)
     if user.is_supplier:
         cq = cq.filter(models.Changelog.supplier == user.supplier_name)
@@ -177,6 +178,7 @@ def get_admin_config(
         "tariffs":    [tariff_to_dict(t)   for t in tariffs],
         "regulated":  _regulated_to_dict(regulated),
         "notices":    _notices_to_dict(notices),
+        "sampleInvoiceEnabled": bool(sample_invoice_cfg.enabled) if sample_invoice_cfg else False,
         **_dam_to_dict(dam),
         "changelog": [
             {"id": c.id, "tariffId": c.tariffId, "tariffName": c.tariffName,
@@ -1113,6 +1115,21 @@ def update_notices(body: NoticesIn, db: Session = Depends(get_db), user: Current
     db.merge(models.Notices(id=1, **body.model_dump()))
     db.commit()
     return body.model_dump()
+
+
+# ── Sample invoice toggle (admin only) ────────────────────────────────────────
+
+@router.get("/sample-invoice", summary="Get sample invoice feature toggle")
+def get_sample_invoice_config(db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    row = db.query(models.SampleInvoiceConfig).first()
+    return {"enabled": bool(row.enabled) if row else False}
+
+
+@router.put("/sample-invoice", summary="Update sample invoice feature toggle (admin only)")
+def update_sample_invoice_config(body: SampleInvoiceConfigIn, db: Session = Depends(get_db), user: CurrentUser = Depends(require_admin)):
+    db.merge(models.SampleInvoiceConfig(id=1, enabled=body.enabled))
+    db.commit()
+    return {"enabled": body.enabled}
 
 
 # ── DAM data (admin only) ─────────────────────────────────────────────────────
