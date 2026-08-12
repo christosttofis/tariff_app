@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Compare electricity tariffs in Cyprus and estimate your annual or per-bill cost, provided free by the Cyprus Energy Regulatory Authority (CERA).">
 <title>Electricity Cost Calculator</title>
 <link rel="icon" type="image/png" href="Logo_Transparent.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -104,15 +105,15 @@ html.a11y-mode a{text-decoration:underline}
 .rank-name-row{display:flex;align-items:baseline;gap:8px;min-width:0}
 .rank-name-row .rank-name{flex-shrink:1}
 .rank-sup-dash{font-size:14px;font-weight:600;font-family:var(--font);color:var(--text3);flex-shrink:0}
-.rank-sup-pill{display:inline-block;font-size:14px;font-weight:600;font-family:var(--font);color:var(--accent);cursor:pointer;white-space:nowrap;flex-shrink:0;text-decoration:underline dotted;text-underline-offset:3px;transition:color .12s,text-decoration-color .12s,transform .15s ease}
-.rank-sup-pill:hover{color:var(--accent-deep);text-decoration-style:solid;transform:translateY(-1px)}
+.rank-sup-pill{display:inline-block;font-size:14px;font-weight:600;font-family:var(--font);color:var(--accent);cursor:pointer;white-space:nowrap;flex-shrink:0;text-decoration:underline dotted;text-underline-offset:3px;transition:color .12s,text-decoration-color .12s,transform .15s ease,background .12s;padding:5px 4px;margin:-5px -4px;border-radius:3px}
+.rank-sup-pill:hover{color:var(--accent-deep);text-decoration-style:solid;transform:translateY(-1px);background:var(--accent-light)}
 .rank-meta{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;align-items:center}
 .badge{display:inline-block;font-size:11px;padding:2px 7px;border-radius:2px;font-family:var(--mono);font-weight:500}
 .badge-sup{background:rgba(139,92,246,.12);color:#7c3aed}
-.badge-Fixed{background:#ecfdf5;color:#059669;border:1px solid #a7f3d0}
+.badge-Fixed{background:#ecfdf5;color:#047857;border:1px solid #a7f3d0}
 .badge-ToU{background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe}
-.badge-Dynamic{background:#fffbeb;color:#d97706;border:1px solid #fde68a}
-.badge-Variable{background:#f0fdfa;color:#0d9488;border:1px solid #99f6e4}
+.badge-Dynamic{background:#fffbeb;color:#92400e;border:1px solid #fde68a}
+.badge-Variable{background:#f0fdfa;color:#0f766e;border:1px solid #99f6e4}
 .rank-cost-col{flex-shrink:0;width:265px;border-left:1px solid var(--border);padding-left:14px;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
 .rank-annual-val{font-size:22px;font-weight:600;font-family:var(--mono);text-align:right;color:var(--accent)}
 .rank-annual-lbl{font-size:11px;color:var(--text3);font-family:var(--mono);text-align:right}
@@ -424,7 +425,7 @@ body{
 <div class="notices-fixed">
   <button id="notices-open-btn" class="notices-btn" onclick="openNotices()">ℹ️ Notices &amp; Disclaimers</button>
 </div>
-<div class="wrapper" id="main-content" tabindex="-1">
+<div class="wrapper" id="main-content" role="main" tabindex="-1">
 
 <div id="no-config" class="no-config" style="display:none">
   <div style="font-size:48px;margin-bottom:16px">⚡</div>
@@ -434,7 +435,7 @@ body{
 
 <div id="app" style="display:none">
   <div class="header">
-    <img src="Logo_Transparent.png" alt="CERA" class="header-logo" onerror="this.style.display='none';document.getElementById('cera-fallback').style.display='flex'">
+    <img src="Logo_Transparent.png" alt="CERA" class="header-logo" width="130" height="100" onerror="this.style.display='none';document.getElementById('cera-fallback').style.display='flex'">
     <div id="cera-fallback" class="cera-mark" style="display:none">
       <div class="cera-emblem"><span>C</span></div>
       <div class="cera-wm"><b>CERA</b><small>ΡΑΕΚ · Energy Regulator</small></div>
@@ -464,7 +465,7 @@ body{
     <!-- Commercial/Industrial options (hidden for domestic) -->
     <div id="ci-options" style="display:none">
       <div class="filter-grid" style="margin-bottom:12px">
-        <div class="ff"><label>Voltage level</label>
+        <div class="ff"><label for="sel-voltage">Voltage level</label>
           <select id="sel-voltage" onchange="onVoltageChange();advanceFromConn()">
             <option value="LV" id="opt-lv">LV — Low Voltage</option>
             <option value="MV" id="opt-mv">MV — Medium Voltage</option>
@@ -487,7 +488,7 @@ body{
 
     <!-- Pricing type (always visible) -->
     <div class="ff" style="max-width:220px">
-      <label>Pricing type</label>
+      <label for="sel-pricing">Pricing type</label>
       <select id="sel-pricing" onchange="applyFilters();advanceFromConn()">
         <option value="All" id="opt-all">All types</option>
         <option value="Fixed" id="opt-fixed">Fixed only</option>
@@ -560,7 +561,7 @@ body{
           <span id="vulnerable-check-label" style="color:var(--text2)"></span>
         </label>
         <button id="vulnerable-info-btn" onclick="openVulnerableModal()"
-          style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 95px; border: 1px solid rgba(236,72,153,.3); background: rgba(236,72,153,.07); color: #ec4899; font-size: 11px; font-family: var(--mono); cursor: pointer; white-space: nowrap"
+          style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 95px; border: 1px solid rgba(236,72,153,.3); background: rgba(236,72,153,.07); color: #9d174d; font-size: 11px; font-family: var(--mono); cursor: pointer; white-space: nowrap"
           onmouseover="this.style.background='rgba(236,72,153,.15)'"
           onmouseout="this.style.background='rgba(236,72,153,.07)'">
           ⓘ <span id="vulnerable-info-label"></span>
@@ -647,6 +648,8 @@ const LANG = {
     BILLING_CYCLE: "Billing cycle",
     BILLING_M1: "Monthly",
     BILLING_M2: "Bi-monthly",
+    MONTHLY_UNIT_1: "kWh / month",
+    MONTHLY_UNIT_2: "kWh / 2 months",
     MONTHLY_CONS_LBL: "Consumption per bill",
     MONTHLY_CALC_NOTE: "This calculation is based on your consumption for the current month of {MONTH}. For more accurate results, please use the annual calculator.",
     BILL_BREAKDOWN_HDR: "Bill breakdown",
@@ -830,6 +833,8 @@ const LANG = {
     BILLING_CYCLE: "Κύκλος τιμολόγησης",
     BILLING_M1: "Μηνιαία",
     BILLING_M2: "Διμηνιαία",
+    MONTHLY_UNIT_1: "kWh / μήνα",
+    MONTHLY_UNIT_2: "kWh / 2 μήνες",
     MONTHLY_CONS_LBL: "Κατανάλωση ανά λογαριασμό",
     MONTHLY_CALC_NOTE: "Ο υπολογισμός βασίζεται στην κατανάλωσή σας για τον τρέχοντα μήνα {MONTH}. Για πιο ακριβή αποτελέσματα, χρησιμοποιήστε τον ετήσιο υπολογιστή.",
     BILL_BREAKDOWN_HDR: "Ανάλυση λογαριασμού",
@@ -1983,9 +1988,9 @@ function applyFilters(){
     const regRows=Object.entries(regBd).filter(([k])=>k!=='total').map(([k,v])=>{
       const info=regInfoMap[k]||[];
       return `<tr style="background:rgba(59,130,246,.04)">
-        <td style="color:#60a5fa" ${regInfoAttrs(info[0],info[1])}>${v.label} <span style="font-size:11px;opacity:.6">ℹ</span></td>
+        <td style="color:#1d4ed8" ${regInfoAttrs(info[0],info[1])}>${v.label} <span style="font-size:11px;opacity:.6">ℹ</span></td>
         <td style="color:var(--text3)">${v.perKwh?'€'+v.rate.toFixed(4)+'/kWh':T('LBL_FIXED_ROW',{N:v.rate.toFixed(2)})}</td>
-        <td colspan="${showFpa?4:3}" style="color:#60a5fa">€${v.annual.toFixed(2)}</td>
+        <td colspan="${showFpa?4:3}" style="color:#1d4ed8">€${v.annual.toFixed(2)}</td>
       </tr>`;
     }).join('');
 
@@ -2026,9 +2031,9 @@ function applyFilters(){
             <span class="badge badge-${t.pricing}">${pricingTag(t.pricing)}</span>
             ${t.pricing==='Dynamic'&&t.rates?.damFloor?`<span style="font-size:11px;padding:2px 6px;border-radius:2px;background:rgba(139,92,246,.1);color:#7c3aed;font-family:var(--mono)">floor €${t.rates.damFloor.toFixed(4)}/kWh</span>`:''}
             <span style="font-size:11px;color:var(--text3);font-family:var(--mono)">€${t.standing.toFixed(2)}${T('LBL_STANDING')}</span>
-            ${t.vulnerable?`<span style="font-size:11px;padding:2px 7px;border-radius:2px;background:rgba(236,72,153,.12);color:#ec4899;font-family:var(--mono);font-weight:500">🛡 ${T('LBL_VULNERABLE_CHECK').split('/')[0].trim()}</span>`:''}
+            ${t.vulnerable?`<span style="font-size:11px;padding:2px 7px;border-radius:2px;background:rgba(236,72,153,.12);color:#9d174d;font-family:var(--mono);font-weight:500">🛡 ${T('LBL_VULNERABLE_CHECK').split('/')[0].trim()}</span>`:''}
             ${t.durationMonths
-              ?`<span style="font-size:11px;padding:2px 7px;border-radius:2px;background:rgba(239,68,68,.1);color:#e11d48;font-family:var(--mono);font-weight:500">⏱ ${T('LBL_MIN_MONTHS',{N:t.durationMonths})}</span>`
+              ?`<span style="font-size:11px;padding:2px 7px;border-radius:2px;background:rgba(239,68,68,.1);color:#9f1239;font-family:var(--mono);font-weight:500">⏱ ${T('LBL_MIN_MONTHS',{N:t.durationMonths})}</span>`
               :`<span style="font-size:11px;padding:2px 7px;border-radius:2px;background:var(--bg3);color:var(--text3);font-family:var(--mono)">${T('LBL_NO_MIN')}</span>`}
           </div>
           ${fullBase&&fullBase>base?`<div style="font-size:11px;color:var(--green);font-family:var(--mono);margin-top:auto;padding-top:6px;line-height:1.5">*${T('LBL_INCL_DISC')}</div>`:''}
@@ -2039,7 +2044,7 @@ function applyFilters(){
           <div style="font-size:13px;font-weight:500;font-family:var(--mono);color:var(--text3);text-align:right;margin-top:4px">≈ €${base.toFixed(0)}<span class="rank-annual-lbl" style="font-size:11px;margin-left:3px">${T('LBL_SUP_YEAR')}</span></div>`
             : `<div class="rank-annual-val" style="${fullBase&&fullBase>base?'color:var(--green)':''}">${fullBase&&fullBase>base?`<span style="font-size:13px;font-weight:400;color:var(--text3);text-decoration:line-through;margin-right:5px">€${fullBase.toFixed(0)}</span>`:''}€${base.toFixed(0)}${fullBase&&fullBase>base?'<sup style="font-size:11px">*</sup>':''}<span class="rank-annual-lbl" style="font-size:12px;margin-left:3px">${T('LBL_SUP_YEAR')}</span><span class="rank-toggle ${isOpen?'open':''}">▼</span></div>
           <div style="font-size:13px;font-weight:500;font-family:var(--mono);color:var(--text3);text-align:right;margin-top:4px">€${(base/12).toFixed(2)}<span class="rank-annual-lbl" style="font-size:11px;margin-left:3px">${T('LBL_SUP_MONTH')}</span></div>`}
-          ${reg>0?`<div style="font-size:11px;color:#60a5fa;font-family:var(--mono);margin-top:3px;text-align:right">${T('LBL_INCL_REGULATED',{X:'€'+(inputMode==='monthly'?periodCost(reg):reg).toFixed(0)})} / ${T('LBL_WITHOUT_VAT')}</div>`:''}
+          ${reg>0?`<div style="font-size:11px;color:#1d4ed8;font-family:var(--mono);margin-top:3px;text-align:right">${T('LBL_INCL_REGULATED',{X:'€'+(inputMode==='monthly'?periodCost(reg):reg).toFixed(0)})} / ${T('LBL_WITHOUT_VAT')}</div>`:''}
         </div>
       </div>
       <div class="rank-detail ${isOpen?'open':''}" id="rd-${t.id}">
@@ -2098,8 +2103,8 @@ function applyFilters(){
                   const info=regInfoMap[k]||[];
                   const rateStr=v.perKwh?'€'+v.rate.toFixed(4)+'/kWh':T('LBL_FIXED_ROW',{N:v.rate.toFixed(2)});
                   return `<tr style="background:rgba(59,130,246,.04)">
-                  <td style="color:#60a5fa" ${regInfoAttrs(info[0],info[1])}>${v.label} <span style="font-size:11px">(${rateStr})</span> <span style="font-size:11px;opacity:.6">ℹ</span></td>
-                  <td class="cost-col" style="color:#60a5fa">€${(v.annual/12*_billingPeriod).toFixed(2)}</td>
+                  <td style="color:#1d4ed8" ${regInfoAttrs(info[0],info[1])}>${v.label} <span style="font-size:11px">(${rateStr})</span> <span style="font-size:11px;opacity:.6">ℹ</span></td>
+                  <td class="cost-col" style="color:#1d4ed8">€${(v.annual/12*_billingPeriod).toFixed(2)}</td>
                 </tr>`;}).join('')}
                 <tr style="background:var(--bg3)">
                   <td><strong>${T('ROW_TOTAL_REG')}</strong></td>
@@ -2517,7 +2522,7 @@ function applyEstimate(){
       <div id="report-supplier-name" style="font-weight:500;margin-bottom:14px"></div>
       <label for="report-note" id="report-lbl-note" style="font-size:12px;color:var(--text3);display:block;margin-bottom:4px">What looks wrong? (optional)</label>
       <textarea id="report-note" maxlength="2000" rows="4" style="width:100%;box-sizing:border-box;font-family:var(--font);font-size:13px;padding:8px;border:1px solid var(--border2);border-radius:2px;color:var(--text);background:var(--bg2)"></textarea>
-      <div id="report-error" style="display:none;color:#e11d48;font-size:12px;margin-top:8px"></div>
+      <div id="report-error" style="display:none;color:#9f1239;font-size:12px;margin-top:8px"></div>
       <div id="report-success" style="display:none;color:var(--green);font-size:13px;margin-top:8px">Thanks — your report has been sent to the regulator for review.</div>
       <div id="report-offline-notice" style="display:none;color:var(--text3);font-size:12px;margin-top:8px">Reporting is unavailable in offline/demo mode.</div>
     </div>
