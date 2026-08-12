@@ -18,6 +18,8 @@ def tariff_to_dict(t: models.Tariff) -> dict:
         "pricing": t.pricing,
         "standing": t.standing,
         "mdm": t.mdm or 0.0,
+        "mdmSource": t.mdmSource or "custom",
+        "mdmInvoiceMonths": t.mdmInvoiceMonths or 2,
         "rates": json.loads(t.rates) if t.rates else {},
         "profileId": t.profileId,
         "fpaSource": t.fpaSource,
@@ -99,4 +101,5 @@ def supplier_to_dict(s: models.Supplier) -> dict:
         "website": s.website or "",
         "email": s.email or "",
         "tel": s.tel or "",
+        "regulated": bool(s.regulated),
     }

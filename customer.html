@@ -458,7 +458,7 @@ body{
 
     <!-- Customer type tabs -->
     <div class="ctype-tabs">
-      <button class="ctype-tab active" id="tab-domestic" onclick="setCustomerType('domestic');advanceFromConn()">🏠 Domestic</button>
+      <button class="ctype-tab active" id="tab-domestic" onclick="setCustomerType('domestic')">🏠 Domestic</button>
       <button class="ctype-tab" id="tab-ci" onclick="setCustomerType('ci')">🏢 Commercial / Industrial</button>
     </div>
 
@@ -466,7 +466,7 @@ body{
     <div id="ci-options" style="display:none">
       <div class="filter-grid" style="margin-bottom:12px">
         <div class="ff"><label for="sel-voltage">Voltage level</label>
-          <select id="sel-voltage" onchange="onVoltageChange();advanceFromConn()">
+          <select id="sel-voltage" onchange="onVoltageChange()">
             <option value="LV" id="opt-lv">LV — Low Voltage</option>
             <option value="MV" id="opt-mv">MV — Medium Voltage</option>
             <option value="HV" id="opt-hv">HV — High Voltage</option>
@@ -475,10 +475,10 @@ body{
         <div class="ff" id="le-field">
           <label id="lbl-load-ent">Load entitlement</label>
           <div class="le-group">
-            <label class="le-option active" id="le-lt" onclick="setLoadEntitlement('lt70');advanceFromConn()">
+            <label class="le-option active" id="le-lt" onclick="setLoadEntitlement('lt70')">
               <input type="radio" name="le" value="lt70" checked> &lt; 70 kVA
             </label>
-            <label class="le-option" id="le-gt" onclick="setLoadEntitlement('gt70');advanceFromConn()">
+            <label class="le-option" id="le-gt" onclick="setLoadEntitlement('gt70')">
               <input type="radio" name="le" value="gt70"> &gt; 70 kVA
             </label>
           </div>
@@ -489,7 +489,7 @@ body{
     <!-- Pricing type (always visible) -->
     <div class="ff" style="max-width:220px">
       <label for="sel-pricing">Pricing type</label>
-      <select id="sel-pricing" onchange="applyFilters();advanceFromConn()">
+      <select id="sel-pricing" onchange="applyFilters()">
         <option value="All" id="opt-all">All types</option>
         <option value="Fixed" id="opt-fixed">Fixed only</option>
         <option value="ToU" id="opt-tou">Time-of-use only</option>
@@ -659,7 +659,7 @@ const LANG = {
     LBL_VULNERABLE_INFO: "Who qualifies?",
     LBL_OFFERS_CHECK: "Show/Hide special offers",
     TITLE_VULNERABLE_MODAL: "Vulnerable consumer / social tariff — eligible cases",
-    LBL_INCL_REGULATED: "+ {X} regulated charges",
+    LBL_INCL_ADDITIONAL: "+ {X} additional charges",
     LBL_WITHOUT_VAT: "Without VAT",
     BTN_CONTACT: "📋 View contact details",
     BTN_REPORT_ISSUE: "Report an issue",
@@ -684,10 +684,11 @@ const LANG = {
     FPA_SHORT: "FPA",
     FPA_FULL: "Fuel price adjustment",
     FPA_DESC: "Fuel Price Adjustment (FPA): a per-kWh charge added to the supplier's energy rate to reflect fluctuations in fuel and purchased-power costs. Set by the supplier.",
+    STANDING_DESC: "A fixed monthly charge set by the supplier — a competitive charge.",
     TH_STANDING: "Standing",
     TH_TOTAL: "Total",
     ROW_SUP_TOTAL: "Supplier total",
-    ROW_TOTAL_REG: "Total (incl. regulated charges, without VAT)",
+    ROW_TOTAL_REG: "Total (incl. additional charges, without VAT)",
     CHART_ANNUAL: "Annual cost comparison — all tariffs (competitive costs only)",
     CHART_MONTHLY_COST: "Monthly cost",
     VAR_NO_DAM_TITLE: "Dynamic tariffs — DAM data missing",
@@ -714,14 +715,19 @@ const LANG = {
     TARIFFS_AVAILABLE: "{N} tariffs available",
     LBL_VIEW_CONTACT: "View contact details",
     LBL_FIXED_ROW: "Fixed €{N}/month",
+    LBL_FIXED_ROW_MDM: "€{N} / invoice",
+    MDM_BILLED_MONTHLY: "Billed monthly",
+    MDM_BILLED_BIMONTHLY: "Billed bimonthly",
     REGULATED_GRID: "Network Charge",
     REGULATED_PSO: "Public Service Obligation (PSO)",
     REGULATED_MDM: "Meter Data Management (MDM)",
+    MDM_SUPPLIER: "Meter Data Management (MDM)",
     REGULATED_RES: "RES & Energy Conservation Fund",
     REG_GRID_DESC: "Distribution/Transmission system charge. Regulated charge.",
     REG_PSO_DESC: "Tariff for the recovery of Public Service Obligation (PSO) costs. Regulated charge. Not subject to VAT.",
     REG_RES_DESC: "Levy for the promotion of Renewable Energy Sources (RES) and energy conservation. Regulated charge. Applied per kWh consumed.",
     REG_MDM_DESC: "Tariff for the recovery of metering costs incurred by the Distribution System Operator (DSO) (for users connected to the Distribution System). Regulated charge only for the dominant participant (EAC Supply).",
+    MDM_SUPPLIER_DESC: "A metering data management charge set by the supplier — a competitive charge.",
     BTN_NOTICES: "ℹ️ Notices & Disclaimers",
     NOTICES_TITLE: "Notices & Disclaimers",
     NOTICES_TAB_ASSUMPTIONS: "Notices",
@@ -844,7 +850,7 @@ const LANG = {
     LBL_VULNERABLE_INFO: "Ποιοι δικαιούνται;",
     LBL_OFFERS_CHECK: "Εμφάνιση/Απόκρυψη ειδικών προσφορών",
     TITLE_VULNERABLE_MODAL: "Κοινωνική διατίμηση / ευπαθείς καταναλωτές — επιλέξιμες περιπτώσεις",
-    LBL_INCL_REGULATED: "+ {X} ρυθμιζόμενες χρεώσεις",
+    LBL_INCL_ADDITIONAL: "+ {X} πρόσθετες χρεώσεις",
     LBL_WITHOUT_VAT: "Χωρίς ΦΠΑ",
     BTN_CONTACT: "📋 Στοιχεία Επικοινωνίας",
     BTN_REPORT_ISSUE: "Αναφορά προβλήματος",
@@ -869,10 +875,11 @@ const LANG = {
     FPA_SHORT: "ΑΤΚ",
     FPA_FULL: "Αναπροσαρμογή τιμής καυσίμου",
     FPA_DESC: "Αναπροσαρμογή Τιμής Καυσίμου (ΑΤΚ): χρέωση ανά kWh που προστίθεται στη χρέωση ενέργειας του προμηθευτή, για την κάλυψη διακυμάνσεων στο κόστος καυσίμου και αγοράς ενέργειας. Οριζόμενο από τον προμηθευτή.",
+    STANDING_DESC: "Σταθερή μηνιαία χρέωση που ορίζεται από τον προμηθευτή — Ανταγωνιστίκή χρέωση.",
     TH_STANDING: "Πάγιο",
     TH_TOTAL: "Ολικό",
     ROW_SUP_TOTAL: "Ολικό Προμηθευτή",
-    ROW_TOTAL_REG: "Ολικό (συμπ. ρυθμιζόμενες χρεώσεις, χωρίς ΦΠΑ)",
+    ROW_TOTAL_REG: "Ολικό (συμπ. πρόσθετων χρεώσεων, χωρίς ΦΠΑ)",
     CHART_ANNUAL: "Σύγκριση ετήσιου κόστους — ανταγωνιστικές χρεώσεις μόνο",
     CHART_MONTHLY_COST: "Μηνιαίο κόστος",
     VAR_NO_DAM_TITLE: "Δυναμική διατίμηση — Δεν υπάρχουν δεδομένα ΠΗΑ",
@@ -899,14 +906,19 @@ const LANG = {
     TARIFFS_AVAILABLE: "{N} διατιμήσεις διαθέσιμες",
     LBL_VIEW_CONTACT: "Στοιχεία προμηθευτή",
     LBL_FIXED_ROW: "Σταθερό €{N}/μήνα",
+    LBL_FIXED_ROW_MDM: "€{N} / λογαριασμό",
+    MDM_BILLED_MONTHLY: "Εκδίδεται μηνιαία",
+    MDM_BILLED_BIMONTHLY: "Εκδίδεται διμηνιαία",
     REGULATED_GRID: "Κόστος Δικτύου",
     REGULATED_PSO: "Υποχρεώσεις Δημόσιας Ωφέλειας (ΥΔΩ)",
     REGULATED_MDM: "Κόστος Διαχείρισης Μετρητικών Δεδομένων",
+    MDM_SUPPLIER: "Κόστος Διαχείρισης Μετρητικών Δεδομένων",
     REGULATED_RES: "Ταμείο ΑΠΕ & ΕΞΕ",
     REG_GRID_DESC: "Διατίμηση χρήσης του Συστήματος Διανομής/Μεταφοράς. Ρυθμιζόμενη χρέωση.",
     REG_PSO_DESC: "Διατίμηση για την ανάκτηση των δαπανών των Υπηρεσιών Δημοσίας Ωφέλειας (ΥΔΩ). Ρυθμιζόμενη χρέωση.",
     REG_RES_DESC: "Εισφορά για το Ταμείο Ανανεώσιμων Πηγών Ενέργειας (ΑΠΕ) και Εξοικονόμησης Ενέργειας (ΕΞΕ) του Υπουργείου Ενέργειας, Εμπορίου και Βιομηχανίας. Το ειδικό τέλος χρεώνεται σε όλους τους πελάτες με βάση τις μονάδες (kWh) που καταναλώνουν. Δεν υπόκειται σε ΦΠΑ.",
     REG_MDM_DESC: "Διατίμηση για την ανάκτηση των δαπανών μετρήσεων που ανακύπτουν από το Διαχειριστή του Συστήματος Διανομής (ΔΣΔ) (για χρήστες που συνδέονται στο Σύστημα Διανομής). Ρυθμιζόμενη χρέωση μόνο για τον δεσπόζων συμμετέχοντα (ΑΗΚ Προμήθεια).",
+    MDM_SUPPLIER_DESC: "Χρέωση διαχείρισης μετρητικών δεδομένων που ορίζεται από τον προμηθευτή — Ανταγωνιστίκή χρέωση.",
     BTN_NOTICES: "ℹ️ Σημειώσεις & Αποποιήσεις Ευθυνών",
     NOTICES_TITLE: "Σημειώσεις & Αποποιήσεις Ευθυνών",
     NOTICES_TAB_ASSUMPTIONS: "Σημειώσεις/Παραδοχές",
@@ -1189,8 +1201,10 @@ function setConnCollapsed(v){
   if(v) updateConnSummary();
 }
 function toggleConn(){ setConnCollapsed(!connCollapsed); }
-// Collapse connection once the user makes a choice or moves to consumption.
-function advanceFromConn(){ setConnCollapsed(true); }
+// Collapse the connection box once the user moves on to entering consumption
+// — not on every field change within the box itself, which used to collapse
+// it out from under the very field the user was still using (and for
+// keyboard users, orphaned focus on a now-invisible control).
 function onConsumptionFocus(){ setConnCollapsed(true); }
 function updateConnSummary(){
   const chips=[];
@@ -1266,7 +1280,7 @@ function getSupplierObj(name){
   return arr.find(s=>s.name===name)||{name};
 }
 
-function getRegulated(){ 
+function getRegulated(){
   const r=cfg.regulated||{};
   return {
     lv:r.lv||0, mv:r.mv||0, hv:r.hv||0,
@@ -1274,8 +1288,17 @@ function getRegulated(){
     fpaMV:r.fpaMV||r.fpa||0,
     fpaHV:r.fpaHV||r.fpa||0,
     pso:r.pso||0,
-    res:r.res||0
+    res:r.res||0,
+    mdm:r.mdm||0
   };
+}
+
+// Regulated suppliers (e.g. EAC) always use the CERA-set global MDM rate.
+// Other suppliers always use their own per-tariff MDM value — there is no
+// option for them to opt into the regulated rate.
+function mdmForTariff(t){
+  if(getSupplierObj(t.supplier).regulated) return getRegulated().mdm||0;
+  return t.mdm||0;
 }
 
 function getTariffFpa(t){
@@ -1334,20 +1357,35 @@ function getDiscountFactors(t, monthIdx1){
   };
 }
 
-function regulatedAnnual(voltage, annualKwh, mdm){
-  return regulatedBreakdown(voltage, annualKwh, mdm).total;
+function regRateStr(k,v){
+  if(v.perKwh) return '€'+v.rate.toFixed(4)+'/kWh';
+  if(k==='mdm'){
+    const freqTitle=T(v.invoiceMonths===1?'MDM_BILLED_MONTHLY':'MDM_BILLED_BIMONTHLY');
+    return `<span title="${esc(freqTitle)}">${T('LBL_FIXED_ROW_MDM',{N:v.rate.toFixed(2)})}</span>`;
+  }
+  return T('LBL_FIXED_ROW',{N:v.rate.toFixed(2)});
 }
 
-function regulatedBreakdown(voltage, annualKwh, mdm){
+function regulatedAnnual(voltage, annualKwh, mdm, mdmInvoiceMonths, mdmRegulated){
+  return regulatedBreakdown(voltage, annualKwh, mdm, mdmInvoiceMonths, mdmRegulated).total;
+}
+
+// MDM is charged once per invoice, not once per month — annual total depends
+// on how often the tariff is actually invoiced (1=monthly, 2=bimonthly), not
+// a flat ×12. Grid/PSO/RES are always CERA-regulated; MDM only is when the
+// supplier is regulated (e.g. EAC) — otherwise it's the supplier's own
+// metering fee, so each row carries a `regulated` flag for display.
+function regulatedBreakdown(voltage, annualKwh, mdm, mdmInvoiceMonths, mdmRegulated){
   const r=getRegulated();
   const gridRate=voltage==='LV'?r.lv:voltage==='MV'?r.mv:r.hv;
   const mdmVal=mdm||0;
+  const invoicesPerYear=12/(mdmInvoiceMonths||2);
   return {
-    grid:  {label:T('REGULATED_GRID'), annual:annualKwh*gridRate, rate:gridRate, perKwh:true},
-    pso:   {label:T('REGULATED_PSO'),  annual:annualKwh*r.pso,    rate:r.pso,    perKwh:true},
-    res:   {label:T('REGULATED_RES'),  annual:annualKwh*r.res,    rate:r.res,    perKwh:true},
-    mdm:   {label:T('REGULATED_MDM'),  annual:mdmVal*12,           rate:mdmVal,   perKwh:false},
-    total: annualKwh*(gridRate+r.pso+r.res)+mdmVal*12
+    grid:  {label:T('REGULATED_GRID'), annual:annualKwh*gridRate, rate:gridRate, perKwh:true, regulated:true},
+    pso:   {label:T('REGULATED_PSO'),  annual:annualKwh*r.pso,    rate:r.pso,    perKwh:true, regulated:true},
+    res:   {label:T('REGULATED_RES'),  annual:annualKwh*r.res,    rate:r.res,    perKwh:true, regulated:true},
+    mdm:   {label:mdmRegulated?T('REGULATED_MDM'):T('MDM_SUPPLIER'), annual:mdmVal*invoicesPerYear, rate:mdmVal, perKwh:false, invoiceMonths:mdmInvoiceMonths||2, regulated:!!mdmRegulated},
+    total: annualKwh*(gridRate+r.pso+r.res)+mdmVal*invoicesPerYear
   };
 }
 
@@ -1903,7 +1941,7 @@ function applyFilters(){
   const scored=matched.map(t=>{
     const base=annualCostForTariff(t,dc);
     if(base===null) return {t,base:null,reg:null,fullBase:null};
-    const reg=regulatedAnnual(t.voltage,annualKwh,t.mdm);
+    const reg=regulatedAnnual(t.voltage,annualKwh,mdmForTariff(t),t.mdmInvoiceMonths,getSupplierObj(t.supplier).regulated);
     const hasDisc=t.discounts&&t.discounts.length>0;
     const fullBase=hasDisc?annualCostNoDiscount(t,dc):null;
     return {t,base,reg,fullBase};
@@ -1951,13 +1989,15 @@ function applyFilters(){
     const prof=getProfile(t);
     const moBd=monthlyBreakdown(t,dc);
     const moKwh=monthlyKwhDisplay(t,dc);
-    const regBd=regulatedBreakdown(t.voltage,annualKwh,t.mdm);
+    const regBd=regulatedBreakdown(t.voltage,annualKwh,mdmForTariff(t),t.mdmInvoiceMonths,getSupplierObj(t.supplier).regulated);
     const fpaRate=getTariffFpa(t);
     const showFpa=fpaRate>0;
     const fpaRateStr=`€${fpaRate.toFixed(4)}/kWh`;
     const fpaInfoAttrs=regInfoAttrs('FPA_FULL','FPA_DESC');
     const fpaLabelShort=`<span ${fpaInfoAttrs}>${esc(T('FPA_SHORT'))} <span style="font-size:11px;opacity:.6">ℹ</span><br><span style="font-size:11px;letter-spacing:normal">${fpaRateStr}</span></span>`;
     const fpaLabelFull=`<span ${fpaInfoAttrs}>${esc(T('FPA_FULL'))} <span style="font-size:11px">(${fpaRateStr})</span> <span style="font-size:11px;opacity:.6">ℹ</span></span>`;
+    const standingInfoAttrs=regInfoAttrs('TH_STANDING','STANDING_DESC');
+    const standingLabel=`<span ${standingInfoAttrs}>${esc(T('TH_STANDING'))} <span style="font-size:11px;opacity:.6">ℹ</span></span>`;
 
     const hasEnergyDisc=t.discounts&&t.discounts.some(d=>d.type==='energy');
     const hasStandingDisc=t.discounts&&t.discounts.some(d=>d.type==='standing');
@@ -1984,13 +2024,14 @@ function applyFilters(){
     const annFpa=moBd.reduce((a,v)=>a+(v?v.fpa:0),0);
     const annStanding=moBd.reduce((a,v)=>a+(v?v.standing:0),0);
 
-    const regInfoMap={grid:['REGULATED_GRID','REG_GRID_DESC'],pso:['REGULATED_PSO','REG_PSO_DESC'],res:['REGULATED_RES','REG_RES_DESC'],mdm:['REGULATED_MDM','REG_MDM_DESC']};
+    const regInfoMap={grid:['REGULATED_GRID','REG_GRID_DESC'],pso:['REGULATED_PSO','REG_PSO_DESC'],res:['REGULATED_RES','REG_RES_DESC'],mdm:['REGULATED_MDM','REG_MDM_DESC'],mdmSupplier:['MDM_SUPPLIER','MDM_SUPPLIER_DESC']};
     const regRows=Object.entries(regBd).filter(([k])=>k!=='total').map(([k,v])=>{
-      const info=regInfoMap[k]||[];
-      return `<tr style="background:rgba(59,130,246,.04)">
-        <td style="color:#1d4ed8" ${regInfoAttrs(info[0],info[1])}>${v.label} <span style="font-size:11px;opacity:.6">ℹ</span></td>
-        <td style="color:var(--text3)">${v.perKwh?'€'+v.rate.toFixed(4)+'/kWh':T('LBL_FIXED_ROW',{N:v.rate.toFixed(2)})}</td>
-        <td colspan="${showFpa?4:3}" style="color:#1d4ed8">€${v.annual.toFixed(2)}</td>
+      const info=regInfoMap[v.regulated?k:'mdmSupplier']||[];
+      const c=v.regulated?'#1d4ed8':'var(--text2)';
+      return `<tr style="${v.regulated?'background:rgba(59,130,246,.04)':''}">
+        <td style="color:${c}" ${regInfoAttrs(info[0],info[1])}>${v.label} <span style="font-size:11px;opacity:.6">ℹ</span></td>
+        <td style="color:var(--text3)">${regRateStr(k,v)}</td>
+        <td colspan="${showFpa?4:3}" style="color:${c}">€${v.annual.toFixed(2)}</td>
       </tr>`;
     }).join('');
 
@@ -2014,7 +2055,7 @@ function applyFilters(){
       <th>${T('TH_MONTH')}</th><th>${T('TH_KWH')}</th>
       <th>${T('TH_ENERGY')}</th>
       ${showFpa?`<th style="color:var(--text)">${fpaLabelShort}</th>`:''}
-      <th>${T('TH_STANDING')}</th><th>${T('TH_TOTAL')}</th>
+      <th>${standingLabel}</th><th>${T('TH_TOTAL')}</th>
     </tr></thead>`;
 
     html+=`<div class="rank-card rank-${rank+1}" id="rc-${t.id}">
@@ -2044,7 +2085,7 @@ function applyFilters(){
           <div style="font-size:13px;font-weight:500;font-family:var(--mono);color:var(--text3);text-align:right;margin-top:4px">≈ €${base.toFixed(0)}<span class="rank-annual-lbl" style="font-size:11px;margin-left:3px">${T('LBL_SUP_YEAR')}</span></div>`
             : `<div class="rank-annual-val" style="${fullBase&&fullBase>base?'color:var(--green)':''}">${fullBase&&fullBase>base?`<span style="font-size:13px;font-weight:400;color:var(--text3);text-decoration:line-through;margin-right:5px">€${fullBase.toFixed(0)}</span>`:''}€${base.toFixed(0)}${fullBase&&fullBase>base?'<sup style="font-size:11px">*</sup>':''}<span class="rank-annual-lbl" style="font-size:12px;margin-left:3px">${T('LBL_SUP_YEAR')}</span><span class="rank-toggle ${isOpen?'open':''}">▼</span></div>
           <div style="font-size:13px;font-weight:500;font-family:var(--mono);color:var(--text3);text-align:right;margin-top:4px">€${(base/12).toFixed(2)}<span class="rank-annual-lbl" style="font-size:11px;margin-left:3px">${T('LBL_SUP_MONTH')}</span></div>`}
-          ${reg>0?`<div style="font-size:11px;color:#1d4ed8;font-family:var(--mono);margin-top:3px;text-align:right">${T('LBL_INCL_REGULATED',{X:'€'+(inputMode==='monthly'?periodCost(reg):reg).toFixed(0)})} / ${T('LBL_WITHOUT_VAT')}</div>`:''}
+          ${reg>0?`<div style="font-size:11px;color:#1d4ed8;font-family:var(--mono);margin-top:3px;text-align:right">${T('LBL_INCL_ADDITIONAL',{X:'€'+(inputMode==='monthly'?periodCost(reg):reg).toFixed(0)})} / ${T('LBL_WITHOUT_VAT')}</div>`:''}
         </div>
       </div>
       <div class="rank-detail ${isOpen?'open':''}" id="rd-${t.id}">
@@ -2092,7 +2133,7 @@ function applyFilters(){
                   <td class="cost-col" style="color:var(--text)">€${(moBd[0].fpa*_billingPeriod).toFixed(2)}</td>
                 </tr>`:''}
                 <tr>
-                  <td>${T('TH_STANDING')} <span style="font-size:11px;color:var(--text3);font-family:var(--mono)">€${t.standing.toFixed(2)}/mo × ${_billingPeriod}</span></td>
+                  <td>${standingLabel} <span style="font-size:11px;color:var(--text3);font-family:var(--mono)">€${t.standing.toFixed(2)}/mo × ${_billingPeriod}</span></td>
                   <td class="cost-col">€${(moBd[0].standing*_billingPeriod).toFixed(2)}</td>
                 </tr>
                 <tr style="border-top:1.5px solid var(--border2);background:var(--bg3)">
@@ -2100,11 +2141,12 @@ function applyFilters(){
                   <td class="cost-col"><strong>€${periodCost(base).toFixed(2)}</strong></td>
                 </tr>
                 ${Object.entries(regBd).filter(([k])=>k!=='total').map(([k,v])=>{
-                  const info=regInfoMap[k]||[];
-                  const rateStr=v.perKwh?'€'+v.rate.toFixed(4)+'/kWh':T('LBL_FIXED_ROW',{N:v.rate.toFixed(2)});
-                  return `<tr style="background:rgba(59,130,246,.04)">
-                  <td style="color:#1d4ed8" ${regInfoAttrs(info[0],info[1])}>${v.label} <span style="font-size:11px">(${rateStr})</span> <span style="font-size:11px;opacity:.6">ℹ</span></td>
-                  <td class="cost-col" style="color:#1d4ed8">€${(v.annual/12*_billingPeriod).toFixed(2)}</td>
+                  const info=regInfoMap[v.regulated?k:'mdmSupplier']||[];
+                  const rateStr=regRateStr(k,v);
+                  const c=v.regulated?'#1d4ed8':'var(--text2)';
+                  return `<tr style="${v.regulated?'background:rgba(59,130,246,.04)':''}">
+                  <td style="color:${c}" ${regInfoAttrs(info[0],info[1])}>${v.label} <span style="font-size:11px">(${rateStr})</span> <span style="font-size:11px;opacity:.6">ℹ</span></td>
+                  <td class="cost-col" style="color:${c}">€${(v.annual/12*_billingPeriod).toFixed(2)}</td>
                 </tr>`;}).join('')}
                 <tr style="background:var(--bg3)">
                   <td><strong>${T('ROW_TOTAL_REG')}</strong></td>
@@ -2267,7 +2309,7 @@ function buildSampleConfig(){
   const comFr=[.083,.078,.082,.08,.084,.087,.092,.085,.084,.083,.08,.082];
   const norm=a=>{const s=a.reduce((x,y)=>x+y,0);return a.map(v=>v/s);};
   const suppliers=[
-    {name:"EAC Supply",tradingName:"EAC Supply (ΑΗΚ Προμήθεια)",phone:"+357 22 845000",email:"customerservice@eac.com.cy",website:"https://www.eac.com.cy",address:"11 Amfipoleos St, 2025 Strovolos, Nicosia",licenseType:"Supplier"},
+    {name:"EAC Supply",tradingName:"EAC Supply (ΑΗΚ Προμήθεια)",phone:"+357 22 845000",email:"customerservice@eac.com.cy",website:"https://www.eac.com.cy",address:"11 Amfipoleos St, 2025 Strovolos, Nicosia",licenseType:"Supplier",regulated:true},
     {name:"Bright Energy",tradingName:"Bright Energy Ltd",phone:"+357 24 100200",email:"hello@brightenergy.com.cy",website:"https://www.brightenergy.com.cy",address:"42 Spyrou Kyprianou, 6051 Larnaca",licenseType:"Supplier"},
     {name:"Hellenic Power",tradingName:"Hellenic Power Cyprus",phone:"+357 25 778899",email:"support@hellenicpower.com.cy",website:"https://www.hellenicpower.com.cy",address:"18 Griva Digeni, 3035 Limassol",licenseType:"Supplier"},
     {name:"Helios Power",tradingName:"Helios Power",phone:"+357 22 556677",email:"info@heliospower.com.cy",website:"https://www.heliospower.com.cy",address:"7 Stasinou Ave, 1060 Nicosia",licenseType:"Supplier"},
@@ -2280,20 +2322,20 @@ function buildSampleConfig(){
   const today=new Date();
   const iso=d=>new Date(today.getTime()-d*86400000).toISOString();
   const tariffs=[
-    {id:"eac-dom-fix",name:"EAC Home Standard",supplier:"EAC Supply",updatedAt:iso(8),voltage:"LV",contract:"Domestic",loadEntitlement:"any",pricing:"Fixed",rates:{rate:0.1620},standing:4.50,profileId:"res",mdm:0.55,fpaSource:"global",discounts:[],durationMonths:null},
+    {id:"eac-dom-fix",name:"EAC Home Standard",supplier:"EAC Supply",updatedAt:iso(8),voltage:"LV",contract:"Domestic",loadEntitlement:"any",pricing:"Fixed",rates:{rate:0.1620},standing:4.50,profileId:"res",mdm:0.55,mdmInvoiceMonths:2,fpaSource:"global",discounts:[],durationMonths:null},
     {id:"bright-dom-fix",name:"Bright FixSaver 12",supplier:"Bright Energy",updatedAt:iso(3),voltage:"LV",contract:"Domestic",loadEntitlement:"any",pricing:"Fixed",rates:{rate:0.1490},standing:3.90,profileId:"res",mdm:0,fpaSource:"global",discounts:[{type:"energy",percentage:8,durationMonths:12,conditions:"e-bill + direct debit"}],durationMonths:12},
     {id:"hellenic-dom-tou",name:"Hellenic Day & Night",supplier:"Hellenic Power",updatedAt:iso(5),voltage:"LV",contract:"Domestic",loadEntitlement:"any",pricing:"ToU",rates:{hiStart:6,hiEnd:9,hiPeakStart:7,hiPeakEnd:23,hiPeakRate:0.1950,hiOffRate:0.1050,loPeakStart:7,loPeakEnd:23,loPeakRate:0.1720,loOffRate:0.0980},standing:4.20,profileId:"res",mdm:0,fpaSource:"global",discounts:[],durationMonths:null},
     {id:"helios-dom-dyn",name:"Helios Market Flex",supplier:"Helios Power",updatedAt:iso(2),voltage:"LV",contract:"Domestic",loadEntitlement:"any",pricing:"Dynamic",rates:{mult:1.08,adder:0.0380,damFloor:0.0500},standing:3.50,profileId:"res",mdm:0,fpaSource:"global",discounts:[],durationMonths:null},
     {id:"cyfield-dom-var",name:"Cyfield Tiered Home",supplier:"Cyfield Energy",updatedAt:iso(11),voltage:"LV",contract:"Domestic",loadEntitlement:"any",pricing:"Variable",rates:{resetMonths:1,tiers:[{upTo:150,rate:0.1380,fixedCharge:0},{upTo:400,rate:0.1680,fixedCharge:0},{upTo:null,rate:0.2050,fixedCharge:0}]},standing:4.00,profileId:"res",mdm:0,fpaSource:"global",discounts:[],durationMonths:6},
-    {id:"eac-dom-social",name:"EAC Social Tariff",supplier:"EAC Supply",updatedAt:iso(20),voltage:"LV",contract:"Domestic",loadEntitlement:"any",pricing:"Fixed",rates:{rate:0.1280},standing:2.50,profileId:"res",mdm:0.55,fpaSource:"global",discounts:[],durationMonths:null,vulnerable:true},
+    {id:"eac-dom-social",name:"EAC Social Tariff",supplier:"EAC Supply",updatedAt:iso(20),voltage:"LV",contract:"Domestic",loadEntitlement:"any",pricing:"Fixed",rates:{rate:0.1280},standing:2.50,profileId:"res",mdm:0.55,mdmInvoiceMonths:2,fpaSource:"global",discounts:[],durationMonths:null,vulnerable:true},
     // Commercial LV
-    {id:"eac-com-fix",name:"EAC Business Standard",supplier:"EAC Supply",updatedAt:iso(8),voltage:"LV",contract:"Commercial",loadEntitlement:"lt70",pricing:"Fixed",rates:{rate:0.1710},standing:9.00,profileId:"com",mdm:0.85,fpaSource:"global",discounts:[],durationMonths:null},
+    {id:"eac-com-fix",name:"EAC Business Standard",supplier:"EAC Supply",updatedAt:iso(8),voltage:"LV",contract:"Commercial",loadEntitlement:"lt70",pricing:"Fixed",rates:{rate:0.1710},standing:9.00,profileId:"com",mdm:0.55,mdmInvoiceMonths:1,fpaSource:"global",discounts:[],durationMonths:null},
     {id:"bright-com-tou",name:"Bright Business ToU",supplier:"Bright Energy",updatedAt:iso(4),voltage:"LV",contract:"Commercial",loadEntitlement:"lt70",pricing:"ToU",rates:{hiStart:6,hiEnd:9,hiPeakStart:8,hiPeakEnd:20,hiPeakRate:0.2050,hiOffRate:0.1150,loPeakStart:8,loPeakEnd:20,loPeakRate:0.1820,loOffRate:0.1080},standing:8.00,profileId:"com",mdm:0,fpaSource:"global",discounts:[{type:"standing",percentage:15,durationMonths:null,conditions:"annual prepayment"}],durationMonths:24},
     {id:"hellenic-com-dyn",name:"Hellenic Business Flex",supplier:"Hellenic Power",updatedAt:iso(6),voltage:"LV",contract:"Commercial",loadEntitlement:"gt70",pricing:"Dynamic",rates:{mult:1.05,adder:0.0320,damFloor:0.0450},standing:14.00,profileId:"com",mdm:0,fpaSource:"global",discounts:[],durationMonths:12}
   ];
   // Day-ahead market monthly averages (€/kWh) — plausible Cyprus 2026 shape
   const damMonthly=[0.118,0.112,0.104,0.096,0.101,0.124,0.149,0.156,0.132,0.108,0.110,0.121];
-  const regulated={lv:0.0620,mv:0.0510,hv:0.0410,pso:0.0095,fpaLV:0.0060,fpaMV:0.0050,fpaHV:0.0040,updated_at:iso(1),fpa_updated_at:iso(1)};
+  const regulated={lv:0.0620,mv:0.0510,hv:0.0410,pso:0.0095,fpaLV:0.0060,fpaMV:0.0050,fpaHV:0.0040,mdm:0.55,updated_at:iso(1),fpa_updated_at:iso(1)};
   const notices={
     assumptions_en:"<h3>How costs are calculated</h3><p>Estimates use each tariff's assigned load profile to distribute your consumption across the year, weighting working and non-working days using the current calendar.</p><ul><li>Dynamic tariffs use day-ahead market (DAM) price assumptions.</li><li>Regulated network, PSO and metering charges are shown separately and excluded from the supplier ranking.</li><li>Figures exclude VAT.</li></ul>",
     assumptions_el:"<h3>Πώς υπολογίζεται το κόστος</h3><p>Οι εκτιμήσεις χρησιμοποιούν το προφίλ κατανάλωσης κάθε διατίμησης για να κατανείμουν την κατανάλωσή σας στο έτος, σταθμίζοντας εργάσιμες και μη εργάσιμες ημέρες με βάση το τρέχον ημερολόγιο.</p><ul><li>Οι δυναμικές διατιμήσεις χρησιμοποιούν τιμές της Προημερήσιας Αγοράς (ΠΗΑ).</li><li>Οι ρυθμιζόμενες χρεώσεις δικτύου, ΥΔΩ και μετρήσεων εμφανίζονται ξεχωριστά.</li><li>Τα ποσά δεν περιλαμβάνουν ΦΠΑ.</li></ul>",

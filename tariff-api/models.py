@@ -28,6 +28,7 @@ class Supplier(Base):
     website = Column(String, default="")
     email = Column(String, default="")
     tel = Column(String, default="")
+    regulated = Column(Boolean, default=False)  # e.g. EAC — some charges (MDM) are fixed by CERA, not freely set
 
 
 class Profile(Base):
@@ -56,7 +57,15 @@ class Tariff(Base):
     pricing = Column(String, nullable=False)    # Fixed | ToU | Dynamic | Variable
 
     standing = Column(Float, default=0.0)       # monthly standing charge €
-    mdm = Column(Float, default=0.0)            # meter data management €/month (per-tariff)
+    mdm = Column(Float, default=0.0)            # meter data management charge, € per invoice — used when mdmSource='custom'
+    # global   = use the CERA-set regulated MDM rate (Regulated tab); forced for regulated suppliers (e.g. EAC)
+    # custom   = use this tariff's own `mdm` value — the default for non-regulated suppliers
+    mdmSource = Column(String, default="custom")
+    # MDM is charged once per invoice, not once per month — how often this
+    # tariff invoices (1=monthly, 2=bimonthly) determines the annual total.
+    # Set per tariff by the supplier since it follows their own billing cycle
+    # (e.g. bimonthly for most domestic tariffs, monthly for industrial).
+    mdmInvoiceMonths = Column(Integer, default=2)
 
     # JSON shape depends on pricing type:
     #   Fixed:    {rate}

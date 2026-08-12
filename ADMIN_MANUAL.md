@@ -170,6 +170,12 @@ Click **✏ Edit details** next to any supplier to open the detail form, update 
 
 Click **Remove** next to a supplier. A supplier can only be deleted if they have no tariffs in the system — remove all their tariffs first, then delete the supplier record. Deletion takes effect immediately.
 
+### Regulated supplier flag
+
+A supplier can be marked **Regulated supplier (e.g. EAC)** in the detail form. This changes how the Meter Data Management (MDM) charge is calculated for every tariff under that supplier — see [Section 7](#7-regulated-charges) for what the flag actually does to the calculation.
+
+Because toggling it affects every tariff belonging to that supplier, changing the checkbox requires two separate confirmations: a pop-out box when you click the checkbox, and a second confirmation when you click **Save details**. Both must be confirmed for the change to take effect.
+
 ---
 
 ## 6. Tariff Workflow
@@ -242,11 +248,16 @@ Regulated charges are set by CERA and applied uniformly to all tariffs on the ca
 | **Network charge — HV** | Distribution/transmission charge for high-voltage connections (€/kWh) |
 | **PSO** | Public Service Obligation levy (€/kWh) — not subject to VAT |
 | **FPA — LV/MV/HV** | Fuel Price Adjustment per voltage level (€/kWh) |
-| **MDM** | Meter Data Management charge (€/month) — global default |
+| **MDM** | Meter Data Management charge (€ per invoice) |
 
 Click **Save** after making any changes. Changes are reflected immediately on the public calculator.
 
-> The MDM charge can also be set on a per-tariff basis by the supplier. The per-tariff value takes precedence over the global default.
+> **MDM is the one exception to "not set by suppliers."** Whether a tariff uses this regulated rate depends entirely on whether its supplier is flagged **Regulated** (Suppliers page):
+>
+> - **Regulated supplier** (e.g. EAC) — every one of their tariffs always uses this global rate. There is no per-tariff override; the tariff editor's MDM field is locked and shows this value.
+> - **Non-regulated supplier** — this global rate is never used. Each of their tariffs has its own freely-editable MDM value, and there is no option to opt into the regulated rate instead.
+>
+> MDM is charged **once per invoice, not once a month** — each tariff also has its own **Invoicing frequency** (Monthly or Bimonthly, set in the tariff editor), which determines how many times a year the charge is actually applied (12 for monthly, 6 for bimonthly). Two tariffs with the same MDM value but different invoicing frequency will show different annual totals.
 
 ---
 

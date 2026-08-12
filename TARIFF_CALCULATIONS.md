@@ -84,19 +84,29 @@ Because of this simplification, once the customer enters a value the UI shows a 
 - Multiple active discounts of the same type stack additively (percentages summed, then floored at 0% remaining — i.e. cannot go negative).
 - `annualCostNoDiscount(t, dc)` recomputes the full breakdown with all discounts forced off, to show the "full price" (strikethrough) alongside the discounted price.
 
-### Regulated charges (network/PSO/RES/MDM)
-- Not part of the supplier ranking/comparison — always shown as a separate line item, added on top of the supplier's own cost.
-- `regulatedAnnual(voltage, annualKwh, mdm)` returns `regulatedBreakdown(...).total`: `annualKwh × (gridRate + psoRate + resRate) + mdm × 12`.
+### Regulated charges (network/PSO/RES) & MDM
+- Not part of the supplier ranking/comparison — always shown as a separate line item, added on top of the supplier's own cost. Labelled to the customer as **"additional charges"**, not "regulated charges" — MDM (below) is not always actually CERA-regulated, so the old wording overclaimed.
+- `regulatedAnnual(voltage, annualKwh, mdm, mdmInvoiceMonths, mdmRegulated)` returns `regulatedBreakdown(...).total`: `annualKwh × (gridRate + psoRate + resRate) + mdm × (12/mdmInvoiceMonths)`.
   - `gridRate` = network charge, selected by voltage level (`lv`/`mv`/`hv` from `cfg.regulated`).
   - `pso` = Public Service Obligation levy (per kWh, flat across voltage levels).
   - `res` = RES & Energy Conservation Fund levy (per kWh, flat across voltage levels).
-  - `mdm` = Meter Data Management, a **fixed monthly** charge (not per-kWh) that is tariff-specific (`t.mdm`), annualised ×12.
-- `regulatedBreakdown(...)` is the single source of truth for these figures — it computes the same total plus individually labelled rows (Grid / PSO / RES / MDM) for the itemised bill view; `regulatedAnnual` is a thin wrapper so the two never drift apart.
-- Regulated charges are **not** discounted — the discount system only applies to the supplier's own energy/standing charges.
-- Each regulated row's label is clickable (`openRegInfo`, same info-popup mechanism as FPA) and shows its rate in parentheses next to the label — €/kWh for Grid/PSO/RES, a flat €/month figure (via `LBL_FIXED_ROW`) for MDM. This applies in both the annual ranked-list breakdown and the monthly single-bill breakdown.
+  - `mdm` = Meter Data Management, a charge **per invoice** (not per kWh, and not always monthly) — see below.
+- `regulatedBreakdown(...)` is the single source of truth for these figures — it computes the same total plus individually labelled rows (Grid / PSO / RES / MDM) for the itemised bill view; `regulatedAnnual` is a thin wrapper so the two never drift apart. Each row also carries a `regulated: true/false` flag (Grid/PSO/RES are always `true`; MDM depends on sourcing below) used purely for display.
+
+#### MDM sourcing — regulated vs. supplier-set
+- Suppliers can be flagged `regulated` (`cfg.suppliers[].regulated`, e.g. EAC) — orthogonal to a tariff's Domestic/Commercial/Industrial contract type.
+- `mdmForTariff(t)` decides the €/invoice value: **regulated supplier** → always the CERA-set global rate (`cfg.regulated.mdm`), ignoring the tariff's own `mdm` field entirely; **non-regulated supplier** → the tariff's own `t.mdm` (admin/supplier-entered, freely editable). There is deliberately no way for a non-regulated supplier to opt into the regulated rate.
+- This also drives display: a regulated MDM row is coloured/labelled like Grid/PSO/RES (blue, "Meter Data Management (MDM)", `REG_MDM_DESC` info text). A non-regulated MDM row uses the supplier-charge colour (`var(--text2)`, same as Energy/Standing), the `MDM_SUPPLIER` label and `MDM_SUPPLIER_DESC` info text, explicitly stating it's a competitive charge, not a regulated one. The Standing row/header carries the same "competitive charge" info text (`STANDING_DESC`) for the same reason — it is always supplier-set, never regulated.
+
+#### MDM invoicing frequency
+- MDM is charged **once per invoice**, not once per calendar month. `t.mdmInvoiceMonths` (`1` = monthly, `2` = bimonthly; set per tariff by the admin/supplier, defaults to `2`) gives invoices/year = `12 / mdmInvoiceMonths`, and `annual MDM = mdm × invoices/year` — **not** a flat `× 12`. E.g. a €0.94 bimonthly charge totals €5.64/year, not €11.28/year as a naive ×12 would give.
+- Displayed rate text is deliberately short — `€{N} / λογαριασμό` / `€{N} / invoice` (`LBL_FIXED_ROW_MDM`), no frequency inline, to avoid widening the breakdown table's columns. The actual frequency is only in the `title` hover tooltip (`MDM_BILLED_MONTHLY` / `MDM_BILLED_BIMONTHLY`).
+
+- Regulated/additional charges are **not** discounted — the discount system only applies to the supplier's own energy/standing charges.
+- Each row's label is clickable (`openRegInfo`, same info-popup mechanism as FPA) — €/kWh for Grid/PSO/RES, a flat €/invoice figure for MDM. This applies in both the annual ranked-list breakdown and the monthly single-bill breakdown.
 
 ### Standing charge
-- Flat, tariff-specific monthly fee (`t.standing`), added once per month regardless of consumption.
+- Flat, tariff-specific monthly fee (`t.standing`), added once per month regardless of consumption. Always supplier-set/competitive, never regulated — its label carries an info tooltip (`STANDING_DESC`) saying so, same treatment as a non-regulated MDM row.
 - Subject to the tariff's `standingFactor` discount (if any `type: 'standing'` discount is active and in-period).
 - For Variable tariffs, any reached tier's `fixedCharge` is folded into "standing" (for discount-eligibility purposes) rather than kept separate.
 - The annual/ranked-list breakdown table always derives its displayed "Standing" total by summing each month's already-discounted `monthlyBreakdown(...).standing` (`moBd.reduce(...)`) — never `t.standing×12` — so the row's Energy+FPA+Standing always foots to the same total shown in the Total column, even when a standing discount is active. (Prior to 2026-07-17 the annual table used `t.standing×12` for all non-Variable pricing types, which silently ignored standing discounts in the displayed breakdown while the ranked total itself was already correct — a display-only bug, now fixed.)

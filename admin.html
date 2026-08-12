@@ -881,6 +881,12 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
           <p class="hint">Applied per kWh consumed — all tariffs</p>
           <p class="hint reg-ts reg-ts-universal" style="display:none;color:var(--text3)"></p>
         </div>
+        <div class="field">
+          <label data-t="LBL_REG_MDM">Meter Data Management — MDM (€ per invoice)</label>
+          <input type="number" id="reg-mdm" value="0.00" step="0.01" min="0">
+          <p class="hint" data-t="HINT_REG_MDM">Fixed MDM rate for regulated suppliers' tariffs (e.g. EAC) — charged once per invoice. Each tariff's own invoicing frequency (Tariffs tab) sets the annual total.</p>
+          <p class="hint reg-ts reg-ts-universal" style="display:none;color:var(--text3)"></p>
+        </div>
       </div>
     </div>
 
@@ -1193,7 +1199,7 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
   <div class="modal-section">Identity</div>
   <div class="g2">
     <div class="field"><label>Tariff name</label><input type="text" id="edit-name" placeholder="e.g. DSO Domestic Standard"></div>
-    <div class="field"><label>Supplier</label><select id="edit-supplier"></select></div>
+    <div class="field"><label>Supplier</label><select id="edit-supplier" onchange="onEditSupplierChange()"></select></div>
   </div>
   <div class="g3" style="margin-top:10px">
     <div class="field"><label>Contract type</label>
@@ -1277,8 +1283,19 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
       <input type="number" id="edit-standing" value="5.50" step="0.01" min="0">
     </div>
     <div class="field" style="max-width:200px">
-      <label>MDM — Meter Data Management (€/month)</label>
+      <label>MDM — Meter Data Management (€ per invoice)</label>
       <input type="number" id="edit-mdm" value="0" step="0.01" min="0">
+      <p class="hint" id="edit-mdm-hint" style="display:none"></p>
+    </div>
+  </div>
+  <div class="g2" style="margin-bottom:12px;align-items:flex-end">
+    <div class="field" style="max-width:200px">
+      <label>Invoicing frequency</label>
+      <select id="edit-mdm-invoice-months">
+        <option value="1">Monthly</option>
+        <option value="2" selected>Bimonthly</option>
+      </select>
+      <p class="hint">MDM is charged once per invoice — how often this tariff is invoiced sets the annual total.</p>
     </div>
   </div>
 
@@ -1453,7 +1470,7 @@ const LANG = {
     PANE_SUP_TITLE:'Suppliers', PANE_SUP_DESC:'Manage electricity suppliers in the comparison tool.',
     CARD_SUP_LIST:'Supplier list', BTN_ADD:'+ Add',
     EMPTY_SUPPLIERS:'No suppliers yet.',
-    SUP_TARIFFS:'tariff(s)', SUP_NO_CONTACT:'⚠ No contact details',
+    SUP_TARIFFS:'tariff(s)', SUP_NO_CONTACT:'⚠ No contact details', BADGE_REGULATED:'Regulated',
     BTN_EDIT_DETAILS:'✏ Edit details', BTN_REMOVE:'Remove',
     // Profiles pane
     PANE_PROF_TITLE:'Consumption profiles',
@@ -1527,6 +1544,8 @@ const LANG = {
     LBL_LV_FPA:'LV — FPA (€/kWh)', LBL_MV_FPA:'MV — FPA (€/kWh)', LBL_HV_FPA:'HV — FPA (€/kWh)',
     LBL_PSO:'Public Service Obligations — PSO (€/kWh)',
     LBL_RES:'RES and Energy Conservation Fund (€/kWh)',
+    LBL_REG_MDM:'Meter Data Management — MDM (€ per invoice)',
+    HINT_REG_MDM:"Fixed MDM rate for regulated suppliers' tariffs (e.g. EAC) — charged once per invoice. Each tariff's own invoicing frequency (Tariffs tab) sets the annual total.",
     LBL_REF_KWH:'Reference annual consumption (kWh)', LBL_VOLTAGE_LVL:'Voltage level',
     // Audit pane
     PANE_AUDIT_TITLE:'Audit calculator',
@@ -1590,7 +1609,9 @@ const LANG = {
     SUP_MODAL_TITLE:'Supplier details', LBL_COMPANY_NAME:'Company / Supplier name',
     LBL_LICENCE:'CERA Licence No.', LBL_ADDRESS:'Company address',
     LBL_WEBSITE:'Website', LBL_TEL_NO:'Telephone',
+    LBL_SUP_REGULATED:'Regulated supplier (e.g. EAC)',
     BTN_SAVE_DETAILS:'Save details',
+    REG_CONFIRM_TITLE:'Change regulated status?', BTN_CONFIRM_CHANGE:'Confirm change',
     // Admin docs modal
     ADOCS_TITLE_PREFIX:'Documents — ',
   },
@@ -1628,7 +1649,7 @@ const LANG = {
     PANE_SUP_TITLE:'Προμηθευτές', PANE_SUP_DESC:'Διαχείριση προμηθευτών ηλεκτρισμού στο εργαλείο σύγκρισης.',
     CARD_SUP_LIST:'Λίστα προμηθευτών', BTN_ADD:'+ Προσθήκη',
     EMPTY_SUPPLIERS:'Δεν υπάρχουν προμηθευτές ακόμα.',
-    SUP_TARIFFS:'τιμολόγιο(-α)', SUP_NO_CONTACT:'⚠ Χωρίς στοιχεία επικοινωνίας',
+    SUP_TARIFFS:'τιμολόγιο(-α)', SUP_NO_CONTACT:'⚠ Χωρίς στοιχεία επικοινωνίας', BADGE_REGULATED:'Ρυθμιζόμενος',
     BTN_EDIT_DETAILS:'✏ Επεξεργασία', BTN_REMOVE:'Αφαίρεση',
     // Profiles pane
     PANE_PROF_TITLE:'Προφίλ κατανάλωσης',
@@ -1702,6 +1723,8 @@ const LANG = {
     LBL_LV_FPA:'ΧΤ — FPA (€/kWh)', LBL_MV_FPA:'ΜΤ — FPA (€/kWh)', LBL_HV_FPA:'ΥΤ — FPA (€/kWh)',
     LBL_PSO:'Υποχρεώσεις Παροχής Υπηρεσιών — ΥΠΥ (€/kWh)',
     LBL_RES:'Ταμείο ΑΠΕ & ΕΞΕ (€/kWh)',
+    LBL_REG_MDM:'Διαχείριση Μετρητικών Δεδομένων — MDM (€ ανά λογαριασμό)',
+    HINT_REG_MDM:'Σταθερή χρέωση MDM για διατιμήσεις ρυθμιζόμενων προμηθευτών (π.χ. ΑΗΚ) — χρεώνεται μία φορά ανά λογαριασμό. Η συχνότητα τιμολόγησης κάθε διατίμησης (καρτέλα Τιμολόγια) καθορίζει το ετήσιο σύνολο.',
     LBL_REF_KWH:'Κατανάλωση αναφοράς (kWh/έτος)', LBL_VOLTAGE_LVL:'Επίπεδο τάσης',
     // Audit pane
     PANE_AUDIT_TITLE:'Ελεγχος υπολογισμού διατιμήσεων',
@@ -1765,7 +1788,9 @@ const LANG = {
     SUP_MODAL_TITLE:'Στοιχεία προμηθευτή', LBL_COMPANY_NAME:'Εταιρεία / Όνομα προμηθευτή',
     LBL_LICENCE:'Αριθμός άδειας ΡΑΕΚ', LBL_ADDRESS:'Διεύθυνση εταιρείας',
     LBL_WEBSITE:'Ιστοσελίδα', LBL_TEL_NO:'Τηλέφωνο',
+    LBL_SUP_REGULATED:'Ρυθμιζόμενος προμηθευτής (π.χ. ΑΗΚ)',
     BTN_SAVE_DETAILS:'Αποθήκευση στοιχείων',
+    REG_CONFIRM_TITLE:'Αλλαγή καθεστώτος ρύθμισης;', BTN_CONFIRM_CHANGE:'Επιβεβαίωση αλλαγής',
     // Admin docs modal
     ADOCS_TITLE_PREFIX:'Έγγραφα — ',
   }
@@ -1862,10 +1887,36 @@ function openSupModal(name){
   document.getElementById('sup-website').value=o.website||'';
   document.getElementById('sup-email').value=o.email||'';
   document.getElementById('sup-tel').value=o.tel||'';
+  document.getElementById('sup-regulated').checked=!!o.regulated;
+  _supModalOrigRegulated=!!o.regulated;
   document.getElementById('sup-modal-overlay').style.display='flex';
 }
 function closeSupModal(){
   document.getElementById('sup-modal-overlay').style.display='none';
+}
+
+/* Toggling "regulated" changes how MDM is calculated for every tariff under
+   this supplier, so it goes through two deliberate confirmation steps rather
+   than a plain checkbox click — a details pop-out here, then a second
+   confirmation when the change is actually saved (see saveSupplierDetails). */
+let _supModalOrigRegulated=false;
+let _pendingRegulatedState=null;
+function onRegulatedCheckboxClick(){
+  const cb=document.getElementById('sup-regulated');
+  _pendingRegulatedState=!cb.checked; // state the click would have produced
+  document.getElementById('regulated-confirm-body').textContent=_pendingRegulatedState
+    ?'Marking this supplier as regulated means their tariffs will automatically use the CERA-set regulated MDM rate (Regulated tariffs tab), instead of a value set per tariff.'
+    :'Removing the regulated flag means this supplier\'s tariffs will stop automatically following the CERA-set regulated MDM rate — each tariff will need its own MDM value (or an explicit opt-in to the regulated rate) instead.';
+  document.getElementById('regulated-confirm-overlay').style.display='flex';
+  return false; // cancels the checkbox's own toggle; confirmRegulatedToggle() applies it explicitly
+}
+function closeRegulatedConfirm(){
+  document.getElementById('regulated-confirm-overlay').style.display='none';
+  _pendingRegulatedState=null;
+}
+function confirmRegulatedToggle(){
+  if(_pendingRegulatedState!==null) document.getElementById('sup-regulated').checked=_pendingRegulatedState;
+  closeRegulatedConfirm();
 }
 async function saveSupplierDetails(){
   const origName=document.getElementById('sup-modal-orig-name').value;
@@ -1879,8 +1930,15 @@ async function saveSupplierDetails(){
     address:document.getElementById('sup-address').value.trim(),
     website:document.getElementById('sup-website').value.trim(),
     email:document.getElementById('sup-email').value.trim(),
-    tel:document.getElementById('sup-tel').value.trim()
+    tel:document.getElementById('sup-tel').value.trim(),
+    regulated:document.getElementById('sup-regulated').checked
   };
+  if(body.regulated!==_supModalOrigRegulated){
+    const msg=body.regulated
+      ?`Confirm: mark "${newName}" as a regulated supplier? This changes how MDM is calculated for all of their tariffs.`
+      :`Confirm: remove "${newName}" from regulated suppliers? This changes how MDM is calculated for all of their tariffs.`;
+    if(!confirm(msg)) return;
+  }
   const st=document.getElementById('sup-status');
   showStatus(st,'ok','Saving…');
   try{
@@ -1926,6 +1984,7 @@ function renderSuppliers(){
         <div class="item-name">${esc(n)}</div>
         <div class="item-meta">
           <span class="badge badge-type">${tCount} ${T('SUP_TARIFFS')}</span>
+          ${o.regulated?`<span class="badge" style="background:rgba(188,108,37,.12);color:var(--yellow)">⚖ ${T('BADGE_REGULATED')}</span>`:''}
           ${o.licence?`<span class="badge badge-voltage">Lic: ${esc(o.licence)}</span>`:''}
           ${o.tel?`<span class="badge" style="background:var(--bg3);color:var(--text2)">${esc(o.tel)}</span>`:''}
           ${o.email?`<span class="badge" style="background:var(--bg3);color:var(--text2)">${esc(o.email)}</span>`:''}
@@ -2684,6 +2743,25 @@ async function schedulesLoad(){
 }
 
 /* ── Tariff editor ── */
+// Regulated suppliers (e.g. EAC) always use the CERA-set regulated MDM rate —
+// no choice, field locked. Other suppliers always use their own value; there
+// is no option for them to opt into the regulated rate.
+function onEditSupplierChange(){
+  const name=document.getElementById('edit-supplier').value;
+  const s=suppliers.find(x=>supName(x)===name);
+  const regulated=!!(s&&supObj(s).regulated);
+  const mdmEl=document.getElementById('edit-mdm');
+  const hintEl=document.getElementById('edit-mdm-hint');
+  if(regulated){
+    mdmEl.value=getRegulated().mdm||0;
+    mdmEl.disabled=true;
+    hintEl.textContent='🔒 Fixed by the CERA regulated MDM charge — this supplier is marked regulated (Suppliers tab).';
+    hintEl.style.display='block';
+  } else {
+    mdmEl.disabled=false;
+    hintEl.style.display='none';
+  }
+}
 function openEditor(id){
   const t=id!=null?tariffs.find(x=>x.id===id):null;
   document.getElementById('edit-id').value=id??'';
@@ -2701,6 +2779,8 @@ function openEditor(id){
     document.getElementById('edit-pricing').value=t.pricing;
     document.getElementById('edit-standing').value=t.standing;
     document.getElementById('edit-mdm').value=t.mdm||0;
+    document.getElementById('edit-mdm-invoice-months').value=t.mdmInvoiceMonths||2;
+    onEditSupplierChange();
     document.getElementById('edit-profile').value=t.profileId||'';
     // Load entitlement
     document.getElementById('edit-le').value=t.loadEntitlement||'any';
@@ -2744,6 +2824,8 @@ function openEditor(id){
     document.getElementById('edit-name').value='';
     document.getElementById('edit-standing').value='5.50';
     document.getElementById('edit-mdm').value='0';
+    document.getElementById('edit-mdm-invoice-months').value='2';
+    onEditSupplierChange();
     document.getElementById('edit-pricing').value='Fixed';
     document.getElementById('edit-profile').value='';
     document.getElementById('edit-fpa-source').value='global';
@@ -3017,7 +3099,9 @@ async function saveTariff(){
     id:editId||uid(),name,supplier,
     contract:contractVal,
     voltage:voltageVal,
-    pricing,standing:fv('edit-standing'),mdm:fv('edit-mdm'),rates,
+    pricing,standing:fv('edit-standing'),mdm:fv('edit-mdm'),
+    mdmSource:(suppliers.find(x=>supName(x)===supplier)&&supObj(suppliers.find(x=>supName(x)===supplier)).regulated)?'global':'custom',
+    mdmInvoiceMonths:parseInt(sv('edit-mdm-invoice-months'))||2,rates,
     profileId:sv('edit-profile')||null,
     fpaSource,fpaCustom,
     durationMonths,
@@ -3233,7 +3317,7 @@ function openReview(id){
     row('pricing','Pricing type',t.pricing||'—'),
     row('standing','Standing charge','€'+(t.standing||0).toFixed(2)+'/month'),
   );
-  if((t.mdm||0)>0) bodyEl.appendChild(row('mdm','MDM (Meter Data Management)','€'+(t.mdm||0).toFixed(2)+'/month'));
+  if((t.mdm||0)>0) bodyEl.appendChild(row('mdm','MDM (Meter Data Management)','€'+(t.mdm||0).toFixed(2)+'/invoice, '+(t.mdmInvoiceMonths===1?'monthly':'bimonthly')+(t.mdmSource==='global'?' (regulated rate)':'')));
   bodyEl.append(
     row('rates','Rates',formatRatesSummary(t.pricing,t.rates)),
     row('fpaSource','FPA source',t.fpaSource==='global'?'Global (regulated)'
@@ -4164,6 +4248,7 @@ function getRegulated(){
     fpaHV:  parseFloat(document.getElementById('reg-fpa-hv')?.value)||0,
     pso:    parseFloat(document.getElementById('reg-pso')?.value)||0,
     res:    parseFloat(document.getElementById('reg-res')?.value)||0,
+    mdm:    parseFloat(document.getElementById('reg-mdm')?.value)||0,
   };
 }
 
@@ -4176,6 +4261,7 @@ function setRegulated(r){
   set('reg-fpa-hv',r.fpaHV||r.fpa||0);
   set('reg-pso',r.pso);
   set('reg-res',r.res||0);
+  set('reg-mdm',r.mdm||0);
   const setTs=(cls,iso)=>{
     const els=document.querySelectorAll(cls);
     if(iso){
@@ -5585,10 +5671,33 @@ async function loadConfig(){
         <label data-t="LBL_TEL_NO">Telephone</label>
         <input type="text" id="sup-tel" placeholder="e.g. +357 22 000 000">
       </div>
+      <div class="field">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="sup-regulated" style="width:auto" onclick="return onRegulatedCheckboxClick(event)">
+          <span data-t="LBL_SUP_REGULATED">Regulated supplier (e.g. EAC)</span>
+        </label>
+      </div>
     </div>
     <div class="sup-detail-foot">
       <button class="btn" onclick="closeSupModal()" data-t="BTN_CANCEL">Cancel</button>
       <button class="btn btn-primary" onclick="saveSupplierDetails()" data-t="BTN_SAVE_DETAILS">Save details</button>
+    </div>
+  </div>
+</div>
+
+<!-- Regulated-flag change confirmation (step 1 of 2 — checkbox toggle) -->
+<div id="regulated-confirm-overlay" class="sup-detail-modal" style="display:none" onclick="if(event.target.id==='regulated-confirm-overlay')closeRegulatedConfirm()">
+  <div class="sup-detail-box" style="max-width:440px">
+    <div class="sup-detail-head">
+      <h2 id="regulated-confirm-title" data-t="REG_CONFIRM_TITLE">Change regulated status?</h2>
+      <button class="btn btn-sm" onclick="closeRegulatedConfirm()" style="font-size:18px;background:none;border:none;cursor:pointer;color:var(--text3)">✕</button>
+    </div>
+    <div class="sup-detail-body">
+      <p id="regulated-confirm-body" style="font-size:13px;color:var(--text2);line-height:1.6"></p>
+    </div>
+    <div class="sup-detail-foot">
+      <button class="btn" onclick="closeRegulatedConfirm()" data-t="BTN_CANCEL">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmRegulatedToggle()" data-t="BTN_CONFIRM_CHANGE">Confirm change</button>
     </div>
   </div>
 </div>

@@ -37,6 +37,7 @@ class SupplierIn(BaseModel):
     website: str = Field("", max_length=500)
     email: str = Field("", max_length=254)
     tel: str = Field("", max_length=50)
+    regulated: bool = False
 
     _validate_email = field_validator("email")(_check_email)
     _validate_website = field_validator("website")(_check_url)
@@ -62,6 +63,8 @@ class TariffIn(BaseModel):
     pricing: Literal["Fixed", "ToU", "Dynamic", "Variable"]
     standing: float = 0.0
     mdm: float = 0.0
+    mdmSource: Literal["global", "custom"] = "custom"
+    mdmInvoiceMonths: Literal[1, 2] = 2
     rates: dict[str, Any] = {}
     profileId: str | None = Field(None, max_length=100)
     fpaSource: Literal["global", "custom", "none"] = "global"

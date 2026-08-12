@@ -235,7 +235,8 @@ def create_tariff(
     t = models.Tariff(
         id=tariff_id, name=body.name, supplier=body.supplier,
         contract=body.contract, voltage=body.voltage, pricing=body.pricing,
-        standing=body.standing, mdm=body.mdm, rates=json.dumps(body.rates),
+        standing=body.standing, mdm=body.mdm, mdmSource=body.mdmSource,
+        mdmInvoiceMonths=body.mdmInvoiceMonths, rates=json.dumps(body.rates),
         profileId=body.profileId, fpaSource=body.fpaSource, fpaCustom=body.fpaCustom,
         durationMonths=body.durationMonths, loadEntitlement=body.loadEntitlement,
         discounts=json.dumps(body.discounts), vulnerable=body.vulnerable,
@@ -282,6 +283,9 @@ def _diff_fields(db: Session, old: models.Tariff, body: TariffIn) -> list[dict]:
         ("voltage",         old.voltage,         body.voltage),
         ("pricing",         old.pricing,         body.pricing),
         ("standing",        old.standing,        body.standing),
+        ("mdm",             old.mdm,             body.mdm),
+        ("mdmSource",       old.mdmSource,       body.mdmSource),
+        ("mdmInvoiceMonths", old.mdmInvoiceMonths, body.mdmInvoiceMonths),
         ("fpaSource",       old.fpaSource,       body.fpaSource),
         ("fpaCustom",       old.fpaCustom,       body.fpaCustom),
         ("durationMonths",  old.durationMonths,  body.durationMonths),
@@ -323,7 +327,8 @@ def update_tariff(
     changes = _diff_fields(db, t, body)   # capture diff before modifying t
     t.name = body.name; t.supplier = body.supplier
     t.contract = body.contract; t.voltage = body.voltage; t.pricing = body.pricing
-    t.standing = body.standing; t.mdm = body.mdm; t.rates = json.dumps(body.rates)
+    t.standing = body.standing; t.mdm = body.mdm; t.mdmSource = body.mdmSource
+    t.mdmInvoiceMonths = body.mdmInvoiceMonths; t.rates = json.dumps(body.rates)
     t.profileId = body.profileId; t.fpaSource = body.fpaSource; t.fpaCustom = body.fpaCustom
     t.durationMonths = body.durationMonths; t.loadEntitlement = body.loadEntitlement
     t.discounts = json.dumps(body.discounts); t.vulnerable = body.vulnerable
@@ -1033,7 +1038,7 @@ def get_regulated(db: Session = Depends(get_db), user: CurrentUser = Depends(get
 
 _GRID_FIELDS = {"lv", "mv", "hv"}
 _FPA_FIELDS = {"fpaLV", "fpaMV", "fpaHV"}
-_UNIVERSAL_FIELDS = {"pso", "res"}
+_UNIVERSAL_FIELDS = {"pso", "res", "mdm"}  # MDM applies to all voltage levels, like PSO/RES
 
 
 @router.put("/regulated", summary="Update regulated charges (admin only)")
