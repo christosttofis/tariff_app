@@ -29,15 +29,27 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # ── JWT signing secret ───────────────────────────────────────────────────────
+# No silent fallback: a well-known key baked into source would let anyone who's
+# read this file forge admin session tokens. Local dev must opt in explicitly
+# via TARIFF_ALLOW_DEV_SECRET=1 rather than getting the insecure key by default.
 _DEV_SECRET_KEY_FALLBACK = "dev-only-do-not-deploy-cera-tariff-2026-xK9mP3qR7sN1wL5"
-TARIFF_SECRET_KEY = os.getenv("TARIFF_SECRET_KEY", _DEV_SECRET_KEY_FALLBACK)
-if TARIFF_SECRET_KEY == _DEV_SECRET_KEY_FALLBACK:
-    logger.warning(
-        "TARIFF_SECRET_KEY is not set - falling back to a well-known dev-only "
-        "signing key that anyone reading this source file can forge session "
-        "tokens with. Fine for local dev; must be set to a real random value "
-        "for any shared or production use."
-    )
+TARIFF_SECRET_KEY = os.getenv("TARIFF_SECRET_KEY")
+if not TARIFF_SECRET_KEY:
+    if os.getenv("TARIFF_ALLOW_DEV_SECRET") == "1":
+        TARIFF_SECRET_KEY = _DEV_SECRET_KEY_FALLBACK
+        logger.warning(
+            "TARIFF_SECRET_KEY is not set - using the well-known dev-only "
+            "signing key because TARIFF_ALLOW_DEV_SECRET=1. Never do this "
+            "outside local dev; anyone who reads this source file can forge "
+            "session tokens with this key."
+        )
+    else:
+        raise RuntimeError(
+            "TARIFF_SECRET_KEY is not set. Refusing to start with a "
+            "well-known fallback signing key. Set TARIFF_SECRET_KEY to a "
+            "real random value, or set TARIFF_ALLOW_DEV_SECRET=1 to opt "
+            "into the insecure dev-only key for local development."
+        )
 
 # ── Database ──────────────────────────────────────────────────────────────────
 _SQLITE_FALLBACK_PATH = Path(__file__).parent / "tariff.db"

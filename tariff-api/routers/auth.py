@@ -4,7 +4,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
 import email_utils
@@ -16,6 +16,7 @@ from auth import (
 )
 from config import TARIFF_BASE_URL
 from database import get_db
+from schemas import _check_email
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -64,6 +65,8 @@ class ResendOtpIn(BaseModel):
 class UpdateEmailIn(BaseModel):
     new_email: str
 
+    _validate_new_email = field_validator("new_email")(_check_email)
+
 
 class UpdatePasswordIn(BaseModel):
     current_password: str
@@ -106,14 +109,12 @@ def login(body: LoginIn, request: Request, response: Response, db: Session = Dep
                     "Please try again later or contact your CERA administrator."
                 )
             else:
-                remaining = _MAX_ATTEMPTS - user.failed_attempts
                 db.commit()
                 _log_login(db, request, email=body.email, user_id=user.id, success=False, reason="bad_password")
-                raise HTTPException(
-                    401,
-                    f"Invalid email or password. "
-                    f"{remaining} attempt(s) remaining before your account is locked."
-                )
+                # Same generic message as the unknown-email branch below — do not reveal
+                # attempts-remaining here, since that would let an attacker distinguish
+                # registered emails from unregistered ones (account enumeration).
+                raise HTTPException(401, "Invalid email or password")
         _log_login(db, request, email=body.email, user_id=None, success=False, reason="unknown_email")
         raise HTTPException(401, "Invalid email or password")
 

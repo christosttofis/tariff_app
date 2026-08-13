@@ -36,7 +36,7 @@ from config import TARIFF_BASE_URL
 from database import get_db
 from importer import import_cfg
 from schemas import (
-    CreateUserIn, DamIn, MessageArchiveIn, MessageIn, NoticesIn, ProfileIn, RegulatedIn,
+    ConfigImportIn, CreateUserIn, DamIn, MessageArchiveIn, MessageIn, NoticesIn, ProfileIn, RegulatedIn,
     SampleInvoiceConfigIn, ScheduledNotificationEnabledIn, ScheduledNotificationIn, SupplierIn, TariffIn,
     TariffReportStatusIn, TariffStatusIn, UserOtpToggleIn, UserStatusIn,
 )
@@ -195,12 +195,12 @@ def get_admin_config(
 
 @router.put("/config", summary="Replace all config from admin Publish (admin only)")
 def put_admin_config(
-    payload: dict[str, Any],
+    payload: ConfigImportIn,
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(require_admin),
 ):
     try:
-        return import_cfg(payload, db)
+        return import_cfg(payload.model_dump(mode="json"), db)
     except Exception as exc:
         raise HTTPException(400, str(exc))
 

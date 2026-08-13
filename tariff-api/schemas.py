@@ -162,3 +162,22 @@ class DamIn(BaseModel):
     damDailyData: list[Any] = []   # [[{dateStr,dow,slots}...] × 12]
     damRowCount: int = 0
     damYear: int = 2026
+
+
+class ConfigImportIn(BaseModel):
+    """Shape of the full localStorage cfg JSON snapshot sent by admin.html's
+    saveAll() to PUT /api/admin/config — see importer.py for the consumer.
+    Reuses the same per-entity schemas as the individual create/update
+    endpoints so a bulk publish can't write data those endpoints would reject."""
+    version: Any = None
+    suppliers: list[SupplierIn | str] = []   # str form = legacy plain-name suppliers
+    profiles: list[ProfileIn] = []
+    tariffs: list[TariffIn] = []
+    regulated: RegulatedIn = RegulatedIn()
+    notices: NoticesIn = NoticesIn()
+    damMonthly: list[Any] = Field(default_factory=lambda: [None] * 12)
+    damBySlot: list[Any] = []
+    damDailyData: list[Any] = []
+    damRowCount: int = 0
+    damYear: int = 2026
+    savedAt: str | None = None
