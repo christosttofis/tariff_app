@@ -15,3 +15,4 @@ tariff-api/tariff.db
 
 # Generated locally, not tracked
 TECHNICAL_ARCHITECTURE_REVIEW.pdf
+tariff-api/scripts/customer_calc_verify.png
