@@ -7,7 +7,7 @@ this module does not run its own cost calculation.
 
 from datetime import date, timedelta
 
-from .regulated import mdm_for_tariff, regulated_breakdown
+from .regulated import get_tariff_fpa, mdm_for_tariff, regulated_breakdown
 
 
 def _to_int32(n: int) -> int:
@@ -102,6 +102,7 @@ def build_sample_invoice_data(
     return {
         "startDate": period["startDate"], "endDate": period["endDate"], "monthsCount": len(month_indices),
         "periodKwh": period_kwh, "lastYearKwh": last_year_kwh,
+        "fpaRate": get_tariff_fpa(tariff, regulated_rates),
         "energy": energy, "fpa": fpa, "standing": standing,
         "energyFull": energy_full, "fpaFull": fpa_full, "standingFull": standing_full,
         "supplierTotal": supplier_total,

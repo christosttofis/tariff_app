@@ -40,7 +40,7 @@ from routers import auth as auth_router
 from routers import public_calc as public_calc_router
 from routers.admin import run_due_scheduled_notifications
 from schemas import TariffReportIn
-from serializers import profile_to_dict, supplier_to_dict, tariff_to_dict
+from serializers import supplier_to_dict, tariff_to_public_summary_dict
 
 logger = logging.getLogger(__name__)
 
@@ -239,42 +239,27 @@ app.include_router(public_calc_router.router)
 
 # ── Public endpoint ───────────────────────────────────────────────────────────
 
-@app.get("/api/public/config", summary="Config consumed by customer calculator")
+@app.get("/api/public/config", summary="Display/filter metadata consumed by customer calculator")
 def get_public_config(db: Session = Depends(get_db)):
     """
-    Returns a JSON object in exactly the same shape as the localStorage
-    'elec-config-v5' key, but only includes tariffs with status='approved'.
+    Display-only metadata for the public customer calculator — supplier
+    contact info, per-tariff filter/display fields (no rates, discounts,
+    load profiles, regulated rates, or DAM price data). Pricing is computed
+    server-side via POST /api/public/calculate and POST /api/public/sample-invoice
+    instead — see SECURITY_REMEDIATION_PLAN_customer_data_exposure.md
+    (Phase 3: this is the endpoint the data-exposure fix actually lands on).
+    Only includes tariffs with status='approved'.
     """
     suppliers = db.query(models.Supplier).all()
-    profiles  = db.query(models.Profile).all()
     tariffs   = db.query(models.Tariff).filter(models.Tariff.status == "approved").all()
-    regulated = db.query(models.Regulated).first()
-    dam       = db.query(models.DamData).first()
     notices   = db.query(models.Notices).first()
     sample_invoice_cfg = db.query(models.SampleInvoiceConfig).first()
     changelog = db.query(models.Changelog).order_by(models.Changelog.ts.desc()).all()
 
-    reg = regulated
     return {
         "version": 5,
         "suppliers": [supplier_to_dict(s) for s in suppliers],
-        "profiles":  [profile_to_dict(p)  for p in profiles],
-        "tariffs":   [tariff_to_dict(t)   for t in tariffs],
-        "regulated": {
-            "lv":    reg.lv    if reg else 0,
-            "mv":    reg.mv    if reg else 0,
-            "hv":    reg.hv    if reg else 0,
-            "fpaLV": reg.fpaLV if reg else 0,
-            "fpaMV": reg.fpaMV if reg else 0,
-            "fpaHV": reg.fpaHV if reg else 0,
-            "pso":   reg.pso   if reg else 0,
-            "res":   reg.res   if reg else 0,
-            "mdm":   reg.mdm   if reg else 0,
-            "updated_at":         reg.updated_at         if reg else None,
-            "fpa_updated_at":     reg.fpa_updated_at     if reg else None,
-            "grid_updated_at":    reg.grid_updated_at    if reg else None,
-            "universal_updated_at": reg.universal_updated_at if reg else None,
-        },
+        "tariffs":   [tariff_to_public_summary_dict(t) for t in tariffs],
         "notices": {
             "assumptions_en": notices.assumptions_en or "" if notices else "",
             "assumptions_el": notices.assumptions_el or "" if notices else "",
@@ -284,11 +269,6 @@ def get_public_config(db: Session = Depends(get_db)):
             "vulnerable_el":  notices.vulnerable_el  or "" if notices else "",
         },
         "sampleInvoiceEnabled": bool(sample_invoice_cfg.enabled) if sample_invoice_cfg else False,
-        "damMonthly":   json.loads(dam.damMonthly)   if dam and dam.damMonthly   else [None] * 12,
-        "damBySlot":    json.loads(dam.damBySlot)    if dam and dam.damBySlot    else [],
-        "damDailyData": json.loads(dam.damDailyData) if dam and dam.damDailyData else [[] for _ in range(12)],
-        "damRowCount":  dam.damRowCount if dam else 0,
-        "damYear":      dam.damYear     if dam else 2026,
         "changelog": [
             {
                 "id": c.id, "tariffId": c.tariffId, "tariffName": c.tariffName,

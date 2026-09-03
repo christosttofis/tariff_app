@@ -35,8 +35,10 @@ def _load_context(db: Session):
         for t in db.query(models.Tariff).filter(models.Tariff.status == "approved").all()
     ]
     profiles_by_id = {}
+    profile_names = {}
     for p in db.query(models.Profile).all():
         profiles_by_id[p.id] = json.loads(p.months) if p.months else []
+        profile_names[p.id] = p.name
     suppliers_regulated = {s.name: bool(s.regulated) for s in db.query(models.Supplier).all()}
     reg_row = db.query(models.Regulated).first()
     regulated_rates = get_regulated_rates({
@@ -48,7 +50,7 @@ def _load_context(db: Session):
     dam_monthly = json.loads(dam.damMonthly) if dam and dam.damMonthly else [None] * 12
     dam_by_slot = json.loads(dam.damBySlot) if dam and dam.damBySlot else []
     dam_daily_data = json.loads(dam.damDailyData) if dam and dam.damDailyData else [[] for _ in range(12)]
-    return tariffs, profiles_by_id, suppliers_regulated, regulated_rates, dam_monthly, dam_by_slot, dam_daily_data
+    return tariffs, profiles_by_id, profile_names, suppliers_regulated, regulated_rates, dam_monthly, dam_by_slot, dam_daily_data
 
 
 def _calc_kwargs(t: dict, profiles_by_id: dict, regulated_rates: dict, *, is_monthly, monthly_kwh_flat, annual_kwh, discount_overrides, offers_enabled, dam_monthly, dam_by_slot, dam_daily_data) -> dict:
@@ -68,7 +70,8 @@ def _calc_kwargs(t: dict, profiles_by_id: dict, regulated_rates: dict, *, is_mon
 
 @router.post("/calculate", summary="Compute ranked tariff comparison for the customer calculator")
 def calculate(body: PublicCalculateIn, db: Session = Depends(get_db)):
-    tariffs, profiles_by_id, suppliers_regulated, regulated_rates, dam_monthly, dam_by_slot, dam_daily_data = _load_context(db)
+    tariffs, profiles_by_id, profile_names, suppliers_regulated, regulated_rates, dam_monthly, dam_by_slot, dam_daily_data = _load_context(db)
+    has_slot_dam = any(v is not None for month in (dam_by_slot or []) for v in (month or []))
 
     if body.customerType == "domestic":
         voltage, contracts, load_entitlement = "LV", ["Domestic"], None
@@ -125,6 +128,11 @@ def calculate(body: PublicCalculateIn, db: Session = Depends(get_db)):
             "moKwh": mo_kwh,
             "regBd": {k: v for k, v in reg_bd.items() if k != "total"},
             "fpaRate": get_tariff_fpa(t, regulated_rates),
+            # Already shown to the customer today (renderDiscountToggles) —
+            # not new exposure, just relocated alongside the rest of the
+            # per-tariff pricing result.
+            "discounts": t.get("discounts") or [],
+            "profileName": profile_names.get(t.get("profileId")),
         }
         if t.get("pricing") == "Variable":
             entry["tierSummary"] = format_tier_summary(t)
@@ -135,12 +143,12 @@ def calculate(body: PublicCalculateIn, db: Session = Depends(get_db)):
         results.append(entry)
 
     results.sort(key=lambda r: r["base"])
-    return {"results": results, "noDamTariffs": no_dam}
+    return {"results": results, "noDamTariffs": no_dam, "hasSlotDam": has_slot_dam}
 
 
 @router.post("/sample-invoice", summary="Compute the on-demand sample-invoice modal data for one tariff")
 def sample_invoice(body: PublicSampleInvoiceIn, db: Session = Depends(get_db)):
-    tariffs, profiles_by_id, suppliers_regulated, regulated_rates, dam_monthly, dam_by_slot, dam_daily_data = _load_context(db)
+    tariffs, profiles_by_id, profile_names, suppliers_regulated, regulated_rates, dam_monthly, dam_by_slot, dam_daily_data = _load_context(db)
     t = next((x for x in tariffs if x["id"] == body.tariffId), None)
     if not t:
         raise HTTPException(404, "Tariff not found")
