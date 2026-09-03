@@ -125,6 +125,11 @@ html.a11y-mode a{text-decoration:underline}
 .rank-detail.open .rank-detail-inner{opacity:1}
 .rank-detail-pad{padding:16px;border-top:1px solid var(--border)}
 @keyframes cardIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
+#results-area{position:relative;min-height:40px}
+.results-loading-overlay{position:absolute;inset:0;background:rgba(234,238,244,.88);display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:var(--text2);font-family:var(--mono);font-weight:500;z-index:5;border-radius:2px;opacity:0;transition:opacity .15s;pointer-events:none}
+.results-loading-overlay.visible{opacity:1;pointer-events:auto}
 .ranked-list.intro>.rank-card{animation:cardIn .5s cubic-bezier(.22,.7,.25,1) backwards}
 .ranked-list.intro>.rank-card:nth-child(1){animation-delay:.04s}
 .ranked-list.intro>.rank-card:nth-child(2){animation-delay:.1s}
@@ -594,8 +599,11 @@ body{
     </div>
   </div>
 
-  <div id="results-area">
-    <div class="card prompt-card" id="prompt-enter" style="text-align:center;padding:32px;color:var(--text3);font-size:13px">${T('PROMPT_ENTER')}</div>
+  <div id="results-area-wrap" style="position:relative">
+    <div id="results-area">
+      <div class="card prompt-card" id="prompt-enter" style="text-align:center;padding:32px;color:var(--text3);font-size:13px">${T('PROMPT_ENTER')}</div>
+    </div>
+    <div id="results-loading" class="results-loading-overlay" aria-hidden="true"><span class="spinner"></span><span id="results-loading-label"></span></div>
   </div>
 </div>
 
@@ -749,6 +757,7 @@ const LANG = {
     NO_CONFIG_BODY: "Open <strong>admin.html</strong> in the same browser, set up your suppliers and tariffs, then click <em>Save &amp; publish</em>.",
     PROMPT_ENTER: "Enter your consumption above to compare tariffs.",
     CALC_ERROR: "Unable to calculate tariffs right now — please try again in a moment.",
+    CALC_LOADING: "Calculating…",
     DISC_HEADER: "🏷 Available discounts — uncheck if not applicable",
     DISC_ENERGY_LABEL: "⚡ Energy discount",
     DISC_STANDING_LABEL: "📋 Standing discount",
@@ -969,6 +978,7 @@ const LANG = {
     NO_CONFIG_BODY: "Ανοίξτε το αρχείο <strong>admin.html</strong> στο ίδιο πρόγραμμα περιήγησης, ρυθμίστε τους προμηθευτές και τις τιμές, και κάντε κλικ στην επιλογή <em>Αποθήκευση &amp; δημοσίευση</em>.",
     PROMPT_ENTER: "Εισάγετε την κατανάλωση σας πιο πάνω για σύγκριση διατιμήσεων.",
     CALC_ERROR: "Δεν ήταν δυνατός ο υπολογισμός αυτή τη στιγμή — δοκιμάστε ξανά σε λίγο.",
+    CALC_LOADING: "Υπολογισμός…",
     DISC_HEADER: "🏷 Διαθέσιμες εκπτώσεις — επιλέξτε ότι ισχύει",
     DISC_ENERGY_LABEL: "⚡ Έκπτωση στην ενέργεια",
     DISC_STANDING_LABEL: "📋 Έκπτωση στο Πάγιο",
@@ -1424,10 +1434,12 @@ async function submitReportIssue(){
    a real EAC bill (letterhead info block, consumption/last-year comparison
    with a small chart, itemised charges, highlighted total) — customer name,
    address, account and meter numbers are all fixed placeholders, never real. */
-async function openSampleInvoice(tariffId){
+async function openSampleInvoice(tariffId,btn){
   const t=cfg.tariffs.find(x=>x.id===tariffId);
   if(!t) return;
   const showOffers=document.getElementById('offers-check')?.checked!==false;
+  const origBtnHtml=btn?btn.innerHTML:null;
+  if(btn){ btn.disabled=true; btn.innerHTML='<span class="spinner" style="width:12px;height:12px"></span> '+T('CALC_LOADING'); }
   let data;
   try{
     const resp=await fetch('/api/public/sample-invoice',{
@@ -1443,6 +1455,7 @@ async function openSampleInvoice(tariffId){
     if(!resp.ok) throw new Error('status '+resp.status);
     data=await resp.json();
   }catch(e){ return; }
+  finally{ if(btn){ btn.disabled=false; btn.innerHTML=origBtnHtml; } }
   if(!data) return;
   data.t=t;
   data.startDate=new Date(data.startDate+'T00:00:00');
@@ -1701,6 +1714,23 @@ async function fetchCalculate(payload){
   return resp.json();
 }
 
+// Loading indicator for the results area — only shown if a /calculate
+// request is still pending after a short grace period, so a fast (e.g.
+// local/dev) response never flickers a spinner on screen.
+let _loadingShowTimer=null;
+function showLoadingSoon(){
+  clearTimeout(_loadingShowTimer);
+  _loadingShowTimer=setTimeout(()=>{
+    const lbl=document.getElementById('results-loading-label');
+    if(lbl) lbl.textContent=T('CALC_LOADING');
+    document.getElementById('results-loading')?.classList.add('visible');
+  },250);
+}
+function hideLoading(){
+  clearTimeout(_loadingShowTimer);
+  document.getElementById('results-loading')?.classList.remove('visible');
+}
+
 async function applyFilters(){
   const {voltage,contracts,le}=getFilterParams();
   const pricing=document.getElementById('sel-pricing').value;
@@ -1716,6 +1746,7 @@ async function applyFilters(){
 
   if(annualKwh<=0){
     _resultsVisible=false;
+    hideLoading();
     area.innerHTML=`<div class="card prompt-card" id="prompt-enter" style="text-align:center;padding:32px;color:var(--text3);font-size:13px">${T('PROMPT_ENTER')}</div>`;
     return;
   }
@@ -1729,6 +1760,7 @@ async function applyFilters(){
   // request's response landing after a newer one (e.g. fast typing in the
   // consumption field).
   const reqId=++_calcReqId;
+  showLoadingSoon();
   let data;
   try{
     data=await fetchCalculate({
@@ -1741,10 +1773,12 @@ async function applyFilters(){
     });
   }catch(e){
     if(reqId!==_calcReqId) return;
+    hideLoading();
     area.innerHTML=`<div class="card" style="text-align:center;padding:32px;color:var(--text3);font-size:13px">${T('CALC_ERROR')}</div>`;
     return;
   }
   if(reqId!==_calcReqId) return;
+  hideLoading();
 
   const scored=(data.results||[]).map(r=>{
     const t=cfg.tariffs.find(x=>x.id===r.id);
@@ -1910,7 +1944,7 @@ async function applyFilters(){
             ${T('BTN_CONTACT')}
           </button>
           ${cfg.sampleInvoiceEnabled?`<button data-tid="${esc(t.id)}"
-            onclick="event.stopPropagation();openSampleInvoice(this.dataset.tid)"
+            onclick="event.stopPropagation();openSampleInvoice(this.dataset.tid,this)"
             style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:2px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:12px;font-family:var(--font);cursor:pointer;transition:all .12s"
             onmouseover="this.style.background='var(--accent)';this.style.color='#fff';this.style.borderColor='var(--accent)'"
             onmouseout="this.style.background='var(--bg3)';this.style.color='var(--text2)';this.style.borderColor='var(--border2)'">
