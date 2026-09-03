@@ -164,6 +164,36 @@ class DamIn(BaseModel):
     damYear: int = 2026
 
 
+class PublicCalculateIn(BaseModel):
+    """Inputs for POST /api/public/calculate — mirrors exactly what
+    customer.html's applyFilters() derives from the DOM/window state before
+    running its (now server-side) cost engine. See
+    SECURITY_REMEDIATION_PLAN_customer_data_exposure.md."""
+    customerType: Literal["domestic", "ci"]
+    voltage: Literal["LV", "MV", "HV"] = "LV"
+    loadEntitlement: Literal["lt70", "gt70"] | None = None
+    pricingFilter: Literal["All", "Fixed", "ToU", "Variable", "Dynamic"] = "All"
+    vulnerableEligible: bool = False
+    offersEnabled: bool = True
+    inputMode: Literal["annual", "monthly"]
+    annualKwh: float = 0
+    monthlyKwh: float = 0
+    billingPeriod: Literal[1, 2] = 1
+    # {tariffId: {"<tariffId>_disc_<index>": bool}} — same shape as the
+    # client's existing window._discountState.
+    discountOverrides: dict[str, dict[str, bool]] = {}
+
+
+class PublicSampleInvoiceIn(BaseModel):
+    tariffId: str = Field(..., max_length=100)
+    inputMode: Literal["annual", "monthly"]
+    annualKwh: float = 0
+    monthlyKwh: float = 0
+    billingPeriod: Literal[1, 2] = 1
+    offersEnabled: bool = True
+    discountOverrides: dict[str, dict[str, bool]] = {}
+
+
 class ConfigImportIn(BaseModel):
     """Shape of the full localStorage cfg JSON snapshot sent by admin.html's
     saveAll() to PUT /api/admin/config — see importer.py for the consumer.

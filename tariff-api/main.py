@@ -37,6 +37,7 @@ from config import TARIFF_BASE_URL
 from database import SessionLocal, get_db
 from routers import admin as admin_router
 from routers import auth as auth_router
+from routers import public_calc as public_calc_router
 from routers.admin import run_due_scheduled_notifications
 from schemas import TariffReportIn
 from serializers import profile_to_dict, supplier_to_dict, tariff_to_dict
@@ -228,6 +229,12 @@ app.include_router(auth_router.router)
 
 # Admin router — all /api/admin/... routes (protected)
 app.include_router(admin_router.router)
+
+# Public calculation router — /api/public/calculate, /api/public/sample-invoice
+# (Phase 1 of the customer-data-exposure fix: engine built and reachable, but
+# customer.html doesn't call it yet and /api/public/config is unchanged — see
+# SECURITY_REMEDIATION_PLAN_customer_data_exposure.md)
+app.include_router(public_calc_router.router)
 
 
 # ── Public endpoint ───────────────────────────────────────────────────────────
