@@ -68,6 +68,15 @@ def profile_to_dict(p: models.Profile) -> dict:
     }
 
 
+def profile_to_summary_dict(p: models.Profile) -> dict:
+    """Display-only fields for the profile-picker dropdown (supplier.html) —
+    no raw half-hourly shape data. Suppliers only ever render id/name/desc;
+    the full months array is needed only by admin.html's profile management
+    UI (coverage tables, per-month shape preview), which uses profile_to_dict
+    instead."""
+    return {"id": p.id, "name": p.name, "desc": p.desc}
+
+
 def message_to_dict(m: models.Message) -> dict:
     return {
         "id": m.id,

@@ -41,8 +41,8 @@ from schemas import (
     TariffReportStatusIn, TariffStatusIn, UserOtpToggleIn, UserStatusIn,
 )
 from serializers import (
-    message_to_dict, profile_to_dict, scheduled_notification_to_dict, supplier_to_dict,
-    tariff_report_to_dict, tariff_to_dict,
+    message_to_dict, profile_to_dict, profile_to_summary_dict, scheduled_notification_to_dict,
+    supplier_to_dict, tariff_report_to_dict, tariff_to_dict,
 )
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -988,7 +988,13 @@ def run_due_scheduled_notifications(db: Session) -> None:
 
 @router.get("/profiles", summary="List all profiles")
 def list_profiles(db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
-    return [profile_to_dict(p) for p in db.query(models.Profile).all()]
+    """Suppliers only ever render id/name/desc (the profile-picker dropdown
+    in supplier.html) — the full half-hourly shape data is withheld from
+    them and returned only to admins, who need it for profile management."""
+    profiles = db.query(models.Profile).all()
+    if user.is_supplier:
+        return [profile_to_summary_dict(p) for p in profiles]
+    return [profile_to_dict(p) for p in profiles]
 
 
 @router.post("/profiles", status_code=201, summary="Create a profile (admin only)")
