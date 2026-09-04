@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
 <title>Tariff Admin</title>
 <link rel="icon" type="image/png" href="Logo_Transparent.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4487,7 +4488,8 @@ async function saveSampleInvoiceConfig(){
     const resp=await fetch(_adminApiBase+'/api/admin/sample-invoice',{method:'PUT',headers:authHeaders(),body:JSON.stringify({enabled:cb.checked})});
     if(resp.status===401){showLogin('Session expired.');return;}
     if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(st,'err','Save failed: '+(e.detail||resp.status));return;}
-    showStatus(st,'ok','Saved ✓ — now live on the customer calculator.');
+    if(cb.checked) showStatus(st,'ok','Saved ✓ — now live on the customer calculator.');
+    else showStatus(st,'err','Saved ✓ — now disabled on the customer calculator.');
   } catch(e){showStatus(st,'err','Save failed: '+e.message);}
 }
 

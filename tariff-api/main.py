@@ -24,8 +24,10 @@ load_dotenv()  # loads tariff-api/.env if present
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 import jwt
@@ -33,7 +35,7 @@ import jwt
 import email_utils
 import models
 from auth import ACCESS_COOKIE_NAME, ALGORITHM, SECRET_KEY, run_password_expiry_check
-from config import TARIFF_BASE_URL
+from config import TARIFF_BASE_URL, TARIFF_ENABLE_DOCS
 from database import SessionLocal, get_db
 from routers import admin as admin_router
 from routers import auth as auth_router
@@ -64,6 +66,9 @@ app = FastAPI(
     title="CERA Tariff API",
     version="0.3.0",
     description="Backend for the Cyprus electricity tariff comparison tool.",
+    docs_url="/docs" if TARIFF_ENABLE_DOCS else None,
+    redoc_url="/redoc" if TARIFF_ENABLE_DOCS else None,
+    openapi_url="/openapi.json" if TARIFF_ENABLE_DOCS else None,
 )
 
 # ── Per-IP rate limiting ────────────────────────────────────────────────────
@@ -141,6 +146,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# customer.html/admin.html are hundreds of KB of uncompressed HTML+inline JS
+# served on every page load; gzip cuts that transfer size substantially with
+# no code changes on the frontend side.
+app.add_middleware(GZipMiddleware, minimum_size=500)
+
 # Content-Security-Policy — permissive on script/style ('unsafe-inline') because the
 # frontend is ~hundreds of inline onclick="..." handlers plus inline <script> blocks;
 # blocking those without 'unsafe-inline' would require refactoring every handler to
@@ -166,6 +176,14 @@ _CSP_POLICY = (
 async def add_csp_header(request, call_next):
     response = await call_next(request)
     response.headers["Content-Security-Policy"] = _CSP_POLICY
+    # Standard hardening headers alongside CSP: block MIME-sniffing away from
+    # the declared Content-Type, avoid leaking the full referrer URL to other
+    # origins, and disable browser features this app never uses.
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    if request.url.scheme == "https":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
 
 
@@ -235,6 +253,25 @@ app.include_router(admin_router.router)
 # customer.html doesn't call it yet and /api/public/config is unchanged — see
 # SECURITY_REMEDIATION_PLAN_customer_data_exposure.md)
 app.include_router(public_calc_router.router)
+
+
+# Unhandled exceptions otherwise fall through to Starlette's default
+# ServerErrorMiddleware, which returns a plain-text "Internal Server Error"
+# body rather than JSON - every other error path in this app (HTTPException,
+# the rate-limit 429) returns JSON with a "detail"/"error" key, and the
+# frontend's error handling (e.g. admin.html:1886, `e.detail||resp.status`)
+# expects JSON it can parse. This keeps a 500 in that same shape and ensures
+# it's always logged server-side.
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
+    return JSONResponse({"detail": "Internal server error"}, status_code=500)
+
+
+@app.get("/health", summary="Liveness/readiness check for uptime monitoring and load balancers")
+def health(db: Session = Depends(get_db)):
+    db.execute(text("SELECT 1"))
+    return {"status": "ok"}
 
 
 # ── Public endpoint ───────────────────────────────────────────────────────────

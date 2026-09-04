@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="Compare electricity tariffs in Cyprus and estimate your annual or per-bill cost, provided free by the Cyprus Energy Regulatory Authority (CERA).">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CERA">
+<meta property="og:title" content="Electricity Cost Calculator">
+<meta property="og:description" content="Compare electricity tariffs in Cyprus and estimate your annual or per-bill cost, provided free by the Cyprus Energy Regulatory Authority (CERA).">
+<meta name="twitter:card" content="summary">
 <title>Electricity Cost Calculator</title>
 <link rel="icon" type="image/png" href="Logo_Transparent.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -413,6 +418,8 @@ body{
 .invoice-box{border:1px solid var(--border2)}
 .invoice-head{background:var(--bg3);border-bottom:2px solid var(--accent)}
 .invoice-head h2{font-size:14px;font-weight:500}
+.invoice-title-supplier{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3)}
+.invoice-title-tariff{font-size:15px;font-weight:600;color:var(--text);margin-top:1px}
 .invoice-banner{background:#fef3c7;color:#92400e;border:1px solid #f59e0b;border-radius:3px;padding:7px 12px;font-size:12px;font-weight:500;margin-bottom:14px;text-align:center}
 .invoice-letterhead{display:grid;grid-template-columns:1fr 1fr;gap:0 18px;background:var(--bg3);border:1px solid var(--border2);border-radius:3px;padding:12px 14px;margin-bottom:16px}
 .invoice-info-row{display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:12px;border-bottom:1px dotted var(--border2)}
@@ -729,6 +736,7 @@ const LANG = {
     SAMPLE_INV_LBL_ADDRESS: "Supply address",
     SAMPLE_INV_LBL_METER: "Meter number",
     SAMPLE_INV_LBL_TARIFF: "Tariff",
+    SAMPLE_INV_LBL_SUPPLIER: "Supplier",
     SAMPLE_INV_LBL_PERIOD: "Billing period",
     SAMPLE_INV_CONSUMPTION_TITLE: "Consumption",
     SAMPLE_INV_LBL_THIS_PERIOD: "This period",
@@ -950,6 +958,7 @@ const LANG = {
     SAMPLE_INV_LBL_ADDRESS: "Διεύθυνση παροχής",
     SAMPLE_INV_LBL_METER: "Αριθμός μετρητή",
     SAMPLE_INV_LBL_TARIFF: "Διατίμηση",
+    SAMPLE_INV_LBL_SUPPLIER: "Προμηθευτής",
     SAMPLE_INV_LBL_PERIOD: "Περίοδος χρέωσης",
     SAMPLE_INV_CONSUMPTION_TITLE: "Κατανάλωση",
     SAMPLE_INV_LBL_THIS_PERIOD: "Τρέχουσα περίοδος",
@@ -1460,7 +1469,9 @@ async function openSampleInvoice(tariffId,btn){
   data.t=t;
   data.startDate=new Date(data.startDate+'T00:00:00');
   data.endDate=new Date(data.endDate+'T00:00:00');
-  document.getElementById('sample-invoice-title').textContent=`${t.name} — ${t.supplier}`;
+  document.getElementById('sample-invoice-title').innerHTML=
+    `<div class="invoice-title-supplier">${esc(t.supplier)}</div>`+
+    `<div class="invoice-title-tariff">${esc(t.name)}</div>`;
   document.getElementById('sample-invoice-body').innerHTML=renderSampleInvoiceBody(data);
   document.getElementById('sample-invoice-overlay').style.display='flex';
   drawSampleInvoiceChart(data);
@@ -1546,7 +1557,8 @@ function renderSampleInvoiceBody(data){
         ${infoRow(T('SAMPLE_INV_LBL_ADDRESS'),T('SAMPLE_INV_EX_ADDRESS'))}
       </div>
       <div>
-        ${infoRow(T('SAMPLE_INV_LBL_TARIFF'),`${t.name} — ${t.supplier}`)}
+        ${infoRow(T('SAMPLE_INV_LBL_SUPPLIER'),t.supplier)}
+        ${infoRow(T('SAMPLE_INV_LBL_TARIFF'),t.name)}
         ${infoRow(T('SAMPLE_INV_LBL_METER'),T('SAMPLE_INV_EX_METER'))}
         ${infoRow(T('SAMPLE_INV_LBL_PERIOD'),`${fmtInvoiceDate(startDate)} – ${fmtInvoiceDate(endDate)}`)}
       </div>
