@@ -41,8 +41,8 @@ from schemas import (
     TariffReportStatusIn, TariffStatusIn, UserOtpToggleIn, UserStatusIn,
 )
 from serializers import (
-    message_to_dict, profile_to_dict, scheduled_notification_to_dict, supplier_to_dict,
-    tariff_report_to_dict, tariff_to_dict,
+    message_to_dict, profile_to_dict, profile_to_summary_dict, scheduled_notification_to_dict,
+    supplier_to_dict, tariff_report_to_dict, tariff_to_dict,
 )
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -532,12 +532,15 @@ def download_document(
     user: CurrentUser = Depends(get_current_user),
 ):
     doc = db.get(models.TariffDocument, doc_id)
+    # Same 404 for "doesn't exist" and "exists but isn't yours" — a distinct
+    # 403 here would let an authenticated supplier enumerate which document
+    # IDs exist system-wide just from the response code.
     if not doc:
         raise HTTPException(404, "Document not found.")
     if user.role == "supplier":
         t = db.query(models.Tariff).filter(models.Tariff.id == doc.tariff_id).first()
         if not t or t.supplier != user.supplier_name:
-            raise HTTPException(403, "Access denied.")
+            raise HTTPException(404, "Document not found.")
     file_path = _UPLOAD_DIR / doc.stored_name
     if not file_path.exists():
         raise HTTPException(404, "File not found on server.")
@@ -988,7 +991,13 @@ def run_due_scheduled_notifications(db: Session) -> None:
 
 @router.get("/profiles", summary="List all profiles")
 def list_profiles(db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
-    return [profile_to_dict(p) for p in db.query(models.Profile).all()]
+    """Suppliers only ever render id/name/desc (the profile-picker dropdown
+    in supplier.html) — the full half-hourly shape data is withheld from
+    them and returned only to admins, who need it for profile management."""
+    profiles = db.query(models.Profile).all()
+    if user.is_supplier:
+        return [profile_to_summary_dict(p) for p in profiles]
+    return [profile_to_dict(p) for p in profiles]
 
 
 @router.post("/profiles", status_code=201, summary="Create a profile (admin only)")

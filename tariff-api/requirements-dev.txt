@@ -1,0 +1,4 @@
+# Dev/test-only dependencies — not needed to run the app in production.
+# Install with: .venv/Scripts/python.exe -m pip install -r requirements-dev.txt
+# then: .venv/Scripts/python.exe -m playwright install chromium
+playwright==1.61.0

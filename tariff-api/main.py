@@ -13,6 +13,7 @@ Then open:
 import asyncio
 import json
 import logging
+import math
 import random
 import string
 import time
@@ -23,9 +24,13 @@ from dotenv import load_dotenv
 load_dotenv()  # loads tariff-api/.env if present
 
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 import jwt
@@ -33,13 +38,14 @@ import jwt
 import email_utils
 import models
 from auth import ACCESS_COOKIE_NAME, ALGORITHM, SECRET_KEY, run_password_expiry_check
-from config import TARIFF_BASE_URL
+from config import TARIFF_BASE_URL, TARIFF_ENABLE_DOCS
 from database import SessionLocal, get_db
 from routers import admin as admin_router
 from routers import auth as auth_router
+from routers import public_calc as public_calc_router
 from routers.admin import run_due_scheduled_notifications
 from schemas import TariffReportIn
-from serializers import profile_to_dict, supplier_to_dict, tariff_to_dict
+from serializers import supplier_to_dict, tariff_to_public_summary_dict
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +69,9 @@ app = FastAPI(
     title="CERA Tariff API",
     version="0.3.0",
     description="Backend for the Cyprus electricity tariff comparison tool.",
+    docs_url="/docs" if TARIFF_ENABLE_DOCS else None,
+    redoc_url="/redoc" if TARIFF_ENABLE_DOCS else None,
+    openapi_url="/openapi.json" if TARIFF_ENABLE_DOCS else None,
 )
 
 # ── Per-IP rate limiting ────────────────────────────────────────────────────
@@ -140,6 +149,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# customer.html/admin.html are hundreds of KB of uncompressed HTML+inline JS
+# served on every page load; gzip cuts that transfer size substantially with
+# no code changes on the frontend side.
+app.add_middleware(GZipMiddleware, minimum_size=500)
+
 # Content-Security-Policy — permissive on script/style ('unsafe-inline') because the
 # frontend is ~hundreds of inline onclick="..." handlers plus inline <script> blocks;
 # blocking those without 'unsafe-inline' would require refactoring every handler to
@@ -165,6 +179,14 @@ _CSP_POLICY = (
 async def add_csp_header(request, call_next):
     response = await call_next(request)
     response.headers["Content-Security-Policy"] = _CSP_POLICY
+    # Standard hardening headers alongside CSP: block MIME-sniffing away from
+    # the declared Content-Type, avoid leaking the full referrer URL to other
+    # origins, and disable browser features this app never uses.
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    if request.url.scheme == "https":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
 
 
@@ -229,45 +251,82 @@ app.include_router(auth_router.router)
 # Admin router — all /api/admin/... routes (protected)
 app.include_router(admin_router.router)
 
+# Public calculation router — /api/public/calculate, /api/public/sample-invoice
+# (Phase 1 of the customer-data-exposure fix: engine built and reachable, but
+# customer.html doesn't call it yet and /api/public/config is unchanged — see
+# SECURITY_REMEDIATION_PLAN_customer_data_exposure.md)
+app.include_router(public_calc_router.router)
+
+
+# Unhandled exceptions otherwise fall through to Starlette's default
+# ServerErrorMiddleware, which returns a plain-text "Internal Server Error"
+# body rather than JSON - every other error path in this app (HTTPException,
+# the rate-limit 429) returns JSON with a "detail"/"error" key, and the
+# frontend's error handling (e.g. admin.html:1886, `e.detail||resp.status`)
+# expects JSON it can parse. This keeps a 500 in that same shape and ensures
+# it's always logged server-side.
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
+    return JSONResponse({"detail": "Internal server error"}, status_code=500)
+
+
+def _sanitize_non_finite(obj):
+    """Replace NaN/Infinity floats with their str() form so the result is
+    always strict-JSON-serializable."""
+    if isinstance(obj, float) and not math.isfinite(obj):
+        return str(obj)
+    if isinstance(obj, dict):
+        return {k: _sanitize_non_finite(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_non_finite(v) for v in obj]
+    return obj
+
+
+# A request that fails validation because a numeric field is NaN/Infinity
+# (rejected via allow_inf_nan=False on the public calculate/sample-invoice
+# schemas) has that same NaN/Infinity value echoed back in the error detail's
+# "input" field by FastAPI's default handler - and Starlette's JSONResponse
+# uses strict JSON encoding (allow_nan=False), so *serializing that 422*
+# raises and becomes an unhandled 500 instead. Same shape as FastAPI's
+# default handler, just with non-finite floats in the payload made safe first.
+@app.exception_handler(RequestValidationError)
+async def _validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        {"detail": _sanitize_non_finite(jsonable_encoder(exc.errors()))},
+        status_code=422,
+    )
+
+
+@app.get("/health", summary="Liveness/readiness check for uptime monitoring and load balancers")
+def health(db: Session = Depends(get_db)):
+    db.execute(text("SELECT 1"))
+    return {"status": "ok"}
+
 
 # ── Public endpoint ───────────────────────────────────────────────────────────
 
-@app.get("/api/public/config", summary="Config consumed by customer calculator")
+@app.get("/api/public/config", summary="Display/filter metadata consumed by customer calculator")
 def get_public_config(db: Session = Depends(get_db)):
     """
-    Returns a JSON object in exactly the same shape as the localStorage
-    'elec-config-v5' key, but only includes tariffs with status='approved'.
+    Display-only metadata for the public customer calculator — supplier
+    contact info, per-tariff filter/display fields (no rates, discounts,
+    load profiles, regulated rates, or DAM price data). Pricing is computed
+    server-side via POST /api/public/calculate and POST /api/public/sample-invoice
+    instead — see SECURITY_REMEDIATION_PLAN_customer_data_exposure.md
+    (Phase 3: this is the endpoint the data-exposure fix actually lands on).
+    Only includes tariffs with status='approved'.
     """
     suppliers = db.query(models.Supplier).all()
-    profiles  = db.query(models.Profile).all()
     tariffs   = db.query(models.Tariff).filter(models.Tariff.status == "approved").all()
-    regulated = db.query(models.Regulated).first()
-    dam       = db.query(models.DamData).first()
     notices   = db.query(models.Notices).first()
     sample_invoice_cfg = db.query(models.SampleInvoiceConfig).first()
     changelog = db.query(models.Changelog).order_by(models.Changelog.ts.desc()).all()
 
-    reg = regulated
     return {
         "version": 5,
         "suppliers": [supplier_to_dict(s) for s in suppliers],
-        "profiles":  [profile_to_dict(p)  for p in profiles],
-        "tariffs":   [tariff_to_dict(t)   for t in tariffs],
-        "regulated": {
-            "lv":    reg.lv    if reg else 0,
-            "mv":    reg.mv    if reg else 0,
-            "hv":    reg.hv    if reg else 0,
-            "fpaLV": reg.fpaLV if reg else 0,
-            "fpaMV": reg.fpaMV if reg else 0,
-            "fpaHV": reg.fpaHV if reg else 0,
-            "pso":   reg.pso   if reg else 0,
-            "res":   reg.res   if reg else 0,
-            "mdm":   reg.mdm   if reg else 0,
-            "updated_at":         reg.updated_at         if reg else None,
-            "fpa_updated_at":     reg.fpa_updated_at     if reg else None,
-            "grid_updated_at":    reg.grid_updated_at    if reg else None,
-            "universal_updated_at": reg.universal_updated_at if reg else None,
-        },
+        "tariffs":   [tariff_to_public_summary_dict(t) for t in tariffs],
         "notices": {
             "assumptions_en": notices.assumptions_en or "" if notices else "",
             "assumptions_el": notices.assumptions_el or "" if notices else "",
@@ -277,11 +336,6 @@ def get_public_config(db: Session = Depends(get_db)):
             "vulnerable_el":  notices.vulnerable_el  or "" if notices else "",
         },
         "sampleInvoiceEnabled": bool(sample_invoice_cfg.enabled) if sample_invoice_cfg else False,
-        "damMonthly":   json.loads(dam.damMonthly)   if dam and dam.damMonthly   else [None] * 12,
-        "damBySlot":    json.loads(dam.damBySlot)    if dam and dam.damBySlot    else [],
-        "damDailyData": json.loads(dam.damDailyData) if dam and dam.damDailyData else [[] for _ in range(12)],
-        "damRowCount":  dam.damRowCount if dam else 0,
-        "damYear":      dam.damYear     if dam else 2026,
         "changelog": [
             {
                 "id": c.id, "tariffId": c.tariffId, "tariffName": c.tariffName,

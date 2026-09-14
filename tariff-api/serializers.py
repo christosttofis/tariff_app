@@ -35,6 +35,26 @@ def tariff_to_dict(t: models.Tariff) -> dict:
     }
 
 
+def tariff_to_public_summary_dict(t: models.Tariff) -> dict:
+    """Display/filter-only fields for the public customer calculator — no
+    rate/discount/profile/FPA-source data (see
+    SECURITY_REMEDIATION_PLAN_customer_data_exposure.md). Pricing is computed
+    server-side via POST /api/public/calculate instead."""
+    return {
+        "id": t.id,
+        "name": t.name,
+        "supplier": t.supplier,
+        "contract": t.contract,
+        "voltage": t.voltage,
+        "pricing": t.pricing,
+        "standing": t.standing,
+        "vulnerable": t.vulnerable,
+        "durationMonths": t.durationMonths,
+        "loadEntitlement": t.loadEntitlement,
+        "updatedAt": t.updatedAt,
+    }
+
+
 def profile_to_dict(p: models.Profile) -> dict:
     return {
         "id": p.id,
@@ -46,6 +66,15 @@ def profile_to_dict(p: models.Profile) -> dict:
         "rows": p.rows,
         "colCount": p.colCount,
     }
+
+
+def profile_to_summary_dict(p: models.Profile) -> dict:
+    """Display-only fields for the profile-picker dropdown (supplier.html) —
+    no raw half-hourly shape data. Suppliers only ever render id/name/desc;
+    the full months array is needed only by admin.html's profile management
+    UI (coverage tables, per-month shape preview), which uses profile_to_dict
+    instead."""
+    return {"id": p.id, "name": p.name, "desc": p.desc}
 
 
 def message_to_dict(m: models.Message) -> dict:
