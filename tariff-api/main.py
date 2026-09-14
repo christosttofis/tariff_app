@@ -13,6 +13,7 @@ Then open:
 import asyncio
 import json
 import logging
+import math
 import random
 import string
 import time
@@ -23,6 +24,8 @@ from dotenv import load_dotenv
 load_dotenv()  # loads tariff-api/.env if present
 
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
@@ -266,6 +269,33 @@ app.include_router(public_calc_router.router)
 async def _unhandled_exception_handler(request: Request, exc: Exception):
     logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
     return JSONResponse({"detail": "Internal server error"}, status_code=500)
+
+
+def _sanitize_non_finite(obj):
+    """Replace NaN/Infinity floats with their str() form so the result is
+    always strict-JSON-serializable."""
+    if isinstance(obj, float) and not math.isfinite(obj):
+        return str(obj)
+    if isinstance(obj, dict):
+        return {k: _sanitize_non_finite(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_non_finite(v) for v in obj]
+    return obj
+
+
+# A request that fails validation because a numeric field is NaN/Infinity
+# (rejected via allow_inf_nan=False on the public calculate/sample-invoice
+# schemas) has that same NaN/Infinity value echoed back in the error detail's
+# "input" field by FastAPI's default handler - and Starlette's JSONResponse
+# uses strict JSON encoding (allow_nan=False), so *serializing that 422*
+# raises and becomes an unhandled 500 instead. Same shape as FastAPI's
+# default handler, just with non-finite floats in the payload made safe first.
+@app.exception_handler(RequestValidationError)
+async def _validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        {"detail": _sanitize_non_finite(jsonable_encoder(exc.errors()))},
+        status_code=422,
+    )
 
 
 @app.get("/health", summary="Liveness/readiness check for uptime monitoring and load balancers")

@@ -10,6 +10,14 @@ from pydantic import BaseModel, Field, field_validator
 
 _URL_RE = re.compile(r"^https?://", re.IGNORECASE)
 
+# Shared constraint for customer-supplied consumption figures (annualKwh/
+# monthlyKwh on the public calculate/sample-invoice endpoints): reject NaN/
+# Infinity (valid JSON per the spec's producers, but not real floats — Pydantic
+# doesn't reject them by default and they crash the pricing engine downstream)
+# and cap at a generous but sane upper bound so a bogus huge value can't
+# produce absurd output instead of a clean validation error.
+_KWH_FIELD = Field(default=0, ge=0, le=5_000_000, allow_inf_nan=False)
+
 
 def _check_email(v: str) -> str:
     """Allows an empty string (field not filled in); validates format otherwise."""
@@ -176,8 +184,8 @@ class PublicCalculateIn(BaseModel):
     vulnerableEligible: bool = False
     offersEnabled: bool = True
     inputMode: Literal["annual", "monthly"]
-    annualKwh: float = 0
-    monthlyKwh: float = 0
+    annualKwh: float = _KWH_FIELD
+    monthlyKwh: float = _KWH_FIELD
     billingPeriod: Literal[1, 2] = 1
     # {tariffId: {"<tariffId>_disc_<index>": bool}} — same shape as the
     # client's existing window._discountState.
@@ -187,8 +195,8 @@ class PublicCalculateIn(BaseModel):
 class PublicSampleInvoiceIn(BaseModel):
     tariffId: str = Field(..., max_length=100)
     inputMode: Literal["annual", "monthly"]
-    annualKwh: float = 0
-    monthlyKwh: float = 0
+    annualKwh: float = _KWH_FIELD
+    monthlyKwh: float = _KWH_FIELD
     billingPeriod: Literal[1, 2] = 1
     offersEnabled: bool = True
     discountOverrides: dict[str, dict[str, bool]] = {}

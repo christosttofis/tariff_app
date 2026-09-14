@@ -532,12 +532,15 @@ def download_document(
     user: CurrentUser = Depends(get_current_user),
 ):
     doc = db.get(models.TariffDocument, doc_id)
+    # Same 404 for "doesn't exist" and "exists but isn't yours" — a distinct
+    # 403 here would let an authenticated supplier enumerate which document
+    # IDs exist system-wide just from the response code.
     if not doc:
         raise HTTPException(404, "Document not found.")
     if user.role == "supplier":
         t = db.query(models.Tariff).filter(models.Tariff.id == doc.tariff_id).first()
         if not t or t.supplier != user.supplier_name:
-            raise HTTPException(403, "Access denied.")
+            raise HTTPException(404, "Document not found.")
     file_path = _UPLOAD_DIR / doc.stored_name
     if not file_path.exists():
         raise HTTPException(404, "File not found on server.")
