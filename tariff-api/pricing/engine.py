@@ -194,7 +194,11 @@ def monthly_breakdown(
                     if is_monthly:
                         kwh_slot = m_kwh * (hhff) / m_hhff if m_hhff > 0 else m_kwh / (dims[m] * 48)
                     else:
-                        kwh_slot = annual_kwh * (hhff) / annual_hhff
+                        # annual_hhff can be 0 for a profile with no shape data
+                        # at all (e.g. all-zero W/NW arrays) - same guard as the
+                        # is_monthly branch above, spread evenly across the year
+                        # instead of dividing by zero.
+                        kwh_slot = annual_kwh * (hhff) / annual_hhff if annual_hhff > 0 else annual_kwh / (sum(dims) * 48)
 
                     dam_raw = None
                     day_slots = day_dam.get("slots") if day_dam else None
