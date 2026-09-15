@@ -214,19 +214,36 @@ def notify_admin_resubmit(tariff_name: str, supplier: str) -> None:
         _html("Tariff resubmitted for review", body))
 
 
-def notify_admin_tariff_report(tariff_name: str, supplier: str, note: str | None) -> None:
+_REPORT_CATEGORY_LABELS = {
+    "incorrect_price": "Incorrect price",
+    "terms_mismatch": "Terms mismatch",
+    "broken_link": "Broken document link",
+    "other": "Other",
+}
+
+
+def notify_admin_tariff_report(
+    tariff_name: str | None, supplier: str | None, category: str, note: str | None, reporter_email: str
+) -> None:
     if not ADMIN_TO:
         return
-    rows = _row("Tariff", f"<strong>{_esc(tariff_name)}</strong>") + _row("Supplier", _esc(supplier))
+    is_general = tariff_name is None
+    rows = (
+        _row("Tariff", f"<strong>{_esc(tariff_name)}</strong>" if not is_general else "General site issue")
+        + (_row("Supplier", _esc(supplier)) if not is_general else "")
+        + _row("Category", _esc(_REPORT_CATEGORY_LABELS.get(category, category)))
+        + _row("Reporter", _esc(reporter_email))
+    )
     if note:
         rows += _row("Note", _esc(note).replace("\n", "<br>"))
     body = (
-        f'<p style="margin:0 0 12px;{_FONT}">A customer has reported a possible issue with published tariff information.</p>'
+        f'<p style="margin:0 0 12px;{_FONT}">A customer has reported '
+        + ('a general issue with the site.</p>' if is_general else 'a possible issue with published tariff information.</p>')
         + _detail_table(rows)
         + _btn(f"{BASE_URL}/admin.html", "Review in Admin Panel")
     )
     _send_bg([ADMIN_TO],
-        f"[CERA Tariff] Issue reported — {tariff_name}",
+        f"[CERA Tariff] Issue reported — {tariff_name or 'general'}",
         _html("Tariff issue reported", body))
 
 

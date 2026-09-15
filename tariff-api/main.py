@@ -355,29 +355,36 @@ def _uid() -> str:
     return f"{ts:x}{rand}"
 
 
-@app.post("/api/public/report-tariff", summary="Report an issue with a published tariff")
+@app.post("/api/public/report-tariff", summary="Report an issue with a published tariff, or a general site issue")
 def report_tariff(body: TariffReportIn, request: Request, db: Session = Depends(get_db)):
     """Article 121(ζ) — customer-facing "report erroneous offer info" process.
     No login required (customer.html has no auth); tariff_name/supplier are
-    looked up server-side rather than trusted from the client."""
-    t = db.query(models.Tariff).filter(
-        models.Tariff.id == body.tariff_id, models.Tariff.status == "approved"
-    ).first()
-    if not t:
-        raise HTTPException(404, "Tariff not found")
+    looked up server-side rather than trusted from the client. body.tariff_id
+    is None for a general issue submitted via the page footer, not tied to
+    any one tariff."""
+    tariff_name = supplier = None
+    if body.tariff_id:
+        t = db.query(models.Tariff).filter(
+            models.Tariff.id == body.tariff_id, models.Tariff.status == "approved"
+        ).first()
+        if not t:
+            raise HTTPException(404, "Tariff not found")
+        tariff_name, supplier = t.name, t.supplier
     r = models.TariffReport(
         id=_uid(),
-        tariffId=t.id,
-        tariffName=t.name,
-        supplier=t.supplier,
+        tariffId=body.tariff_id,
+        tariffName=tariff_name,
+        supplier=supplier,
+        category=body.category,
         note=body.note,
+        reporterEmail=body.reporter_email,
         status="open",
         createdAt=datetime.now(timezone.utc).isoformat(),
         ipAddress=request.client.host if request.client else None,
     )
     db.add(r)
     db.commit()
-    email_utils.notify_admin_tariff_report(t.name, t.supplier, body.note)
+    email_utils.notify_admin_tariff_report(tariff_name, supplier, body.category, body.note, body.reporter_email)
     return {"ok": True}
 
 

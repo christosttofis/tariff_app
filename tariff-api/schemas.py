@@ -141,9 +141,36 @@ class MessageArchiveIn(BaseModel):
     archived: bool
 
 
+_REPORT_CATEGORIES = ("incorrect_price", "terms_mismatch", "broken_link", "other")
+
+
+def _check_email_required(v: str) -> str:
+    if not v or not v.strip():
+        raise ValueError("email is required")
+    try:
+        validate_email(v, check_deliverability=False)
+    except EmailNotValidError as e:
+        raise ValueError(f"invalid email address: {e}") from e
+    return v
+
+
+def _check_note_required(v: str) -> str:
+    if not v or not v.strip():
+        raise ValueError("note is required")
+    return v
+
+
 class TariffReportIn(BaseModel):
-    tariff_id: str = Field(..., max_length=100)
-    note: str | None = Field(None, max_length=2000)
+    # None = a general site issue, not tied to any one tariff (customer.html's
+    # footer "Report a general issue" link) — tariff/supplier are looked up
+    # server-side below only when this is set.
+    tariff_id: str | None = Field(None, max_length=100)
+    category: Literal[_REPORT_CATEGORIES] = "other"
+    note: str = Field(..., max_length=2000)
+    reporter_email: str = Field(..., max_length=254)
+
+    _validate_reporter_email = field_validator("reporter_email")(_check_email_required)
+    _validate_note = field_validator("note")(_check_note_required)
 
 
 class TariffReportStatusIn(BaseModel):

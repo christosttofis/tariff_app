@@ -556,20 +556,35 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
         <div id="users-form-msg" style="font-size:12px;margin-top:8px;min-height:16px"></div>
       </div>
     </div>
+    <div class="card" style="margin-bottom:16px">
+      <strong style="font-size:14px;display:block;margin-bottom:12px" data-t="LBL_ADMINS_HEADING">Admins</strong>
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="border-bottom:2px solid var(--border)">
+            <th style="text-align:left;padding:8px 10px;font-size:12px;color:var(--text3);font-weight:500" data-t="TH_EMAIL">Email</th>
+            <th style="text-align:left;padding:8px 10px;font-size:12px;color:var(--text3);font-weight:500" data-t="TH_STATUS">Status</th>
+            <th style="text-align:center;padding:8px 10px;font-size:12px;color:var(--text3);font-weight:500" data-t="TH_2FA">2FA</th>
+          </tr>
+        </thead>
+        <tbody id="users-tbody-admin">
+          <tr><td colspan="3" style="padding:24px;text-align:center;color:var(--text3);font-size:13px" data-t="USERS_LOADING">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
     <div class="card">
+      <strong style="font-size:14px;display:block;margin-bottom:12px" data-t="LBL_SUPPLIERS_HEADING">Suppliers</strong>
       <table style="width:100%;border-collapse:collapse">
         <thead>
           <tr style="border-bottom:2px solid var(--border)">
             <th style="text-align:left;padding:8px 10px;font-size:12px;color:var(--text3);font-weight:500" data-t="TH_EMAIL">Email</th>
             <th style="text-align:left;padding:8px 10px;font-size:12px;color:var(--text3);font-weight:500" data-t="TH_SUPPLIER">Supplier</th>
-            <th style="text-align:left;padding:8px 10px;font-size:12px;color:var(--text3);font-weight:500" data-t="TH_ROLE">Role</th>
             <th style="text-align:left;padding:8px 10px;font-size:12px;color:var(--text3);font-weight:500" data-t="TH_STATUS">Status</th>
             <th style="text-align:center;padding:8px 10px;font-size:12px;color:var(--text3);font-weight:500" data-t="TH_2FA">2FA</th>
             <th style="text-align:right;padding:8px 10px;font-size:12px;color:var(--text3);font-weight:500" data-t="TH_ACTIONS">Actions</th>
           </tr>
         </thead>
-        <tbody id="users-tbody">
-          <tr><td colspan="6" style="padding:24px;text-align:center;color:var(--text3);font-size:13px" data-t="USERS_LOADING">Loading…</td></tr>
+        <tbody id="users-tbody-supplier">
+          <tr><td colspan="5" style="padding:24px;text-align:center;color:var(--text3);font-size:13px" data-t="USERS_LOADING">Loading…</td></tr>
         </tbody>
       </table>
     </div>
@@ -1165,6 +1180,7 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
               <th data-t="TH_REPORTED_AT">Reported</th>
               <th data-t="TH_TARIFF_RP">Tariff</th>
               <th data-t="TH_SUPPLIER_RP">Supplier</th>
+              <th data-t="TH_CATEGORY_RP">Category</th>
               <th data-t="TH_NOTE">Note</th>
               <th data-t="TH_STATUS">Status</th>
               <th data-t="TH_ACTIONS">Actions</th>
@@ -1510,8 +1526,9 @@ const LANG = {
     PANE_USERS_TITLE:'User management',
     PANE_USERS_DESC:'Manage supplier portal accounts. Invited users receive an email with a link to set their password.',
     LBL_INVITE_HEADING:'Invite new supplier user', BTN_INVITE:'+ Invite user',
+    LBL_ADMINS_HEADING:'Admins', LBL_SUPPLIERS_HEADING:'Suppliers',
     LBL_EMAIL_ADDR:'Email address', LBL_SUPPLIER_SEL:'Supplier', BTN_SEND_INV:'Send invitation',
-    TH_EMAIL:'Email', TH_SUPPLIER:'Supplier', TH_ROLE:'Role', TH_STATUS:'Status', TH_2FA:'2FA', TH_ACTIONS:'Actions',
+    TH_EMAIL:'Email', TH_SUPPLIER:'Supplier', TH_STATUS:'Status', TH_2FA:'2FA', TH_ACTIONS:'Actions',
     USERS_LOADING:'Loading…', USERS_EMPTY:'No users yet.', USERS_FAILED:'Failed to load users.',
     // Login activity pane
     PANE_LA_TITLE:'Login activity',
@@ -1519,7 +1536,7 @@ const LANG = {
     OPT_ALL_RESULTS:'All results', OPT_SUCCESS:'Successful', OPT_FAILED:'Failed', BTN_REFRESH:'↻ Refresh',
     TH_RESULT:'Result', TH_REASON:'Reason', TH_IP:'IP address', TH_USER_AGENT:'Device / browser',
     LA_SUCCESS:'Success', LA_FAILED:'Failed', LA_EMPTY:'No login activity yet.',
-    USER_ACTIVE:'Active', USER_INACTIVE:'Inactive', USER_ADMIN:'Admin', USER_SUPPLIER_ROLE:'Supplier',
+    USER_ACTIVE:'Active', USER_INACTIVE:'Inactive',
     BTN_DEACTIVATE:'Deactivate', BTN_ACTIVATE:'Activate', BTN_RESEND_INV:'Resend invite', BTN_DELETE_USER:'Delete',
     OTP_ON_HINT:'2FA enabled — user must enter a code from email at login', OTP_OFF_HINT:'2FA disabled — user logs in with password only',
     // Notifications pane
@@ -1589,8 +1606,11 @@ const LANG = {
     PANE_REPORTS_TITLE:'Reported issues',
     PANE_REPORTS_DESC:'Issues customers have flagged about published tariff information, via the "Report an issue" link on the comparison tool.',
     OPT_ALL_STATUSES:'All statuses', OPT_STATUS_OPEN:'Open', OPT_STATUS_REVIEWED:'Reviewed', OPT_STATUS_RESOLVED:'Resolved', OPT_STATUS_DISMISSED:'Dismissed',
-    TH_REPORTED_AT:'Reported', TH_TARIFF_RP:'Tariff', TH_SUPPLIER_RP:'Supplier', TH_NOTE:'Note', TH_STATUS:'Status', TH_ACTIONS:'Actions',
+    TH_REPORTED_AT:'Reported', TH_TARIFF_RP:'Tariff', TH_SUPPLIER_RP:'Supplier', TH_CATEGORY_RP:'Category', TH_NOTE:'Note', TH_STATUS:'Status', TH_ACTIONS:'Actions',
     BTN_MARK_REVIEWED:'Mark reviewed', BTN_MARK_RESOLVED:'Mark resolved', BTN_DISMISS:'Dismiss', BTN_REOPEN:'Reopen',
+    RP_CAT_INCORRECT_PRICE:'Incorrect price', RP_CAT_TERMS_MISMATCH:'Terms mismatch', RP_CAT_BROKEN_LINK:'Broken link', RP_CAT_OTHER:'Other',
+    RP_LBL_REPORTER:'Reporter', RP_LBL_RESOLUTION:'Resolution', RP_OVERDUE:'⚠ Overdue', RP_ADMIN_NOTE_PROMPT:'Add a resolution note (optional):',
+    RP_GENERAL_ISSUE:'General site issue',
     RP_EMPTY:'No reported issues yet.',
     // Publish pane
     PANE_PUB_TITLE:'Publish',
@@ -1623,7 +1643,7 @@ const LANG = {
     SUP_MODAL_TITLE:'Supplier details', LBL_COMPANY_NAME:'Company / Supplier name',
     LBL_LICENCE:'CERA Licence No.', LBL_ADDRESS:'Company address',
     LBL_WEBSITE:'Website', LBL_TEL_NO:'Telephone',
-    LBL_SUP_REGULATED:'Regulated supplier (e.g. EAC)',
+    LBL_SUP_REGULATED:'Regulated supplier',
     BTN_SAVE_DETAILS:'Save details',
     REG_CONFIRM_TITLE:'Change regulated status?', BTN_CONFIRM_CHANGE:'Confirm change',
     // Admin docs modal
@@ -1692,8 +1712,9 @@ const LANG = {
     PANE_USERS_TITLE:'Διαχείριση χρηστών',
     PANE_USERS_DESC:'Διαχείριση λογαριασμών πύλης προμηθευτών. Οι προσκεκλημένοι χρήστες λαμβάνουν email με σύνδεσμο ορισμού κωδικού.',
     LBL_INVITE_HEADING:'Πρόσκληση νέου χρήστη προμηθευτή', BTN_INVITE:'+ Πρόσκληση',
+    LBL_ADMINS_HEADING:'Διαχειριστές', LBL_SUPPLIERS_HEADING:'Προμηθευτές',
     LBL_EMAIL_ADDR:'Διεύθυνση email', LBL_SUPPLIER_SEL:'Προμηθευτής', BTN_SEND_INV:'Αποστολή πρόσκλησης',
-    TH_EMAIL:'Email', TH_SUPPLIER:'Προμηθευτής', TH_ROLE:'Ρόλος', TH_STATUS:'Κατάσταση', TH_2FA:'2FA', TH_ACTIONS:'Ενέργειες',
+    TH_EMAIL:'Email', TH_SUPPLIER:'Προμηθευτής', TH_STATUS:'Κατάσταση', TH_2FA:'2FA', TH_ACTIONS:'Ενέργειες',
     USERS_LOADING:'Φόρτωση…', USERS_EMPTY:'Δεν υπάρχουν χρήστες ακόμα.', USERS_FAILED:'Αποτυχία φόρτωσης χρηστών.',
     // Login activity pane
     PANE_LA_TITLE:'Δραστηριότητα σύνδεσης',
@@ -1701,7 +1722,7 @@ const LANG = {
     OPT_ALL_RESULTS:'Όλα τα αποτελέσματα', OPT_SUCCESS:'Επιτυχείς', OPT_FAILED:'Αποτυχημένες', BTN_REFRESH:'↻ Ανανέωση',
     TH_RESULT:'Αποτέλεσμα', TH_REASON:'Αιτία', TH_IP:'Διεύθυνση IP', TH_USER_AGENT:'Συσκευή / πρόγραμμα περιήγησης',
     LA_SUCCESS:'Επιτυχία', LA_FAILED:'Αποτυχία', LA_EMPTY:'Δεν υπάρχει δραστηριότητα σύνδεσης ακόμα.',
-    USER_ACTIVE:'Ενεργός', USER_INACTIVE:'Ανενεργός', USER_ADMIN:'Διαχειριστής', USER_SUPPLIER_ROLE:'Προμηθευτής',
+    USER_ACTIVE:'Ενεργός', USER_INACTIVE:'Ανενεργός',
     BTN_DEACTIVATE:'Απενεργοποίηση', BTN_ACTIVATE:'Ενεργοποίηση', BTN_RESEND_INV:'Επαναποστολή', BTN_DELETE_USER:'Διαγραφή',
     OTP_ON_HINT:'2FA ενεργό — ο χρήστης πρέπει να εισαγάγει κωδικό email κατά τη σύνδεση', OTP_OFF_HINT:'2FA ανενεργό — ο χρήστης συνδέεται μόνο με κωδικό πρόσβασης',
     // Notifications pane
@@ -1771,8 +1792,11 @@ const LANG = {
     PANE_REPORTS_TITLE:'Αναφορές προβλημάτων',
     PANE_REPORTS_DESC:'Προβλήματα που ανέφεραν πελάτες σχετικά με δημοσιευμένες πληροφορίες διατιμήσεων, μέσω του συνδέσμου «Αναφορά προβλήματος» στο εργαλείο σύγκρισης.',
     OPT_ALL_STATUSES:'Όλες οι καταστάσεις', OPT_STATUS_OPEN:'Ανοιχτή', OPT_STATUS_REVIEWED:'Ελέγχθηκε', OPT_STATUS_RESOLVED:'Επιλύθηκε', OPT_STATUS_DISMISSED:'Απορρίφθηκε',
-    TH_REPORTED_AT:'Αναφέρθηκε', TH_TARIFF_RP:'Διατίμηση', TH_SUPPLIER_RP:'Προμηθευτής', TH_NOTE:'Σημείωση', TH_STATUS:'Κατάσταση', TH_ACTIONS:'Ενέργειες',
+    TH_REPORTED_AT:'Αναφέρθηκε', TH_TARIFF_RP:'Διατίμηση', TH_SUPPLIER_RP:'Προμηθευτής', TH_CATEGORY_RP:'Κατηγορία', TH_NOTE:'Σημείωση', TH_STATUS:'Κατάσταση', TH_ACTIONS:'Ενέργειες',
     BTN_MARK_REVIEWED:'Σήμανση ως ελέγχθηκε', BTN_MARK_RESOLVED:'Σήμανση ως επιλύθηκε', BTN_DISMISS:'Απόρριψη', BTN_REOPEN:'Άνοιγμα ξανά',
+    RP_CAT_INCORRECT_PRICE:'Λανθασμένη τιμή', RP_CAT_TERMS_MISMATCH:'Ασυμφωνία όρων', RP_CAT_BROKEN_LINK:'Κατεστραμμένος σύνδεσμος', RP_CAT_OTHER:'Άλλο',
+    RP_LBL_REPORTER:'Αναφέρων', RP_LBL_RESOLUTION:'Επίλυση', RP_OVERDUE:'⚠ Εκπρόθεσμη', RP_ADMIN_NOTE_PROMPT:'Προσθήκη σημείωσης επίλυσης (προαιρετικό):',
+    RP_GENERAL_ISSUE:'Γενικό πρόβλημα ιστοσελίδας',
     RP_EMPTY:'Δεν υπάρχουν αναφορές προβλημάτων ακόμα.',
     // Publish pane
     PANE_PUB_TITLE:'Δημοσίευση',
@@ -1805,7 +1829,7 @@ const LANG = {
     SUP_MODAL_TITLE:'Στοιχεία προμηθευτή', LBL_COMPANY_NAME:'Εταιρεία / Όνομα προμηθευτή',
     LBL_LICENCE:'Αριθμός άδειας ΡΑΕΚ', LBL_ADDRESS:'Διεύθυνση εταιρείας',
     LBL_WEBSITE:'Ιστοσελίδα', LBL_TEL_NO:'Τηλέφωνο',
-    LBL_SUP_REGULATED:'Ρυθμιζόμενος προμηθευτής (π.χ. ΑΗΚ)',
+    LBL_SUP_REGULATED:'Ρυθμιζόμενος προμηθευτής',
     BTN_SAVE_DETAILS:'Αποθήκευση στοιχείων',
     REG_CONFIRM_TITLE:'Αλλαγή καθεστώτος ρύθμισης;', BTN_CONFIRM_CHANGE:'Επιβεβαίωση αλλαγής',
     // Admin docs modal
@@ -1966,6 +1990,13 @@ async function saveSupplierDetails(){
     // Server already renamed this supplier on any referencing tariffs — mirror that locally
     if(newName!==origName){
       tariffs.forEach(t=>{if(t.supplier===origName) t.supplier=newName;});
+    }
+    if(body.regulated!==_supModalOrigRegulated){
+      // Mirrors the changelog row the server just wrote (see update_supplier in admin.py)
+      // so the change shows up immediately without waiting for a changelog reload.
+      addChangelogEntry({action:'updated',tariffId:null,tariffName:'Supplier settings',supplier:newName,
+        changes:[{field:'regulated',from:_supModalOrigRegulated?'yes':'no',to:body.regulated?'yes':'no'}],
+        ts:new Date().toISOString(),actorRole:'admin'});
     }
     suppliers[idx]=saved;
     closeSupModal();
@@ -2281,57 +2312,63 @@ function usersToggleForm(){
 }
 
 let _usersCache = [];
+function _usersOtpToggle(u){
+  const otpOn = u.otp_enabled !== false;
+  return `<button onclick="usersToggleOtp(${u.id},${!otpOn})"
+    title="${otpOn ? T('OTP_ON_HINT') : T('OTP_OFF_HINT')}"
+    style="border:none;cursor:pointer;padding:0;background:none;display:inline-block;width:36px;height:20px;position:relative;vertical-align:middle">
+    <span style="position:absolute;inset:0;border-radius:10px;background:${otpOn?'var(--accent)':'#d1d5db'}"></span>
+    <span style="position:absolute;top:3px;left:${otpOn?'19':'3'}px;width:14px;height:14px;border-radius:50%;background:#fff"></span>
+  </button>`;
+}
+function _usersStatusBadge(u){
+  const lockedBadge = u.is_locked
+    ? `<span style="background:#fef3c7;color:#92400e;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;margin-left:4px">🔒 Locked</span>`
+    : '';
+  return (u.is_active
+    ? `<span style="background:#d1fae5;color:#065f46;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500">${T('USER_ACTIVE')}</span>`
+    : `<span style="background:#fee2e2;color:#991b1b;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500">${T('USER_INACTIVE')}</span>`) + lockedBadge;
+}
 async function usersLoad(){
-  const tbody = document.getElementById('users-tbody');
-  tbody.innerHTML = '<tr><td colspan="6" style="padding:24px;text-align:center;color:var(--text3);font-size:13px">'+T('USERS_LOADING')+'</td></tr>';
+  const adminTbody = document.getElementById('users-tbody-admin');
+  const supplierTbody = document.getElementById('users-tbody-supplier');
+  adminTbody.innerHTML = '<tr><td colspan="3" style="padding:24px;text-align:center;color:var(--text3);font-size:13px">'+T('USERS_LOADING')+'</td></tr>';
+  supplierTbody.innerHTML = '<tr><td colspan="5" style="padding:24px;text-align:center;color:var(--text3);font-size:13px">'+T('USERS_LOADING')+'</td></tr>';
   try{
     const resp = await fetch(_adminApiBase+'/api/admin/users',{headers:authHeaders()});
     const list = await resp.json();
     _usersCache = list;
-    if(!list.length){
-      tbody.innerHTML = '<tr><td colspan="6" style="padding:24px;text-align:center;color:var(--text3);font-size:13px">'+T('USERS_EMPTY')+'</td></tr>';
-      return;
-    }
-    tbody.innerHTML = list.map(u => {
-      const lockedBadge = u.is_locked
-        ? `<span style="background:#fef3c7;color:#92400e;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;margin-left:4px">🔒 Locked</span>`
-        : '';
-      const statusBadge = (u.is_active
-        ? `<span style="background:#d1fae5;color:#065f46;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500">${T('USER_ACTIVE')}</span>`
-        : `<span style="background:#fee2e2;color:#991b1b;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500">${T('USER_INACTIVE')}</span>`) + lockedBadge;
-      const roleLabel = u.role === 'admin' ? T('USER_ADMIN') : T('USER_SUPPLIER_ROLE');
-      const unlockBtn = u.is_locked && u.role !== 'admin'
+    const admins = list.filter(u=>u.role==='admin');
+    const supplierUsers = list.filter(u=>u.role!=='admin');
+
+    adminTbody.innerHTML = admins.length ? admins.map(u => `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:10px;font-size:13px">${esc(u.email)}</td>
+        <td style="padding:10px">${_usersStatusBadge(u)}</td>
+        <td style="padding:10px;text-align:center">${_usersOtpToggle(u)}</td>
+      </tr>`).join('')
+      : `<tr><td colspan="3" style="padding:24px;text-align:center;color:var(--text3);font-size:13px">${T('USERS_EMPTY')}</td></tr>`;
+
+    supplierTbody.innerHTML = supplierUsers.length ? supplierUsers.map(u => {
+      const unlockBtn = u.is_locked
         ? `<button class="btn-sm" style="margin-right:4px;background:#fef3c7;color:#92400e;border-color:#fcd34d" onclick="usersUnlock(${u.id})">🔓 Unlock</button>`
         : '';
-      const toggleBtn = u.role !== 'admin'
-        ? (u.is_active
-            ? `<button class="btn-sm" style="margin-right:4px" onclick="usersSetStatus(${u.id},false)">${T('BTN_DEACTIVATE')}</button>`
-            : `<button class="btn-sm" style="margin-right:4px" onclick="usersSetStatus(${u.id},true)">${T('BTN_ACTIVATE')}</button>`)
-        : '';
-      const reinviteBtn = u.role === 'supplier'
-        ? `<button class="btn-sm" style="margin-right:4px" onclick="usersReinvite(${u.id})">${T('BTN_RESEND_INV')}</button>`
-        : '';
-      const deleteBtn = u.role === 'supplier'
-        ? `<button class="btn-sm" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5" onclick="usersDelete(${u.id})">${T('BTN_DELETE_USER')}</button>`
-        : '';
-      const otpOn = u.otp_enabled !== false;
-      const otpToggle = `<button onclick="usersToggleOtp(${u.id},${!otpOn})"
-        title="${otpOn ? T('OTP_ON_HINT') : T('OTP_OFF_HINT')}"
-        style="border:none;cursor:pointer;padding:0;background:none;display:inline-block;width:36px;height:20px;position:relative;vertical-align:middle">
-        <span style="position:absolute;inset:0;border-radius:10px;background:${otpOn?'var(--accent)':'#d1d5db'}"></span>
-        <span style="position:absolute;top:3px;left:${otpOn?'19':'3'}px;width:14px;height:14px;border-radius:50%;background:#fff"></span>
-      </button>`;
+      const toggleBtn = u.is_active
+        ? `<button class="btn-sm" style="margin-right:4px" onclick="usersSetStatus(${u.id},false)">${T('BTN_DEACTIVATE')}</button>`
+        : `<button class="btn-sm" style="margin-right:4px" onclick="usersSetStatus(${u.id},true)">${T('BTN_ACTIVATE')}</button>`;
+      const reinviteBtn = `<button class="btn-sm" style="margin-right:4px" onclick="usersReinvite(${u.id})">${T('BTN_RESEND_INV')}</button>`;
+      const deleteBtn = `<button class="btn-sm" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5" onclick="usersDelete(${u.id})">${T('BTN_DELETE_USER')}</button>`;
       return `<tr style="border-bottom:1px solid var(--border)">
         <td style="padding:10px;font-size:13px">${esc(u.email)}</td>
         <td style="padding:10px;font-size:13px;color:var(--text2)">${esc(u.supplier_name)||'—'}</td>
-        <td style="padding:10px;font-size:13px;color:var(--text2)">${roleLabel}</td>
-        <td style="padding:10px">${statusBadge}</td>
-        <td style="padding:10px;text-align:center">${otpToggle}</td>
+        <td style="padding:10px">${_usersStatusBadge(u)}</td>
+        <td style="padding:10px;text-align:center">${_usersOtpToggle(u)}</td>
         <td style="padding:10px;text-align:right">${unlockBtn}${toggleBtn}${reinviteBtn}${deleteBtn}</td>
       </tr>`;
-    }).join('');
+    }).join('')
+      : `<tr><td colspan="5" style="padding:24px;text-align:center;color:var(--text3);font-size:13px">${T('USERS_EMPTY')}</td></tr>`;
   }catch(e){
-    tbody.innerHTML = `<tr><td colspan="6" style="padding:24px;text-align:center;color:var(--red);font-size:13px">${T('USERS_FAILED')}</td></tr>`;
+    adminTbody.innerHTML = `<tr><td colspan="3" style="padding:24px;text-align:center;color:var(--red);font-size:13px">${T('USERS_FAILED')}</td></tr>`;
+    supplierTbody.innerHTML = `<tr><td colspan="5" style="padding:24px;text-align:center;color:var(--red);font-size:13px">${T('USERS_FAILED')}</td></tr>`;
   }
 }
 
@@ -3526,7 +3563,7 @@ const CL_FIELD_LABELS={
   standing:'Standing charge', fpaSource:'FPA source', fpaCustom:'FPA custom rate',
   durationMonths:'Duration (months)', loadEntitlement:'Load entitlement',
   vulnerable:'Vulnerable-consumer flag', profileId:'Load profile',
-  rates:'Rates', discounts:'Discounts'
+  rates:'Rates', discounts:'Discounts', regulated:'Regulated supplier'
 };
 function clFieldLabel(field){ return CL_FIELD_LABELS[field]||field; }
 function renderChangelogRow(entry){
@@ -3594,19 +3631,30 @@ function renderChangelog(){
 }
 
 /* ── Tariff reports (Article 121(ζ)) ── */
+const RP_OVERDUE_DAYS=5;   // reports left "open" past this many days are flagged for follow-up
 function renderReportRow(r){
   const statusCls='rp-status-'+r.status;
   const statusLabel=T('OPT_STATUS_'+r.status.toUpperCase());
-  const noteHtml=r.note?esc(r.note):'<span style="color:var(--text3)">—</span>';
+  const categoryLabel=T('RP_CAT_'+(r.category||'other').toUpperCase());
+  let noteHtml=r.note?esc(r.note):'<span style="color:var(--text3)">—</span>';
+  if(r.reporterEmail) noteHtml+=`<div style="font-size:10.5px;color:var(--text3);margin-top:3px">${esc(T('RP_LBL_REPORTER'))}: ${esc(r.reporterEmail)}</div>`;
+  if(r.adminNote) noteHtml+=`<div style="font-size:10.5px;color:var(--text3);margin-top:3px">${esc(T('RP_LBL_RESOLUTION'))}: ${esc(r.adminNote)}</div>`;
+  const ageDays=(Date.now()-new Date(r.createdAt).getTime())/86400000;
+  const overdueBadge=(r.status==='open'&&ageDays>RP_OVERDUE_DAYS)
+    ?`<span style="display:block;color:#b45309;font-size:10.5px;font-weight:600;margin-top:2px">${esc(T('RP_OVERDUE'))}</span>`
+    :'';
   const actions=r.status==='open'
     ?`<button class="btn-sm" onclick="setReportStatus('${r.id}','reviewed')">${T('BTN_MARK_REVIEWED')}</button>
       <button class="btn-sm" onclick="setReportStatus('${r.id}','resolved')">${T('BTN_MARK_RESOLVED')}</button>
       <button class="btn-sm" onclick="setReportStatus('${r.id}','dismissed')">${T('BTN_DISMISS')}</button>`
     :`<button class="btn-sm" onclick="setReportStatus('${r.id}','open')">${T('BTN_REOPEN')}</button>`;
+  const tariffCell=r.tariffName?esc(r.tariffName):`<em style="color:var(--text3);font-style:italic">${esc(T('RP_GENERAL_ISSUE'))}</em>`;
+  const supplierCell=r.supplier?esc(r.supplier):'<span style="color:var(--text3)">—</span>';
   return '<tr>'
-    +'<td style="white-space:nowrap;color:var(--text3)">'+fmtLocalTs(r.createdAt)+'</td>'
-    +'<td style="color:var(--text);font-weight:500">'+esc(r.tariffName)+'</td>'
-    +'<td>'+esc(r.supplier)+'</td>'
+    +'<td style="white-space:nowrap;color:var(--text3)">'+fmtLocalTs(r.createdAt)+overdueBadge+'</td>'
+    +'<td style="color:var(--text);font-weight:500">'+tariffCell+'</td>'
+    +'<td>'+supplierCell+'</td>'
+    +'<td>'+esc(categoryLabel)+'</td>'
     +'<td>'+noteHtml+'</td>'
     +'<td class="'+statusCls+'">'+esc(statusLabel)+'</td>'
     +'<td>'+actions+'</td>'
@@ -3632,8 +3680,16 @@ function renderReports(){
   }
 }
 async function setReportStatus(id,status){
+  let admin_note;
+  if(status==='resolved'||status==='dismissed'){
+    const entered=prompt(T('RP_ADMIN_NOTE_PROMPT'),'');
+    if(entered===null) return; // user cancelled — leave the report untouched
+    if(entered.trim()) admin_note=entered.trim();
+  }
   try{
-    const resp=await fetch(_adminApiBase+'/api/admin/reports/'+id,{method:'PATCH',headers:authHeaders(),body:JSON.stringify({status})});
+    const body={status};
+    if(admin_note!==undefined) body.admin_note=admin_note;
+    const resp=await fetch(_adminApiBase+'/api/admin/reports/'+id,{method:'PATCH',headers:authHeaders(),body:JSON.stringify(body)});
     if(resp.status===401){showLogin('Session expired.');return;}
     if(!resp.ok){alert('Failed to update report.');return;}
     const updated=await resp.json();
@@ -5706,7 +5762,7 @@ async function loadConfig(){
       <div class="field">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
           <input type="checkbox" id="sup-regulated" style="width:auto" onclick="return onRegulatedCheckboxClick(event)">
-          <span data-t="LBL_SUP_REGULATED">Regulated supplier (e.g. EAC)</span>
+          <span data-t="LBL_SUP_REGULATED">Regulated supplier</span>
         </label>
       </div>
     </div>

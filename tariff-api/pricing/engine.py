@@ -135,23 +135,39 @@ def monthly_breakdown(
             slots = get_slot_kwh(prof, m, annual_kwh, dc, annual_hhff) if (not is_monthly and prof) else None
             df = get_df(m + 1)
             if slots:
-                energy = 0.0
+                peak_kwh = 0.0
+                offpeak_kwh = 0.0
+                peak_energy = 0.0
+                offpeak_energy = 0.0
                 fpa_total = 0.0
                 for s in range(48):
                     h = (s * 30) // 60
-                    energy += slots[s] * (pr if (ps <= h < pe) else orr)
+                    if ps <= h < pe:
+                        peak_kwh += slots[s]
+                        peak_energy += slots[s] * pr
+                    else:
+                        offpeak_kwh += slots[s]
+                        offpeak_energy += slots[s] * orr
                     fpa_total += slots[s] * fpa_rate
             else:
                 m_kwh = m_kwh_for_month(m)
                 pf = max(0, min(24, pe - ps)) / 24
-                energy = m_kwh * pf * pr + m_kwh * (1 - pf) * orr
+                peak_kwh = m_kwh * pf
+                offpeak_kwh = m_kwh * (1 - pf)
+                peak_energy = peak_kwh * pr
+                offpeak_energy = offpeak_kwh * orr
                 fpa_total = m_kwh * fpa_rate
+            energy = peak_energy + offpeak_energy
             result.append({
                 "energy": energy * df["energyFactor"], "fpa": fpa_total * df["energyFactor"],
                 "standing": standing * df["standingFactor"],
                 "total": energy * df["energyFactor"] + fpa_total * df["energyFactor"] + standing * df["standingFactor"],
                 "energyFull": energy, "fpaFull": fpa_total, "standingFull": standing,
                 "energyDisc": energy * (1 - df["energyFactor"]), "standingDisc": standing * (1 - df["standingFactor"]),
+                "peakKwh": peak_kwh, "offPeakKwh": offpeak_kwh,
+                "peakEnergy": peak_energy * df["energyFactor"], "offPeakEnergy": offpeak_energy * df["energyFactor"],
+                "peakEnergyFull": peak_energy, "offPeakEnergyFull": offpeak_energy,
+                "peakRate": pr, "offPeakRate": orr,
             })
         return result
 

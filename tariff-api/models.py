@@ -199,14 +199,21 @@ class Changelog(Base):
 
 
 class TariffReport(Base):
-    """Customer-submitted reports of erroneous tariff information — Article 121(ζ)."""
+    """Customer-submitted reports of erroneous tariff information — Article 121(ζ).
+    tariffId/tariffName/supplier are null for a general site issue not tied to
+    any one tariff (customer.html's footer "Report a general issue" link)."""
     __tablename__ = "tariff_reports"
 
     id = Column(String, primary_key=True)       # uid
-    tariffId = Column(String, nullable=False)   # not FK-enforced, matches Changelog.tariffId
-    tariffName = Column(String, nullable=False) # snapshot at submission time
-    supplier = Column(String, nullable=False)   # snapshot at submission time
+    tariffId = Column(String, nullable=True)    # not FK-enforced, matches Changelog.tariffId
+    tariffName = Column(String, nullable=True)  # snapshot at submission time
+    supplier = Column(String, nullable=True)    # snapshot at submission time
     note = Column(Text, nullable=True)          # optional free text from reporter, max 2000 chars (enforced in schema)
+    category = Column(String, default="other")  # incorrect_price | terms_mismatch | broken_link | other
+    # Required at the API level (schemas.TariffReportIn) for every new
+    # submission going forward — nullable here only because reports created
+    # before this requirement existed have no reporterEmail to backfill.
+    reporterEmail = Column(String, nullable=True)
     status = Column(String, default="open")     # open | reviewed | resolved | dismissed
     adminNote = Column(String, nullable=True)
     createdAt = Column(String, nullable=False)  # ISO-8601

@@ -430,6 +430,18 @@ def update_supplier(name: str, body: SupplierIn, db: Session = Depends(get_db), 
         # models.Changelog.supplier is intentionally left untouched — it's an append-only
         # audit trail and should keep recording the supplier name as it was at the time
         # of each historical entry, not be rewritten to match the current name.
+    if bool(s.regulated) != bool(body.regulated):
+        # Flipping this flag changes how MDM is calculated for every tariff under
+        # this supplier (see onEditSupplierChange in admin.html), so it's worth its
+        # own audit trail entry distinct from the rest of the supplier's fields —
+        # separate from the two confirmation steps the admin UI already requires.
+        _add_changelog(
+            db, action="updated", tariff_id=None, tariff_name="Supplier settings",
+            supplier=body.name,
+            changes=[{"field": "regulated", "from": "yes" if s.regulated else "no",
+                      "to": "yes" if body.regulated else "no"}],
+            actor=user,
+        )
     for k, v in body.model_dump().items():
         setattr(s, k, v)
     db.commit()
@@ -443,6 +455,11 @@ def delete_supplier(name: str, db: Session = Depends(get_db), user: CurrentUser 
     s = db.query(models.Supplier).filter(models.Supplier.name == name).first()
     if not s:
         raise HTTPException(404, "Supplier not found")
+    # users.supplier_id is a real FK — deleting the supplier while a login is
+    # still attached to it violates the constraint and surfaces as a raw 500,
+    # so check (and give a clear reason) up front instead.
+    if db.query(models.User).filter(models.User.supplier_id == s.id).count():
+        raise HTTPException(400, "Remove all user accounts for this supplier first")
     db.delete(s)
     db.commit()
 
@@ -675,6 +692,14 @@ def delete_user(user_id: int, db: Session = Depends(get_db), user: CurrentUser =
     if target.id == user.id:
         raise HTTPException(400, "You cannot delete your own account.")
     db.query(models.PasswordReset).filter(models.PasswordReset.email == target.email).delete()
+    # login_activity.user_id / password_history.user_id are real FKs to users.id
+    # with no cascade, so deleting the user while either still points at it
+    # raises an IntegrityError (surfaces as a raw 500). Login activity is an
+    # audit trail — keep the rows (email/ip/timestamp still identify them) and
+    # just detach the FK; password history has no purpose once the account is
+    # gone, so it's fine to drop.
+    db.query(models.LoginActivity).filter(models.LoginActivity.user_id == target.id).update({"user_id": None})
+    db.query(models.PasswordHistory).filter(models.PasswordHistory.user_id == target.id).delete()
     db.delete(target)
     db.commit()
 
@@ -1187,7 +1212,10 @@ def update_report_status(
     if not r:
         raise HTTPException(404, "Report not found")
     r.status = body.status
-    r.adminNote = body.admin_note
+    # Only overwrite when a note was actually sent — status-only updates (e.g.
+    # a plain Reopen) must not wipe out a note left on an earlier transition.
+    if body.admin_note is not None:
+        r.adminNote = body.admin_note
     r.resolvedAt = _now()
     r.resolvedBy = user.email
     db.commit()

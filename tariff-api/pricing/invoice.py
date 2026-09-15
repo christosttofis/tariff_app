@@ -1,5 +1,5 @@
 """Sample-invoice generation — direct port of getSampleInvoicePeriod/
-_seededVariance/buildSampleInvoiceData in customer.html (~lines 1470-1563).
+buildSampleInvoiceData in customer.html (~lines 1470-1563).
 
 Reuses an already-computed monthlyBreakdown()/monthlyKwhDisplay() result —
 this module does not run its own cost calculation.
@@ -9,24 +9,6 @@ from datetime import date, timedelta
 
 from .regulated import get_tariff_fpa, mdm_for_tariff, regulated_breakdown
 
-
-def _to_int32(n: int) -> int:
-    n &= 0xFFFFFFFF
-    if n >= 0x80000000:
-        n -= 0x100000000
-    return n
-
-
-def seeded_variance(s: str) -> float:
-    """Deterministic 0.90-1.08 pseudo-variance from a string, replicating the
-    JS `(h*31+charCode)|0` 32-bit-overflow hash bit-for-bit — used only to
-    fabricate a plausible, clearly-labeled illustrative "same period last
-    year" figure (this tool has no real historical consumption data)."""
-    h = 0
-    for ch in s:
-        h = _to_int32(h * 31 + ord(ch))
-    frac = (h % 1000) / 1000  # Python's % on signed int already matches JS's ((h%1000)+1000)%1000
-    return 0.90 + frac * 0.18
 
 
 def get_sample_invoice_period(tariff: dict, input_mode: str, billing_period: int, today: date | None = None) -> dict:
@@ -78,7 +60,6 @@ def build_sample_invoice_data(
     standing_full = sum(mo_bd[mi].get("standingFull", mo_bd[mi]["standing"]) for mi in month_indices)
 
     period_kwh = sum(mo_kwh[mi] or 0 for mi in month_indices)
-    last_year_kwh = period_kwh * seeded_variance(tariff["id"] + "_ly")
 
     mdm = mdm_for_tariff(tariff, supplier_regulated, regulated_rates)
     reg_bd = regulated_breakdown(
@@ -99,9 +80,19 @@ def build_sample_invoice_data(
     energy_rate = energy_full / period_kwh if period_kwh > 0 else 0
     mdm_invoices = len(month_indices) / (tariff.get("mdmInvoiceMonths") or 2)
 
+    is_tou = tariff.get("pricing") == "ToU"
+    peak_kwh = sum(mo_bd[mi].get("peakKwh", 0) for mi in month_indices) if is_tou else 0
+    off_peak_kwh = sum(mo_bd[mi].get("offPeakKwh", 0) for mi in month_indices) if is_tou else 0
+    peak_energy = sum(mo_bd[mi].get("peakEnergy", 0) for mi in month_indices) if is_tou else 0
+    off_peak_energy = sum(mo_bd[mi].get("offPeakEnergy", 0) for mi in month_indices) if is_tou else 0
+    peak_energy_full = sum(mo_bd[mi].get("peakEnergyFull", 0) for mi in month_indices) if is_tou else 0
+    off_peak_energy_full = sum(mo_bd[mi].get("offPeakEnergyFull", 0) for mi in month_indices) if is_tou else 0
+    peak_rate = peak_energy_full / peak_kwh if peak_kwh > 0 else 0
+    off_peak_rate = off_peak_energy_full / off_peak_kwh if off_peak_kwh > 0 else 0
+
     return {
         "startDate": period["startDate"], "endDate": period["endDate"], "monthsCount": len(month_indices),
-        "periodKwh": period_kwh, "lastYearKwh": last_year_kwh,
+        "periodKwh": period_kwh,
         "fpaRate": get_tariff_fpa(tariff, regulated_rates),
         "energy": energy, "fpa": fpa, "standing": standing,
         "energyFull": energy_full, "fpaFull": fpa_full, "standingFull": standing_full,
@@ -110,4 +101,9 @@ def build_sample_invoice_data(
         "energyRate": energy_rate, "gridRate": reg_bd["grid"]["rate"], "psoRate": reg_bd["pso"]["rate"],
         "resRate": reg_bd["res"]["rate"], "mdmRate": reg_bd["mdm"]["rate"], "mdmInvoices": mdm_invoices,
         "vatBase": vat_base, "vat": vat, "totalBeforeVat": total_before_vat, "amountDue": amount_due,
+        "isToU": is_tou,
+        "peakKwh": peak_kwh, "offPeakKwh": off_peak_kwh,
+        "peakEnergy": peak_energy, "offPeakEnergy": off_peak_energy,
+        "peakEnergyFull": peak_energy_full, "offPeakEnergyFull": off_peak_energy_full,
+        "peakRate": peak_rate, "offPeakRate": off_peak_rate,
     }

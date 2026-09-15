@@ -172,9 +172,9 @@ Click **Remove** next to a supplier. A supplier can only be deleted if they have
 
 ### Regulated supplier flag
 
-A supplier can be marked **Regulated supplier (e.g. EAC)** in the detail form. This changes how the Meter Data Management (MDM) charge is calculated for every tariff under that supplier — see [Section 7](#7-regulated-charges) for what the flag actually does to the calculation.
+A supplier can be marked **Regulated supplier** in the detail form. This changes how the Meter Data Management (MDM) charge is calculated for every tariff under that supplier — see [Section 7](#7-regulated-charges) for what the flag actually does to the calculation.
 
-Because toggling it affects every tariff belonging to that supplier, changing the checkbox requires two separate confirmations: a pop-out box when you click the checkbox, and a second confirmation when you click **Save details**. Both must be confirmed for the change to take effect.
+Because toggling it affects every tariff belonging to that supplier, changing the checkbox requires two separate confirmations: a pop-out box when you click the checkbox, and a second confirmation when you click **Save details**. Both must be confirmed for the change to take effect. Every confirmed change is recorded in the changelog (with a "Regulated supplier" entry, old/new value, who made the change, and when).
 
 ---
 
