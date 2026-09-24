@@ -451,6 +451,16 @@ body{
 .est-meth-sources{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:11px;font-family:var(--mono);color:var(--text3)}
 .est-meth-sources a{color:var(--accent);text-decoration:none}
 .est-meth-sources a:hover{text-decoration:underline}
+
+/* ── Print: the 0fr grid-row collapse isn't honoured by print layout, so collapsed
+   panels printed at full height with invisible (opacity:0) content. Use display instead. ── */
+@media print{
+  .rank-detail:not(.open),.conn-card.collapsed>.card-full,.cons-card.collapsed .cons-full{display:none}
+  .rank-detail.open,.card-full,.cons-full{display:block}
+  .rank-detail-inner,.collapse-inner{opacity:1!important;overflow:visible}
+  *{transition:none!important;animation:none!important}
+  .lang-toggle,.back-to-top,.fixed-toolbar,.notices-fixed,.results-loading-overlay,.collapse-toggle{display:none!important}
+}
 </style>
 </head>
 <body>
