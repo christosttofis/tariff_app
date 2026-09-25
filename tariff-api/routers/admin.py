@@ -1067,8 +1067,8 @@ def delete_profile(profile_id: str, db: Session = Depends(get_db), user: Current
 
 # ── Regulated (admin only) ────────────────────────────────────────────────────
 
-@router.get("/regulated", summary="Get regulated charge settings")
-def get_regulated(db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+@router.get("/regulated", summary="Get regulated charge settings (admin only)")
+def get_regulated(db: Session = Depends(get_db), user: CurrentUser = Depends(require_admin)):
     return _regulated_to_dict(db.query(models.Regulated).first())
 
 
@@ -1123,8 +1123,8 @@ def update_regulated(body: RegulatedIn, db: Session = Depends(get_db), user: Cur
     return _regulated_to_dict(db.query(models.Regulated).first())
 
 
-@router.get("/regulated/history", summary="Full history of regulated-charges snapshots, newest first")
-def get_regulated_history(db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+@router.get("/regulated/history", summary="Full history of regulated-charges snapshots, newest first (admin only)")
+def get_regulated_history(db: Session = Depends(get_db), user: CurrentUser = Depends(require_admin)):
     rows = db.query(models.RegulatedHistory).order_by(models.RegulatedHistory.recorded_at.desc()).all()
     return [
         {
@@ -1168,8 +1168,8 @@ def update_sample_invoice_config(body: SampleInvoiceConfigIn, db: Session = Depe
 
 # ── DAM data (admin only) ─────────────────────────────────────────────────────
 
-@router.get("/dam", summary="Get stored DAM price data")
-def get_dam(db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+@router.get("/dam", summary="Get stored DAM price data (admin only)")
+def get_dam(db: Session = Depends(get_db), user: CurrentUser = Depends(require_admin)):
     return _dam_to_dict(db.query(models.DamData).first())
 
 

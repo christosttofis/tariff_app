@@ -213,6 +213,31 @@ cd tariff-api && python -m uvicorn main:app --host 0.0.0.0 --port 8000
 4. Confirm **Always On** is set to **On** (same page) — this prevents the app from sleeping between requests
 5. Click **Save**
 
+### Step 6a — Client-IP / `X-Forwarded-For` trust (rate-limiting correctness)
+
+The per-IP rate limiter in `main.py` keys on `request.client.host`. Behind a
+reverse proxy (Azure App Service's front end, Cloudflare, nginx, etc.) that
+value comes from the `X-Forwarded-For` header via uvicorn's proxy-header
+handling, so getting this wrong makes the limiter either trust a client-spoofed
+IP (limiter becomes bypassable) or bucket every user under the proxy's single IP
+(limiter throttles everyone at once).
+
+- **Do NOT set `FORWARDED_ALLOW_IPS=*`.** That tells uvicorn to trust
+  `X-Forwarded-For` from *any* caller, which lets an attacker rotate the header
+  to get an unlimited number of rate-limit buckets (verified in black-box
+  testing on 2026-09-25). Leave it at uvicorn's default (`127.0.0.1`) so only
+  the local platform front end is trusted, or pin it to the specific proxy IP.
+- **Ensure the front end overwrites (not appends to) any client-supplied
+  `X-Forwarded-For`.** Azure App Service's front end appends the real client IP;
+  confirm the value the app sees is the platform-supplied one, not attacker text.
+- **The real credential-abuse defense is the per-account lockout** (3 failed
+  password/OTP attempts → 180-minute lock), which keys on the account, not the
+  IP, and is therefore unaffected by any `X-Forwarded-For` manipulation. The IP
+  limiter is best-effort overload protection, not the primary anti-brute-force
+  control.
+- The `admin.html` IP-restriction below ("Restricting access to `admin.html`")
+  further limits exposure of the highest-value surface.
+
 ---
 
 ## Step 7 — Deploy the application

@@ -23,13 +23,18 @@ def upgrade() -> None:
     # A general site issue (customer.html footer "Report a general issue"
     # link) has no associated tariff, so these three can no longer be
     # required.
-    op.alter_column('tariff_reports', 'tariffId', existing_type=sa.String(), nullable=True)
-    op.alter_column('tariff_reports', 'tariffName', existing_type=sa.String(), nullable=True)
-    op.alter_column('tariff_reports', 'supplier', existing_type=sa.String(), nullable=True)
+    # batch_alter_table so this also works on SQLite (used by
+    # seed_demo_data.py for the reviewer/demo path); SQLite has no
+    # ALTER COLUMN ... DROP NOT NULL, so Alembic emits a table copy instead.
+    with op.batch_alter_table('tariff_reports') as batch_op:
+        batch_op.alter_column('tariffId', existing_type=sa.String(), nullable=True)
+        batch_op.alter_column('tariffName', existing_type=sa.String(), nullable=True)
+        batch_op.alter_column('supplier', existing_type=sa.String(), nullable=True)
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    op.alter_column('tariff_reports', 'supplier', existing_type=sa.String(), nullable=False)
-    op.alter_column('tariff_reports', 'tariffName', existing_type=sa.String(), nullable=False)
-    op.alter_column('tariff_reports', 'tariffId', existing_type=sa.String(), nullable=False)
+    with op.batch_alter_table('tariff_reports') as batch_op:
+        batch_op.alter_column('supplier', existing_type=sa.String(), nullable=False)
+        batch_op.alter_column('tariffName', existing_type=sa.String(), nullable=False)
+        batch_op.alter_column('tariffId', existing_type=sa.String(), nullable=False)
