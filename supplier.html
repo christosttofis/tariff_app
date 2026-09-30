@@ -1171,7 +1171,7 @@ function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,
 
 // ── API calls ──────────────────────────────────────────────────────────────────
 async function loadTariffs(){
-  const resp = await fetch(_base + '/api/admin/tariffs', {headers: authHeaders()});
+  const resp = await fetch(_base + '/api/supplier/tariffs', {headers: authHeaders()});
   if(resp.status === 401){ _localSignOut(T('ERR_SESSION_EXPIRED')); return; }
   if(!resp.ok) throw new Error('HTTP ' + resp.status);
   _sessionActive = true;
@@ -1181,7 +1181,7 @@ async function loadTariffs(){
 }
 
 async function loadProfiles(){
-  const resp = await fetch(_base + '/api/admin/profiles', {headers: authHeaders()});
+  const resp = await fetch(_base + '/api/supplier/profiles', {headers: authHeaders()});
   if(!resp.ok) return;
   profiles = await resp.json();
   const sel = document.getElementById('edit-profile');
@@ -1191,7 +1191,7 @@ async function loadProfiles(){
 
 async function deleteTariff(id, name){
   if(!confirm(T('CONFIRM_DELETE').replace('{name}',name))) return;
-  const resp = await fetch(_base + '/api/admin/tariffs/' + encodeURIComponent(id), {method:'DELETE', headers: authHeaders()});
+  const resp = await fetch(_base + '/api/supplier/tariffs/' + encodeURIComponent(id), {method:'DELETE', headers: authHeaders()});
   if(resp.status === 401){ _localSignOut(T('ERR_SESSION_EXPIRED_SHORT')); return; }
   if(!resp.ok){ alert(T('ERR_DELETE_FAILED')); return; }
   tariffs = tariffs.filter(t => t.id !== id);
@@ -1361,7 +1361,7 @@ async function submitForm(){
 
   try{
     const isEdit = !!body.id;
-    const url    = _base + '/api/admin/tariffs' + (isEdit ? '/'+encodeURIComponent(body.id) : '');
+    const url    = _base + '/api/supplier/tariffs' + (isEdit ? '/'+encodeURIComponent(body.id) : '');
     const method = isEdit ? 'PUT' : 'POST';
     const resp   = await fetch(url, {method, headers: authHeaders(), body: JSON.stringify(body)});
     if(resp.status === 401){ _localSignOut(T('ERR_SESSION_EXPIRED_SHORT')); return; }
@@ -1380,7 +1380,7 @@ async function submitForm(){
     if(fileInput && fileInput.files.length > 0){
       const fd = new FormData();
       fd.append('file', fileInput.files[0]);
-      const uploadResp = await fetch(_base + '/api/admin/tariffs/' + encodeURIComponent(data.id) + '/documents', {
+      const uploadResp = await fetch(_base + '/api/supplier/tariffs/' + encodeURIComponent(data.id) + '/documents', {
         method: 'POST',
         body: fd,
       });
@@ -1545,7 +1545,7 @@ let _messages = [];
 
 async function loadMessages(){
   try{
-    const resp = await fetch(_base + '/api/admin/messages', {headers: authHeaders()});
+    const resp = await fetch(_base + '/api/supplier/messages', {headers: authHeaders()});
     if(!resp.ok) return;
     _messages = await resp.json();
     renderMessages();
@@ -1600,7 +1600,7 @@ function _toggleAckedSection(hdr){
 
 async function _ackMessage(id){
   try{
-    const resp = await fetch(_base + '/api/admin/messages/' + id + '/ack', {method:'POST', headers: authHeaders()});
+    const resp = await fetch(_base + '/api/supplier/messages/' + id + '/ack', {method:'POST', headers: authHeaders()});
     if(!resp.ok) return;
     const msg = _messages.find(m => m.id === id);
     if(msg){ msg.acknowledged = true; msg.read = true; }
@@ -1614,7 +1614,7 @@ async function _markVisibleRead(){
   const unread = _messages.filter(m => !m.read);
   for(const m of unread){
     try{
-      await fetch(_base + '/api/admin/messages/' + m.id + '/read', {method:'POST', headers: authHeaders()});
+      await fetch(_base + '/api/supplier/messages/' + m.id + '/read', {method:'POST', headers: authHeaders()});
       m.read = true;
     } catch(e){}
   }
@@ -1822,7 +1822,7 @@ let _docsCache = {};
 async function downloadDoc(docId){
   const filename = _docsCache[docId] || 'document.pdf';
   try{
-    const resp = await fetch(_base+'/api/admin/documents/'+docId+'/download', {headers: authHeaders()});
+    const resp = await fetch(_base+'/api/supplier/documents/'+docId+'/download', {headers: authHeaders()});
     if(!resp.ok){alert(T('DOCS_DOWNLOAD_FAILED'));return;}
     const blob = await resp.blob();
     const url = URL.createObjectURL(blob);
@@ -1856,7 +1856,7 @@ function closeDocsModal(){
 async function loadDocsModal(){
   const list = document.getElementById('docs-modal-list');
   try{
-    const resp = await fetch(_base + '/api/admin/tariffs/' + encodeURIComponent(_docsTargetId) + '/documents', {headers: authHeaders()});
+    const resp = await fetch(_base + '/api/supplier/tariffs/' + encodeURIComponent(_docsTargetId) + '/documents', {headers: authHeaders()});
     const docs = await resp.json();
     if(!docs.length){
       list.innerHTML = `<p style="color:var(--text3);font-size:13px">${T('DOCS_EMPTY')}</p>`;
@@ -1887,7 +1887,7 @@ async function uploadDocModal(){
   fd.append('file', fi.files[0]);
   msgEl.textContent = T('DOCS_UPLOADING'); msgEl.style.color='var(--text3)';
   try{
-    const resp = await fetch(_base + '/api/admin/tariffs/' + encodeURIComponent(_docsTargetId) + '/documents', {
+    const resp = await fetch(_base + '/api/supplier/tariffs/' + encodeURIComponent(_docsTargetId) + '/documents', {
       method: 'POST',
       body: fd,
     });

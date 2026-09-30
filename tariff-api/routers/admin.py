@@ -1,37 +1,29 @@
 """
-Admin API router.
+Admin API router — CERA admin only.
 
 Auth rules
 ----------
-  get_current_user  — any logged-in user (admin or supplier)
-  require_admin     — CERA admin only
+  Every route here requires the admin role, enforced once by the router-level
+  require_admin dependency below. A route added later is therefore admin-only
+  by default, even if it forgets its own guard.
 
-Tariff ownership
-----------------
-  Suppliers may only create / update / delete their own tariffs.
-  Status changes (approve / reject) are admin-only.
-  Admins can touch any tariff.
+  Supplier-portal endpoints live in routers/supplier.py (/api/supplier/...),
+  never here. Shared tariff/document/message logic is in routers/shared.py.
 """
 
 import calendar
 import json
-import random
 import secrets
-import string
-import time
-import uuid
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Any
 
 import email_utils
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 import models
-from auth import CurrentUser, get_current_user, hash_password, require_admin, resolve_supplier_name
+from auth import CurrentUser, hash_password, require_admin, resolve_supplier_name
 from config import TARIFF_BASE_URL
 from database import get_db
 from importer import import_cfg
@@ -41,33 +33,18 @@ from schemas import (
     TariffReportStatusIn, TariffStatusIn, UserOtpToggleIn, UserStatusIn,
 )
 from serializers import (
-    message_to_dict, profile_to_dict, profile_to_summary_dict, scheduled_notification_to_dict,
+    message_to_dict, profile_to_dict, scheduled_notification_to_dict,
     supplier_to_dict, tariff_report_to_dict, tariff_to_dict,
 )
 
-router = APIRouter(prefix="/api/admin", tags=["admin"])
+from routers.shared import (
+    _add_changelog, _apply_tariff_body, _diff_fields, _document_dicts, _document_response,
+    _message_targets, _new_tariff, _now, _save_pdf_upload, _uid,
+)
+
+router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
 _VALID_STATUSES = {"draft", "pending", "approved", "rejected", "suspended"}
-
-
-def _uid() -> str:
-    ts = int(time.time() * 1000)
-    rand = "".join(random.choices(string.ascii_lowercase + string.digits, k=4))
-    return f"{ts:x}{rand}"
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-def _add_changelog(db, *, action, tariff_id, tariff_name, supplier, changes, actor: CurrentUser | None = None):
-    db.add(models.Changelog(
-        id=_uid(), tariffId=tariff_id, tariffName=tariff_name,
-        supplier=supplier, action=action,
-        changes=json.dumps(changes), ts=_now(),
-        actorRole=actor.role if actor else None,
-        actorEmail=actor.email if actor else None,
-    ))
 
 
 def _dam_to_dict(d: models.DamData | None) -> dict:
@@ -129,39 +106,22 @@ def _supplier_emails(db, supplier_name: str) -> list[str]:
     return [u.email for u in users if u.email]
 
 
-def _assert_tariff_owner(t: models.Tariff, user: CurrentUser) -> None:
-    """Raise 403 if a supplier tries to touch another supplier's tariff."""
-    if not user.is_admin and t.supplier != user.supplier_name:
-        raise HTTPException(403, "You can only modify your own tariffs")
-
-
 # ── Bulk config ───────────────────────────────────────────────────────────────
 
 @router.get("/config", summary="Full config for admin — all tariff statuses")
 def get_admin_config(
     db: Session = Depends(get_db),
-    user: CurrentUser = Depends(get_current_user),
+    user: CurrentUser = Depends(require_admin),
 ):
     suppliers = db.query(models.Supplier).all()
     profiles  = db.query(models.Profile).all()
-    # Suppliers see only their own tariffs; admins see all
-    tq = db.query(models.Tariff)
-    if user.is_supplier:
-        tq = tq.filter(models.Tariff.supplier == user.supplier_name)
-    tariffs   = tq.all()
+    tariffs   = db.query(models.Tariff).all()
     regulated = db.query(models.Regulated).first()
     dam       = db.query(models.DamData).first()
     notices   = db.query(models.Notices).first()
     sample_invoice_cfg = db.query(models.SampleInvoiceConfig).first()
-    cq = db.query(models.Changelog)
-    if user.is_supplier:
-        cq = cq.filter(models.Changelog.supplier == user.supplier_name)
-    changelog = cq.order_by(models.Changelog.ts.desc()).all()
-    # Reports are admin-only — suppliers must not see reports about their own tariffs
-    reports = (
-        db.query(models.TariffReport).order_by(models.TariffReport.createdAt.desc()).all()
-        if user.is_admin else []
-    )
+    changelog = db.query(models.Changelog).order_by(models.Changelog.ts.desc()).all()
+    reports   = db.query(models.TariffReport).order_by(models.TariffReport.createdAt.desc()).all()
 
     tariff_ids = [t.id for t in tariffs]
     doc_tariff_ids = [
@@ -211,11 +171,9 @@ def put_admin_config(
 def list_tariffs(
     status: str | None = None,
     db: Session = Depends(get_db),
-    user: CurrentUser = Depends(get_current_user),
+    user: CurrentUser = Depends(require_admin),
 ):
     q = db.query(models.Tariff)
-    if user.is_supplier:
-        q = q.filter(models.Tariff.supplier == user.supplier_name)
     if status:
         if status not in _VALID_STATUSES:
             raise HTTPException(400, f"status must be one of {_VALID_STATUSES}")
@@ -227,31 +185,14 @@ def list_tariffs(
 def create_tariff(
     body: TariffIn,
     db: Session = Depends(get_db),
-    user: CurrentUser = Depends(get_current_user),
+    user: CurrentUser = Depends(require_admin),
 ):
-    # Suppliers can only create tariffs under their own supplier name
-    if user.is_supplier and body.supplier != user.supplier_name:
-        raise HTTPException(403, f"You can only create tariffs for '{user.supplier_name}'")
-    tariff_id = body.id or _uid()
-    now = _now()
-    t = models.Tariff(
-        id=tariff_id, name=body.name, supplier=body.supplier,
-        contract=body.contract, voltage=body.voltage, pricing=body.pricing,
-        standing=body.standing, mdm=body.mdm, mdmSource=body.mdmSource,
-        mdmInvoiceMonths=body.mdmInvoiceMonths, rates=json.dumps(body.rates),
-        profileId=body.profileId, fpaSource=body.fpaSource, fpaCustom=body.fpaCustom,
-        durationMonths=body.durationMonths, loadEntitlement=body.loadEntitlement,
-        discounts=json.dumps(body.discounts), vulnerable=body.vulnerable,
-        status="pending" if user.is_supplier else "approved",
-        createdAt=now, updatedAt=now,
-    )
+    t = _new_tariff(body, status="approved")
     db.add(t)
-    _add_changelog(db, action="created", tariff_id=tariff_id,
+    _add_changelog(db, action="created", tariff_id=t.id,
                    tariff_name=body.name, supplier=body.supplier, changes=[], actor=user)
     db.commit()
     db.refresh(t)
-    if user.is_supplier:
-        email_utils.notify_admin_new_tariff(body.name, body.supplier)
     return tariff_to_dict(t)
 
 
@@ -259,60 +200,12 @@ def create_tariff(
 def get_tariff(
     tariff_id: str,
     db: Session = Depends(get_db),
-    user: CurrentUser = Depends(get_current_user),
+    user: CurrentUser = Depends(require_admin),
 ):
     t = db.get(models.Tariff, tariff_id)
     if not t:
         raise HTTPException(404, "Tariff not found")
-    _assert_tariff_owner(t, user)
     return tariff_to_dict(t)
-
-
-def _profile_label(db: Session, profile_id) -> str:
-    """Render a profile id as 'Name' for changelog display, falling back to the raw id."""
-    if not profile_id:
-        return ""
-    p = db.get(models.Profile, profile_id)
-    return p.name if p else str(profile_id)
-
-
-def _diff_fields(db: Session, old: models.Tariff, body: TariffIn) -> list[dict]:
-    """Compare old DB record against incoming body; return list of {field, from, to}."""
-    changes = []
-    for field, ov, nv in [
-        ("name",            old.name,            body.name),
-        ("contract",        old.contract,        body.contract),
-        ("voltage",         old.voltage,         body.voltage),
-        ("pricing",         old.pricing,         body.pricing),
-        ("standing",        old.standing,        body.standing),
-        ("mdm",             old.mdm,             body.mdm),
-        ("mdmSource",       old.mdmSource,       body.mdmSource),
-        ("mdmInvoiceMonths", old.mdmInvoiceMonths, body.mdmInvoiceMonths),
-        ("fpaSource",       old.fpaSource,       body.fpaSource),
-        ("fpaCustom",       old.fpaCustom,       body.fpaCustom),
-        ("durationMonths",  old.durationMonths,  body.durationMonths),
-        ("loadEntitlement", old.loadEntitlement, body.loadEntitlement),
-        ("vulnerable",      old.vulnerable,      body.vulnerable),
-        ("profileId",       old.profileId,       body.profileId),
-    ]:
-        if str(ov if ov is not None else "") != str(nv if nv is not None else ""):
-            if field == "profileId":
-                changes.append({"field": field,
-                                "from": _profile_label(db, ov),
-                                "to":   _profile_label(db, nv)})
-            else:
-                changes.append({"field": field,
-                                "from": "" if ov is None else str(ov),
-                                "to":   "" if nv is None else str(nv)})
-    old_rates = json.loads(old.rates) if old.rates else {}
-    if old_rates != body.rates:
-        changes.append({"field": "rates", "from": json.dumps(old_rates), "to": json.dumps(body.rates)})
-    old_disc = json.loads(old.discounts) if old.discounts else []
-    if old_disc != body.discounts:
-        changes.append({"field": "discounts",
-                        "from": json.dumps(old_disc),
-                        "to":   json.dumps(body.discounts)})
-    return changes
 
 
 @router.put("/tariffs/{tariff_id}", summary="Replace a tariff")
@@ -320,29 +213,17 @@ def update_tariff(
     tariff_id: str,
     body: TariffIn,
     db: Session = Depends(get_db),
-    user: CurrentUser = Depends(get_current_user),
+    user: CurrentUser = Depends(require_admin),
 ):
     t = db.get(models.Tariff, tariff_id)
     if not t:
         raise HTTPException(404, "Tariff not found")
-    _assert_tariff_owner(t, user)
     changes = _diff_fields(db, t, body)   # capture diff before modifying t
-    t.name = body.name; t.supplier = body.supplier
-    t.contract = body.contract; t.voltage = body.voltage; t.pricing = body.pricing
-    t.standing = body.standing; t.mdm = body.mdm; t.mdmSource = body.mdmSource
-    t.mdmInvoiceMonths = body.mdmInvoiceMonths; t.rates = json.dumps(body.rates)
-    t.profileId = body.profileId; t.fpaSource = body.fpaSource; t.fpaCustom = body.fpaCustom
-    t.durationMonths = body.durationMonths; t.loadEntitlement = body.loadEntitlement
-    t.discounts = json.dumps(body.discounts); t.vulnerable = body.vulnerable
-    t.updatedAt = _now()
-    if user.is_supplier:
-        t.status = "pending"
+    _apply_tariff_body(t, body)
     _add_changelog(db, action="updated", tariff_id=tariff_id,
                    tariff_name=body.name, supplier=body.supplier, changes=changes, actor=user)
     db.commit()
     db.refresh(t)
-    if user.is_supplier:
-        email_utils.notify_admin_resubmit(body.name, body.supplier)
     return tariff_to_dict(t)
 
 
@@ -350,12 +231,11 @@ def update_tariff(
 def delete_tariff(
     tariff_id: str,
     db: Session = Depends(get_db),
-    user: CurrentUser = Depends(get_current_user),
+    user: CurrentUser = Depends(require_admin),
 ):
     t = db.get(models.Tariff, tariff_id)
     if not t:
         raise HTTPException(404, "Tariff not found")
-    _assert_tariff_owner(t, user)
     _add_changelog(db, action="deleted", tariff_id=tariff_id,
                    tariff_name=t.name, supplier=t.supplier, changes=[], actor=user)
     db.delete(t)
@@ -466,106 +346,44 @@ def delete_supplier(name: str, db: Session = Depends(get_db), user: CurrentUser 
 
 # ── Tariff documents ──────────────────────────────────────────────────────────
 
-_UPLOAD_DIR = Path(__file__).parent.parent / "uploads"
-_MAX_FILE_BYTES = 10 * 1024 * 1024  # 10 MB
-
-
 @router.post("/tariffs/{tariff_id}/documents", status_code=201, summary="Upload a supporting document for a tariff")
 async def upload_document(
     tariff_id: str,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    user: CurrentUser = Depends(get_current_user),
+    user: CurrentUser = Depends(require_admin),
 ):
     t = db.query(models.Tariff).filter(models.Tariff.id == tariff_id).first()
     if not t:
         raise HTTPException(404, "Tariff not found.")
-    if user.role == "supplier" and t.supplier != user.supplier_name:
-        raise HTTPException(403, "You can only upload documents for your own tariffs.")
-    original = (file.filename or "document").strip()
-    if not original.lower().endswith(".pdf"):
-        raise HTTPException(400, "Only PDF files are accepted.")
-    content = await file.read()
-    if len(content) > _MAX_FILE_BYTES:
-        raise HTTPException(400, "File exceeds the 10 MB limit.")
-    if not content.startswith(b"%PDF"):
-        raise HTTPException(400, "File does not appear to be a valid PDF.")
-    stored = uuid.uuid4().hex + ".pdf"
-    (_UPLOAD_DIR / stored).write_bytes(content)
-    now = datetime.now(timezone.utc).isoformat()
-    doc = models.TariffDocument(
-        tariff_id=tariff_id,
-        original_name=original,
-        stored_name=stored,
-        uploaded_at=now,
-        uploaded_by=user.email,
-    )
-    db.add(doc)
-    # Supplier uploading a new doc on a live/rejected tariff → back to pending review
-    resubmitted = False
-    if user.role == "supplier" and t.status in ("approved", "rejected"):
-        old_status = t.status
-        t.status = "pending"
-        t.rejection_reason = None
-        resubmitted = True
-        _add_changelog(
-            db, action="updated", tariff_id=tariff_id, tariff_name=t.name, supplier=t.supplier,
-            changes=[{"field": "status", "from": old_status, "to": "pending"},
-                     {"field": "documents", "from": "", "to": f"uploaded {original}"}],
-            actor=user,
-        )
+    doc = await _save_pdf_upload(db, tariff_id, file, user)
     db.commit()
     db.refresh(doc)
-    return {"id": doc.id, "original_name": original, "uploaded_at": now, "uploaded_by": user.email, "resubmitted": resubmitted, "new_status": t.status}
+    return {"id": doc.id, "original_name": doc.original_name, "uploaded_at": doc.uploaded_at, "uploaded_by": user.email, "resubmitted": False, "new_status": t.status}
 
 
 @router.get("/tariffs/{tariff_id}/documents", summary="List documents for a tariff")
 def list_documents(
     tariff_id: str,
     db: Session = Depends(get_db),
-    user: CurrentUser = Depends(get_current_user),
+    user: CurrentUser = Depends(require_admin),
 ):
     t = db.query(models.Tariff).filter(models.Tariff.id == tariff_id).first()
     if not t:
         raise HTTPException(404, "Tariff not found.")
-    if user.role == "supplier" and t.supplier != user.supplier_name:
-        raise HTTPException(403, "Access denied.")
-    docs = (
-        db.query(models.TariffDocument)
-        .filter(models.TariffDocument.tariff_id == tariff_id)
-        .order_by(models.TariffDocument.uploaded_at.desc())
-        .all()
-    )
-    return [
-        {"id": d.id, "original_name": d.original_name, "uploaded_at": d.uploaded_at, "uploaded_by": d.uploaded_by}
-        for d in docs
-    ]
+    return _document_dicts(db, tariff_id)
 
 
 @router.get("/documents/{doc_id}/download", summary="Download a tariff document")
 def download_document(
     doc_id: int,
     db: Session = Depends(get_db),
-    user: CurrentUser = Depends(get_current_user),
+    user: CurrentUser = Depends(require_admin),
 ):
     doc = db.get(models.TariffDocument, doc_id)
-    # Same 404 for "doesn't exist" and "exists but isn't yours" — a distinct
-    # 403 here would let an authenticated supplier enumerate which document
-    # IDs exist system-wide just from the response code.
     if not doc:
         raise HTTPException(404, "Document not found.")
-    if user.role == "supplier":
-        t = db.query(models.Tariff).filter(models.Tariff.id == doc.tariff_id).first()
-        if not t or t.supplier != user.supplier_name:
-            raise HTTPException(404, "Document not found.")
-    file_path = _UPLOAD_DIR / doc.stored_name
-    if not file_path.exists():
-        raise HTTPException(404, "File not found on server.")
-    return FileResponse(
-        path=str(file_path),
-        filename=doc.original_name,
-        media_type="application/pdf",
-    )
+    return _document_response(doc)
 
 
 # ── User management (admin only) ──────────────────────────────────────────────
@@ -734,64 +552,36 @@ def list_login_activity(
 
 # ── Messages (broadcast communications to suppliers) ──────────────────────────
 
-def _message_targets(db: Session, msg: models.Message) -> list[str]:
-    """Resolve which supplier names a message applies to."""
-    if msg.audience == "all":
-        return [s.name for s in db.query(models.Supplier).all()]
-    return json.loads(msg.target_suppliers) if msg.target_suppliers else []
-
-
-@router.get("/messages", summary="List messages — full history for admins, own messages for suppliers")
-def list_messages(db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+@router.get("/messages", summary="List messages — full history with per-supplier read/ack status")
+def list_messages(db: Session = Depends(get_db), user: CurrentUser = Depends(require_admin)):
     messages = db.query(models.Message).order_by(models.Message.created_at.desc()).all()
-
-    if user.is_admin:
-        sid_to_name = {s.id: s.name for s in db.query(models.Supplier).all()}
-        out = []
-        for m in messages:
-            targets = _message_targets(db, m)
-            reads = db.query(models.MessageRead).filter(models.MessageRead.message_id == m.id).all()
-            # Keyed by the supplier's *current* name (resolved live via supplier_id)
-            # so a rename doesn't orphan read/ack tracking for historical messages.
-            reads_by_supplier = {sid_to_name[r.supplier_id]: r for r in reads if r.supplier_id in sid_to_name}
-            read_by = list(reads_by_supplier.keys())
-            acked_by = [s for s, r in reads_by_supplier.items() if r.acknowledged_at]
-            d = message_to_dict(m)
-            d["totalTargets"] = len(targets)
-            d["readCount"] = len([s for s in targets if s in read_by])
-            d["readBy"] = [s for s in targets if s in read_by]
-            d["unreadBy"] = [s for s in targets if s not in read_by]
-            d["ackCount"] = len([s for s in targets if s in acked_by])
-            d["ackBy"] = [s for s in targets if s in acked_by]
-            d["recipients"] = [
-                {
-                    "supplier": s,
-                    "read": s in reads_by_supplier,
-                    "readAt": reads_by_supplier[s].read_at if s in reads_by_supplier else None,
-                    "acknowledged": bool(reads_by_supplier.get(s) and reads_by_supplier[s].acknowledged_at),
-                    "ackAt": reads_by_supplier[s].acknowledged_at if s in reads_by_supplier else None,
-                }
-                for s in sorted(targets)
-            ]
-            out.append(d)
-        return out
-
-    # Supplier: only non-archived messages that target them, with their own read/ack flags
-    supplier_name = user.supplier_name
+    sid_to_name = {s.id: s.name for s in db.query(models.Supplier).all()}
     out = []
     for m in messages:
-        if m.archived:
-            continue
         targets = _message_targets(db, m)
-        if supplier_name not in targets:
-            continue
-        rec = db.query(models.MessageRead).filter(
-            models.MessageRead.message_id == m.id,
-            models.MessageRead.supplier_id == user.supplier_id,
-        ).first()
+        reads = db.query(models.MessageRead).filter(models.MessageRead.message_id == m.id).all()
+        # Keyed by the supplier's *current* name (resolved live via supplier_id)
+        # so a rename doesn't orphan read/ack tracking for historical messages.
+        reads_by_supplier = {sid_to_name[r.supplier_id]: r for r in reads if r.supplier_id in sid_to_name}
+        read_by = list(reads_by_supplier.keys())
+        acked_by = [s for s, r in reads_by_supplier.items() if r.acknowledged_at]
         d = message_to_dict(m)
-        d["read"] = rec is not None
-        d["acknowledged"] = bool(rec and rec.acknowledged_at)
+        d["totalTargets"] = len(targets)
+        d["readCount"] = len([s for s in targets if s in read_by])
+        d["readBy"] = [s for s in targets if s in read_by]
+        d["unreadBy"] = [s for s in targets if s not in read_by]
+        d["ackCount"] = len([s for s in targets if s in acked_by])
+        d["ackBy"] = [s for s in targets if s in acked_by]
+        d["recipients"] = [
+            {
+                "supplier": s,
+                "read": s in reads_by_supplier,
+                "readAt": reads_by_supplier[s].read_at if s in reads_by_supplier else None,
+                "acknowledged": bool(reads_by_supplier.get(s) and reads_by_supplier[s].acknowledged_at),
+                "ackAt": reads_by_supplier[s].acknowledged_at if s in reads_by_supplier else None,
+            }
+            for s in sorted(targets)
+        ]
         out.append(d)
     return out
 
@@ -845,43 +635,6 @@ def create_message(body: MessageIn, db: Session = Depends(get_db), user: Current
     )
 
     return message_to_dict(msg)
-
-
-@router.post("/messages/{message_id}/read", summary="Mark a message as read (supplier only)")
-def mark_message_read(message_id: str, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
-    if not user.is_supplier:
-        raise HTTPException(400, "Only supplier accounts can mark messages as read.")
-    msg = db.get(models.Message, message_id)
-    if not msg:
-        raise HTTPException(404, "Message not found.")
-    existing = db.query(models.MessageRead).filter(
-        models.MessageRead.message_id == message_id,
-        models.MessageRead.supplier_id == user.supplier_id,
-    ).first()
-    if not existing:
-        db.add(models.MessageRead(message_id=message_id, supplier_id=user.supplier_id, read_at=_now()))
-        db.commit()
-    return {"ok": True}
-
-
-@router.post("/messages/{message_id}/ack", summary="Acknowledge a message (supplier only)")
-def acknowledge_message(message_id: str, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
-    if not user.is_supplier:
-        raise HTTPException(400, "Only supplier accounts can acknowledge messages.")
-    msg = db.get(models.Message, message_id)
-    if not msg:
-        raise HTTPException(404, "Message not found.")
-    rec = db.query(models.MessageRead).filter(
-        models.MessageRead.message_id == message_id,
-        models.MessageRead.supplier_id == user.supplier_id,
-    ).first()
-    if not rec:
-        rec = models.MessageRead(message_id=message_id, supplier_id=user.supplier_id, read_at=_now())
-        db.add(rec)
-    if not rec.acknowledged_at:
-        rec.acknowledged_at = _now()
-        db.commit()
-    return {"ok": True}
 
 
 @router.patch("/messages/{message_id}/archive", summary="Archive or restore a message (admin only)")
@@ -1014,15 +767,9 @@ def run_due_scheduled_notifications(db: Session) -> None:
 
 # ── Profiles (admin only) ─────────────────────────────────────────────────────
 
-@router.get("/profiles", summary="List all profiles")
-def list_profiles(db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
-    """Suppliers only ever render id/name/desc (the profile-picker dropdown
-    in supplier.html) — the full half-hourly shape data is withheld from
-    them and returned only to admins, who need it for profile management."""
-    profiles = db.query(models.Profile).all()
-    if user.is_supplier:
-        return [profile_to_summary_dict(p) for p in profiles]
-    return [profile_to_dict(p) for p in profiles]
+@router.get("/profiles", summary="List all profiles, with full half-hourly shape data")
+def list_profiles(db: Session = Depends(get_db), user: CurrentUser = Depends(require_admin)):
+    return [profile_to_dict(p) for p in db.query(models.Profile).all()]
 
 
 @router.post("/profiles", status_code=201, summary="Create a profile (admin only)")
@@ -1140,7 +887,7 @@ def get_regulated_history(db: Session = Depends(get_db), user: CurrentUser = Dep
 # ── Notices (admin only) ──────────────────────────────────────────────────────
 
 @router.get("/notices", summary="Get notices / assumptions HTML")
-def get_notices(db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+def get_notices(db: Session = Depends(get_db), user: CurrentUser = Depends(require_admin)):
     return _notices_to_dict(db.query(models.Notices).first())
 
 
@@ -1154,7 +901,7 @@ def update_notices(body: NoticesIn, db: Session = Depends(get_db), user: Current
 # ── Sample invoice toggle (admin only) ────────────────────────────────────────
 
 @router.get("/sample-invoice", summary="Get sample invoice feature toggle")
-def get_sample_invoice_config(db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+def get_sample_invoice_config(db: Session = Depends(get_db), user: CurrentUser = Depends(require_admin)):
     row = db.query(models.SampleInvoiceConfig).first()
     return {"enabled": bool(row.enabled) if row else False}
 
@@ -1185,11 +932,9 @@ def update_dam(body: DamIn, db: Session = Depends(get_db), user: CurrentUser = D
 
 # ── Changelog ─────────────────────────────────────────────────────────────────
 
-@router.get("/changelog", summary="Full changelog for admins, own-supplier changelog for suppliers")
-def get_changelog(db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+@router.get("/changelog", summary="Full changelog")
+def get_changelog(db: Session = Depends(get_db), user: CurrentUser = Depends(require_admin)):
     q = db.query(models.Changelog)
-    if user.is_supplier:
-        q = q.filter(models.Changelog.supplier == user.supplier_name)
     return [
         {"id": c.id, "tariffId": c.tariffId, "tariffName": c.tariffName,
          "supplier": c.supplier, "action": c.action,

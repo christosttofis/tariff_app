@@ -43,6 +43,7 @@ from database import SessionLocal, get_db
 from routers import admin as admin_router
 from routers import auth as auth_router
 from routers import public_calc as public_calc_router
+from routers import supplier as supplier_router
 from routers.admin import run_due_scheduled_notifications
 from schemas import TariffReportIn
 from serializers import supplier_to_dict, tariff_to_public_summary_dict
@@ -248,8 +249,12 @@ async def _start_scheduled_notifications_loop():
 # Auth router — /api/auth/login (public, no token required)
 app.include_router(auth_router.router)
 
-# Admin router — all /api/admin/... routes (protected)
+# Admin router — all /api/admin/... routes (admin role only, enforced router-wide)
 app.include_router(admin_router.router)
+
+# Supplier router — all /api/supplier/... routes (supplier role only, enforced
+# router-wide; every query scoped to the caller's own supplier)
+app.include_router(supplier_router.router)
 
 # Public calculation router — /api/public/calculate, /api/public/sample-invoice
 # (Phase 1 of the customer-data-exposure fix: engine built and reachable, but

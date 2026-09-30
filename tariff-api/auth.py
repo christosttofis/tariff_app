@@ -271,6 +271,13 @@ def require_admin(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
     return user
 
 
+def require_supplier(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+    """Dependency: allows only supplier-role users that are linked to a supplier."""
+    if not user.is_supplier or user.supplier_id is None or not user.supplier_name:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Supplier access required")
+    return user
+
+
 # ── Password expiry background check ──────────────────────────────────────────
 
 _PASSWORD_REMINDER_LEAD_DAYS = 14  # send the reminder this many days before expiry

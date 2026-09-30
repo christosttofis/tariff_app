@@ -100,6 +100,15 @@ Outside-attacker testing over HTTP against an isolated instance on a throwaway d
 
 ---
 
+## Round 10 — API split by role, deny-by-default (2026-09-30)
+
+- [x] **Admin and supplier portals shared `/api/admin/*` → split, verified.** Suppliers previously called `/api/admin/*` routes, whose handlers branched on role internally. That was allow-by-default: any handler guarded with `get_current_user` instead of `require_admin` was open to suppliers. This is how the Round 3 changelog/supplier-contact leaks and the Round 9 DAM/regulated leak happened. **Fix:** `/api/admin/*` is now guarded router-wide by `require_admin`. A new `/api/supplier/*` router is guarded router-wide by a new `require_supplier` and scoped to the caller's own supplier. Shared logic lives in `routers/shared.py`, and `supplier.html` was moved to the new routes. Another supplier's tariff/document/message returns 404, the same as a missing one.
+- [x] **Supplier could reassign its own tariff to another supplier → fixed, verified.** `PUT` on a tariff only checked the tariff's *current* owner, then copied `body.supplier` onto it. A supplier could therefore move its own tariff under a competitor's name. The supplier route now rejects any `body.supplier` other than the caller's own (403).
+- [x] **Supplier could mark/ack messages not addressed to it → fixed.** Minor: this only created a read record for itself. Read/ack now 404 unless the message targets the caller's supplier and isn't archived.
+- **Verified live** (disposable SQLite DB, email disabled): every route in the OpenAPI schema was enumerated. Anon → 401 on all admin and supplier routes. Supplier → 403 on **every** `/api/admin/*` route. Admin → 403 on every `/api/supplier/*` route. Full supplier flow worked end to end: list, create (→ pending), edit, delete, upload/list/download doc, read/ack message, profile picker receives id/name/desc only. Cross-supplier create/edit/reassign/delete/upload/list/download/read were all blocked. Admin flow was unchanged (config, CRUD, approve, docs, messages with ack status, users, notices, DAM, regulated). The public calculator was unaffected. 162 requests, 0 failures.
+
+---
+
 ## Open items — must be handled before go-live
 
 These are deployment/production tasks, tracked in full in `AZURE_DEPLOYMENT_CHECKLIST.md` and project memory.
