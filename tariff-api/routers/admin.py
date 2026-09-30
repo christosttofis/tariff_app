@@ -26,9 +26,8 @@ import models
 from auth import CurrentUser, hash_password, require_admin, resolve_supplier_name
 from config import TARIFF_BASE_URL
 from database import get_db
-from importer import import_cfg
 from schemas import (
-    ConfigImportIn, CreateUserIn, DamIn, MessageArchiveIn, MessageIn, NoticesIn, ProfileIn, RegulatedIn,
+    CreateUserIn, DamIn, MessageArchiveIn, MessageIn, NoticesIn, ProfileIn, RegulatedIn,
     SampleInvoiceConfigIn, ScheduledNotificationEnabledIn, ScheduledNotificationIn, SupplierIn, TariffIn,
     TariffReportStatusIn, TariffStatusIn, UserOtpToggleIn, UserStatusIn,
 )
@@ -151,18 +150,6 @@ def get_admin_config(
         "reports": [tariff_report_to_dict(r) for r in reports],
         "savedAt": _now(),
     }
-
-
-@router.put("/config", summary="Replace all config from admin Publish (admin only)")
-def put_admin_config(
-    payload: ConfigImportIn,
-    db: Session = Depends(get_db),
-    user: CurrentUser = Depends(require_admin),
-):
-    try:
-        return import_cfg(payload.model_dump(mode="json"), db)
-    except Exception as exc:
-        raise HTTPException(400, str(exc))
 
 
 # ── Tariffs ───────────────────────────────────────────────────────────────────

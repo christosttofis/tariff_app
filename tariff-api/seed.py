@@ -1,16 +1,15 @@
 """
-Seed the database from an exported localStorage cfg JSON file.
+First-time setup only: load a legacy localStorage cfg JSON export (from the
+pre-database version of admin.html) into an EMPTY database.
 
 Usage:
     cd tariff-api
-    python seed.py path/to/cfg.json
+    python seed.py path/to/cfg.json [--force]
 
-How to get the JSON:
-    1. Open admin.html in a browser that has your config in localStorage.
-    2. Click "Publish" once (to make sure it's saved).
-    3. Open the browser console and run:
-           copy(localStorage.getItem('elec-config-v5'))
-    4. Paste into a file, e.g. cfg.json, and run this script.
+This replaces all suppliers, profiles and tariffs and marks every imported
+tariff as approved (see importer.py). It refuses to run if the database
+already contains suppliers or tariffs; --force overrides that, and will
+destroy the existing data. Take a backup first (ADMIN_MANUAL.md 15.5).
 """
 
 import json
@@ -26,11 +25,13 @@ from importer import import_cfg
 
 
 def main():
-    if len(sys.argv) < 2:
+    args = [a for a in sys.argv[1:] if a != "--force"]
+    force = "--force" in sys.argv[1:]
+    if len(args) != 1:
         print(__doc__)
         sys.exit(1)
 
-    path = Path(sys.argv[1])
+    path = Path(args[0])
     if not path.exists():
         print(f"Error: file not found: {path}")
         sys.exit(1)
@@ -42,9 +43,15 @@ def main():
     print("Creating database tables if needed …")
     models.Base.metadata.create_all(bind=engine)
 
-    print("Importing data …")
     db = SessionLocal()
     try:
+        existing = db.query(models.Tariff).count() + db.query(models.Supplier).count()
+        if existing and not force:
+            print("Refusing to import: the database already contains suppliers/tariffs, which "
+                  "this import would delete and replace. Re-run with --force only if that is "
+                  "really intended, after taking a backup.")
+            sys.exit(1)
+        print("Importing data …")
         result = import_cfg(cfg, db)
     finally:
         db.close()

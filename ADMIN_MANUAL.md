@@ -1,7 +1,7 @@
 # CERA Tariff Comparison Tool — Administrator Manual
 
 **Version:** 1.4  
-**Date:** July 2026 (updated 2026-07-17: Suppliers, Load Profiles, Notices, and DAM Data now save immediately when you click their own Save button — see Section 12 for what "Publish" does now)  
+**Date:** July 2026 (updated 2026-07-17: Suppliers, Load Profiles, Notices, and DAM Data now save immediately when you click their own Save button — see Section 12; the old Publish page was removed 2026-09-30)  
 **Prepared by:** Cyprus Energy Regulatory Authority  
 
 ---
@@ -19,7 +19,7 @@
 9. [Day-Ahead Market (DAM) Data](#9-day-ahead-market-dam-data)
 10. [Notices & Disclaimers](#10-notices--disclaimers)
 11. [Audit Log](#11-audit-log)
-12. [Publishing](#12-publishing)
+12. [Saving changes](#12-saving-changes)
 13. [Email Notifications](#13-email-notifications)
 14. [Security & Account Lockout](#14-security--account-lockout)
 15. [Server Operations](#15-server-operations)
@@ -85,7 +85,6 @@ The admin panel is divided into sections accessible from the left-hand navigatio
 | **DAM Data** | 📈 | Upload day-ahead market price data |
 | **Notices** | 📝 | Edit the notices and disclaimers shown on the calculator |
 | **Audit Log** | 🕵️ | View full history of all tariff changes |
-| **Publish** | 🚀 | Optional manual full re-sync / "last published" checkpoint — not required for routine edits, see [Section 12](#12-publishing) |
 
 A **badge** on the Tariffs navigation item shows the number of tariffs currently awaiting review.
 
@@ -151,7 +150,7 @@ Navigate to **Suppliers** in the left menu.
 
 This section manages the registered details of each licensed supplier — name, licence number, address, contact email, telephone, and website. These details are displayed on the public calculator when a consumer expands a tariff card.
 
-Every action in this section (add, edit, remove) saves straight to the server the moment you click its button — there is no separate publish step, and none of it depends on the **Publish** page (see [Section 12](#12-publishing)).
+Every action in this section (add, edit, remove) saves straight to the server the moment you click its button — there is no separate publish step (see [Section 12](#12-saving-changes)).
 
 ### Adding a supplier
 
@@ -228,7 +227,7 @@ Admins can edit any tariff directly without going through the supplier submissio
 
 ### 6.7 Deleting a tariff
 
-Click **View** then **Delete** inside the modal. A confirmation prompt is shown. This action cannot be undone.
+Click **View** then **Delete** inside the modal. A confirmation prompt is shown. The tariff is deleted from the server immediately and the deletion is recorded in the Changelog. This action cannot be undone. (Before 2026-09-30 this button only removed the tariff from the page, and it reappeared on reload.)
 
 ### 6.8 Tariff documents
 
@@ -247,7 +246,7 @@ To put an archived tariff back online, click **▶ Restore** next to it (the sam
 
 ### 6.10 Tariff input checks and limits
 
-Every tariff is checked by the server before it is saved, whether it comes from a supplier, the admin editor, or **Save & publish**. A tariff that fails a check is rejected with a message explaining which field is wrong. Nothing is stored.
+Every tariff is checked by the server before it is saved, whether it comes from a supplier or the admin editor. A tariff that fails a check is rejected with a message explaining which field is wrong. Nothing is stored.
 
 These checks protect the public calculator. Before they existed, a single tariff containing malformed data (for example, a price entered as text) could stop the comparison working for **every** customer once approved.
 
@@ -397,18 +396,23 @@ The log is read-only and cannot be modified or deleted. Use it to track the hist
 
 ---
 
-## 12. Publishing
+## 12. Saving changes
 
-Every section of the admin panel saves itself immediately, using its own Save/Add/Edit/Delete/Rename/Remove button — Tariffs, Suppliers, Regulated Charges, Load Profiles, Notices, and DAM Data. There is **no required publish step**. As soon as you click a Save-type button anywhere in the panel, that change is written to the database and is live on the public calculator right away.
+There is no Publish step. Every section of the admin panel saves itself when you click its own button, and the change is live on the customer calculator straight away:
 
-The **Publish** page's **💾 Save & publish** button is now a manual, optional safety net rather than a routine step. Clicking it re-sends everything currently loaded in your browser (suppliers, profiles, tariffs, regulated charges, notices, DAM data) to the server in one go. Use it if:
+| Section | Button that saves it |
+|---|---|
+| Suppliers | **+ Add**, **Save details**, **Remove** |
+| Load profiles | **⚡ Parse & save profile** (add or overwrite), **✏ Rename**, **Delete** |
+| Tariffs | **Save** in the tariff editor, **Approve** / **Reject** / **Suspend** / **Restore**, **View → Delete** |
+| Regulated charges | **💾 Save regulated charges** |
+| DAM price data | **💾 Save DAM data** |
+| Notices | **💾 Save notices** |
+| Sample invoice | its on/off checkbox (saves as soon as you tick or untick it) |
 
-- You suspect something didn't save correctly and want to force a full re-sync
-- You want to record a "last published" timestamp as a manual checkpoint (shown on the Publish page after clicking, and kept as a local backup snapshot you can inspect with **Load snapshot**)
+A green "Saved ✓" (or the updated list) confirms the change reached the server. If you see "Save failed", nothing was changed. Fix the problem shown and save again.
 
-> ⚠ **Known issue, do not use Save & publish until fixed (found 2026-09-30).** Publishing currently resets the status of **every** tariff to Approved. Pending, draft, rejected, suspended and archived tariffs all go live immediately, and rejection reasons are lost. Save individual changes with each section's own Save button instead.
-
-> Because it re-sends everything your browser currently has loaded, avoid clicking **Save & publish** if you know another admin might be mid-edit in a different browser tab at the same time — your snapshot could overwrite their in-progress changes to sections you haven't touched. For routine day-to-day work, just use each section's own Save button and ignore the Publish page entirely.
+> **History:** the admin panel used to have a **Publish** page with a **💾 Save & publish** button. It dated from the early version of the tool, when all data lived in the browser and had to be pushed out in one go for the customer tab to see it. After every section gained its own save, the button became redundant and dangerous: it replaced all suppliers, profiles and tariffs with the browser's copy, and set every tariff to Approved. It was removed on 2026-09-30.
 
 ---
 

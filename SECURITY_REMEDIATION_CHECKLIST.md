@@ -123,6 +123,14 @@ Reviewed every field a supplier can send. Ownership checks were already complete
 
 ---
 
+## Round 12 — "Save & publish" removed (2026-09-30)
+
+- [x] **HIGH — "Save & publish" replaced all data from a browser snapshot → removed, verified.** `PUT /api/admin/config` deleted every supplier, profile and tariff and re-created them from the admin's in-browser copy. Because `TariffIn` has no `status`, every tariff came back **approved**: pending, draft, rejected, suspended and archived tariffs went live, and `rejection_reason`/`mdmSource`/`mdmInvoiceMonths` were lost. Suppliers came back with new IDs and without their `regulated` flag. Verified on a throwaway SQLite DB (the reviewer-demo setup), where one click made a pending, a draft and a rejected tariff public. On PostgreSQL the supplier delete violates the `users`/`message_reads` foreign keys, so the call failed and rolled back; the dev DB has 2 supplier logins and 4 read records, so it was likely never damaged. The feature dated from the browser-storage era and had been redundant since every section gained its own save (§16.3 of the architecture review). **Fix:** removed the Publish page, button, menu item and endpoint (`PUT /api/admin/config`, `ConfigImportIn`). `GET /api/admin/config` stays, as the admin panel's data load. Confirmed every admin section saves through its own endpoint.
+- [x] **Admin "View → Delete" never reached the server → fixed, verified.** `editorDeleteFromViewer()` only removed the tariff from the page and relied on Publish to persist it. The API-backed `deleteTariff()` existed but was never called. The tariff reappeared on reload and stayed on the customer calculator. It now calls the server first and updates the page only on success. Verified: the tariff is gone server-side, stays gone after reload, and the deletion is logged.
+- [x] **`seed.py` could wipe a live database.** It shares `import_cfg()`, which replaces all data. It now refuses to run against a database that already has suppliers or tariffs unless `--force` is given. Verified against a populated demo DB: refused, nothing changed.
+
+---
+
 ## Open items — must be handled before go-live
 
 These are deployment/production tasks, tracked in full in `AZURE_DEPLOYMENT_CHECKLIST.md` and project memory.
@@ -133,7 +141,6 @@ These are deployment/production tasks, tracked in full in `AZURE_DEPLOYMENT_CHEC
 - [ ] **Disable API docs in production** — set `TARIFF_ENABLE_DOCS=0` so `/docs`, `/redoc`, `/openapi.json` don't expose the full route surface.
 - [ ] **Restrict `admin.html`** to CERA IPs (checklist has the procedure).
 - [ ] **Rate limiter is in-memory/single-process** — needs a shared store (e.g. Redis) only if ever scaled to multiple workers/instances.
-- [ ] **"Save & publish" resets every tariff to Approved (found 2026-09-30, not yet fixed).** `PUT /api/admin/config` validates tariffs with `TariffIn`, which has no `status` field, so `importer.py` defaults every tariff to `approved`. Verified on a throwaway DB: one Publish turned pending, draft and rejected tariffs live. It also drops `rejection_reason`/`mdmSource`/`mdmInvoiceMonths`. It deletes and re-creates all suppliers too, which on PostgreSQL likely fails against the `users.supplier_id` foreign key. Until fixed, do not use Save & publish (warning added to `ADMIN_MANUAL.md` §12).
 - [ ] **External IT certification** — this document is the security summary to hand over.
 - [~] **Round 6 follow-up** — live UI walkthrough confirming `ConfigImportIn` accepts every real "Publish" payload.
 

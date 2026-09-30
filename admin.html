@@ -196,7 +196,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .discount-row{background:var(--bg);border:1px solid var(--border);border-radius:2px;padding:10px 12px;display:grid;grid-template-columns:1fr 80px 80px 1fr auto;gap:8px;align-items:start}
 .discount-row .field label{font-size:10px}
 .discount-row .field input,.discount-row .field select{padding:5px 8px;font-size:12px}
-.pub-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:18px}
 .sup-detail-modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
 .sup-detail-box{background:var(--bg2);border-radius:2px;width:100%;max-width:520px;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden}
 .sup-detail-head{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
@@ -398,10 +397,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
     <div class="nav-item" onclick="showPane('notices')">📋 <span data-t="NAV_NOTICES">Notices</span></div>
     <div class="nav-item" onclick="showPane('changelog')">🕓 <span data-t="NAV_CHANGELOG">Changelog</span></div>
     <div class="nav-item" onclick="showPane('reports')">🚩 <span data-t="NAV_REPORTS">Reported issues</span><span class="nav-pending-bubble" id="nav-reports-bubble" style="display:none"></span></div>
-    <div class="nav-item" onclick="showPane('publish')">🚀 <span data-t="NAV_PUBLISH">Publish</span></div>
   </nav>
   <div class="sidebar-foot">
-    <div class="saved-label" id="saved-label">Not published yet</div>
+    <div class="saved-label" id="saved-label"></div>
     <div class="user-badge" id="user-badge" style="display:none">
       <div style="font-size:11px;color:var(--text3);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px" id="user-email-label"></div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -1194,22 +1192,6 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
     </div>
   </div>
 
-  <!-- PUBLISH -->
-  <div class="pane" id="pane-publish">
-    <div class="page-head"><h1 data-t="PANE_PUB_TITLE">Publish</h1><p data-t="PANE_PUB_DESC">Save all configuration to localStorage. The customer calculator reads from the same browser storage.</p></div>
-    <div class="card">
-      <div class="card-title" data-t="CARD_SUMMARY">Summary</div>
-      <div class="pub-grid" id="pub-summary"></div>
-      <button class="btn btn-success" onclick="saveAll()" data-t="BTN_SAVE_PUBLISH">💾 Save &amp; publish</button>
-      <div class="status" id="pub-status"></div>
-    </div>
-    <div class="card">
-      <div class="card-title" data-t="CARD_SNAPSHOT">Storage snapshot</div>
-      <button class="btn btn-ghost" onclick="loadSnapshot()" data-t="BTN_LOAD_SNAPSHOT">Load snapshot</button>
-      <pre id="snapshot-box" style="display:none;margin-top:12px;font-size:11px;font-family:var(--mono-data);color:var(--text2);white-space:pre-wrap;max-height:260px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);border-radius:2px;padding:12px;line-height:1.6"></pre>
-    </div>
-  </div>
-
 </main>
 </div>
 
@@ -1483,7 +1465,7 @@ const LANG = {
     NAV_MARKET_DATA:'Market data', NAV_DEPLOY:'Deploy',
     NAV_SUPPLIERS:'Suppliers', NAV_PROFILES:'Consumption profiles', NAV_TARIFFS:'Tariffs',
     NAV_USERS:'Users', NAV_LOGIN_ACTIVITY:'Login activity', NAV_MESSAGES:'Notifications', NAV_DAM:'DAM price data', NAV_REGULATED:'Regulated tariffs',
-    NAV_AUDIT:'Audit calculator', NAV_NOTICES:'Notices', NAV_CHANGELOG:'Changelog', NAV_REPORTS:'Reported issues', NAV_PUBLISH:'Publish',
+    NAV_AUDIT:'Audit calculator', NAV_NOTICES:'Notices', NAV_CHANGELOG:'Changelog', NAV_REPORTS:'Reported issues',
     BTN_MY_ACCOUNT:'My Account', BTN_SIGNOUT:'Sign out',
     // Dashboard pane
     PANE_DASH_TITLE:'Dashboard', PANE_DASH_DESC:'Overview of what needs your attention.',
@@ -1614,8 +1596,6 @@ const LANG = {
     RP_GENERAL_ISSUE:'General site issue',
     RP_EMPTY:'No reported issues yet.',
     // Publish pane
-    PANE_PUB_TITLE:'Publish',
-    PANE_PUB_DESC:'Suppliers, profiles, tariffs, regulated charges, notices and DAM data all save immediately from their own page — this button is not required for day-to-day edits. Use it as a manual safety net to re-sync everything to the server in one go, and to record a "last published" snapshot below.',
     BTN_SAVE_REG:'💾 Save regulated charges', BTN_REG_HISTORY:'📈 History',
     MODAL_REG_HISTORY_FPA:'Regulated charges history — FPA trend',
     MODAL_REG_HISTORY_GRID:'Regulated charges history — Grid usage trend',
@@ -1624,8 +1604,6 @@ const LANG = {
     REG_HIST_COL_MONTH:'Month', REG_HIST_COL_FPA_LV:'FPA — LV', REG_HIST_COL_FPA_MV:'FPA — MV', REG_HIST_COL_FPA_HV:'FPA — HV',
     REG_HIST_COL_LV:'LV grid usage', REG_HIST_COL_MV:'MV grid usage', REG_HIST_COL_HV:'HV grid usage',
     REG_HIST_COL_PSO:'PSO', REG_HIST_COL_RES:'RES & Energy Conservation Fund',
-    CARD_SUMMARY:'Summary', BTN_SAVE_PUBLISH:'💾 Save & publish',
-    CARD_SNAPSHOT:'Storage snapshot', BTN_LOAD_SNAPSHOT:'Load snapshot',
     // Tariff editor modal
     MODAL_ADD_TARIFF:'Add tariff', MODAL_EDIT_TARIFF:'Edit tariff', MODAL_VIEW_TARIFF:'View tariff',
     BTN_SAVE_TARIFF:'Save tariff', BTN_EDIT_TARIFF_BTN:'Edit tariff', BTN_DELETE_TARIFF:'Delete tariff',
@@ -1669,7 +1647,7 @@ const LANG = {
     NAV_MARKET_DATA:'Δεδομένα αγοράς', NAV_DEPLOY:'Ανάπτυξη',
     NAV_SUPPLIERS:'Προμηθευτές', NAV_PROFILES:'Προφίλ κατανάλωσης', NAV_TARIFFS:'Διατιμήσεις',
     NAV_USERS:'Χρήστες', NAV_LOGIN_ACTIVITY:'Δραστηριότητα σύνδεσης', NAV_MESSAGES:'Ειδοποιήσεις', NAV_DAM:'Δεδομένα ΠΗΑ', NAV_REGULATED:'Ρυθμιζόμενες διατιμήσεις',
-    NAV_AUDIT:'Έλεγχος υπολογισμού διατιμήσεων', NAV_NOTICES:'Ανακοινώσεις', NAV_CHANGELOG:'Ιστορικό αλλαγών', NAV_REPORTS:'Αναφορές προβλημάτων', NAV_PUBLISH:'Δημοσίευση',
+    NAV_AUDIT:'Έλεγχος υπολογισμού διατιμήσεων', NAV_NOTICES:'Ανακοινώσεις', NAV_CHANGELOG:'Ιστορικό αλλαγών', NAV_REPORTS:'Αναφορές προβλημάτων',
     BTN_MY_ACCOUNT:'Ο λογαριασμός μου', BTN_SIGNOUT:'Αποσύνδεση',
     // Dashboard pane
     PANE_DASH_TITLE:'Πίνακας ελέγχου', PANE_DASH_DESC:'Επισκόπηση όσων απαιτούν την προσοχή σας.',
@@ -1800,8 +1778,6 @@ const LANG = {
     RP_GENERAL_ISSUE:'Γενικό πρόβλημα ιστοσελίδας',
     RP_EMPTY:'Δεν υπάρχουν αναφορές προβλημάτων ακόμα.',
     // Publish pane
-    PANE_PUB_TITLE:'Δημοσίευση',
-    PANE_PUB_DESC:'Οι προμηθευτές, τα προφίλ, τα τιμολόγια, οι ρυθμιζόμενες χρεώσεις, οι ανακοινώσεις και τα δεδομένα ΠΗΑ αποθηκεύονται αμέσως από τη δική τους σελίδα — αυτό το κουμπί δεν απαιτείται για καθημερινές αλλαγές. Χρησιμοποιήστε το ως χειροκίνητο δίχτυ ασφαλείας για επανασυγχρονισμό όλων με τον διακομιστή, και για να καταγράψετε ένα στιγμιότυπο «τελευταίας δημοσίευσης» παρακάτω.',
     BTN_SAVE_REG:'💾 Αποθήκευση ρυθμιζόμενων χρεώσεων', BTN_REG_HISTORY:'📈 Ιστορικό',
     MODAL_REG_HISTORY_FPA:'Ιστορικό ρυθμιζόμενων χρεώσεων — τάση FPA',
     MODAL_REG_HISTORY_GRID:'Ιστορικό ρυθμιζόμενων χρεώσεων — τάση χρεώσεων δικτύου',
@@ -1810,8 +1786,6 @@ const LANG = {
     REG_HIST_COL_MONTH:'Μήνας', REG_HIST_COL_FPA_LV:'FPA — LV', REG_HIST_COL_FPA_MV:'FPA — MV', REG_HIST_COL_FPA_HV:'FPA — HV',
     REG_HIST_COL_LV:'Χρέωση δικτύου LV', REG_HIST_COL_MV:'Χρέωση δικτύου MV', REG_HIST_COL_HV:'Χρέωση δικτύου HV',
     REG_HIST_COL_PSO:'PSO', REG_HIST_COL_RES:'RES & Ταμείο Εξοικονόμησης Ενέργειας',
-    CARD_SUMMARY:'Σύνοψη', BTN_SAVE_PUBLISH:'💾 Αποθήκευση & δημοσίευση',
-    CARD_SNAPSHOT:'Στιγμιότυπο αποθήκευσης', BTN_LOAD_SNAPSHOT:'Φόρτωση στιγμιότυπου',
     // Tariff editor modal
     MODAL_ADD_TARIFF:'Προσθήκη τιμολογίου', MODAL_EDIT_TARIFF:'Επεξεργασία τιμολογίου', MODAL_VIEW_TARIFF:'Προβολή τιμολογίου',
     BTN_SAVE_TARIFF:'Αποθήκευση τιμολογίου', BTN_EDIT_TARIFF_BTN:'Επεξεργασία τιμολογίου', BTN_DELETE_TARIFF:'Διαγραφή τιμολογίου',
@@ -1886,11 +1860,10 @@ function showPane(id){
   document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('pane-'+id).classList.add('active');
-  const keys=['dashboard','suppliers','profiles','tariffs','users','login-activity','messages','dam','regulated','audit','notices','changelog','reports','publish'];
+  const keys=['dashboard','suppliers','profiles','tariffs','users','login-activity','messages','dam','regulated','audit','notices','changelog','reports'];
   const idx=keys.indexOf(id);
   if(idx>=0) document.querySelectorAll('.nav-item')[idx].classList.add('active');
   if(id==='dashboard') buildDashboard();
-  if(id==='publish') buildPubSummary();
   if(id==='regulated') updateRegPreview();
   if(id==='audit') auditPopulateTariffs();
   if(id==='changelog') renderChangelog();
@@ -2929,15 +2902,14 @@ function editorStartEdit(){
   document.getElementById('editor-title').textContent=t?T('MODAL_EDIT_TARIFF'):T('MODAL_ADD_TARIFF');
 }
 
-function editorDeleteFromViewer(){
+async function editorDeleteFromViewer(){
   const id=document.getElementById('edit-id').value;
   const t=tariffs.find(x=>x.id===id);
   if(!t) return;
   if(!confirm('Are you sure you want to delete "'+t.name+'"?\n\nThis cannot be undone.')) return;
-  addChangelogEntry({action:'deleted',tariffId:t.id,tariffName:t.name,supplier:t.supplier,changes:[],ts:new Date().toISOString()});
-  tariffs=tariffs.filter(x=>x.id!==id);
-  closeEditor();
-  renderTariffs();
+  const before=tariffs.length;
+  await deleteTariff(id);   // server first; only updates the page if the delete succeeded
+  if(tariffs.length<before) closeEditor();
 }
 
 function updateFpaSource(){
@@ -4366,8 +4338,7 @@ async function saveRegulated(){
     if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(st,'err','Save failed: '+(e.detail||resp.status));return;}
     const saved=await resp.json();
     setRegulated(saved);
-    // Refresh local changelog from server so the new entry is visible and
-    // won't be overwritten if the user clicks Save & publish afterwards
+    // Refresh local changelog from server so the new entry is visible
     try {
       const cfgResp=await fetch(_adminApiBase+'/api/admin/config',{headers:authHeaders()});
       if(cfgResp.ok){const cfg=await cfgResp.json();if(cfg.changelog) changelog=cfg.changelog;if(cfg.reports){reports=cfg.reports;updateReportsBubble();}}
@@ -5172,81 +5143,6 @@ async function buildDashboard(){
     console.warn('Dashboard: could not load regulated/users/login-activity',e);
   }
 }
-function buildPubSummary(){
-  const covered=damMonthly.filter(v=>v!==null).length;
-  const bp=p=>tariffs.filter(t=>t.pricing===p).length;
-  const noProf=tariffs.filter(t=>!t.profileId).length;
-  document.getElementById('pub-summary').innerHTML=[
-    pubTile('Suppliers',suppliers.length,''),
-    pubTile('Profiles',profiles.length,'load shapes'),
-    pubTile('Total tariffs',tariffs.length,''),
-    pubTile('Fixed / ToU / Dynamic / Variable',`${bp('Fixed')} / ${bp('ToU')} / ${bp('Dynamic')} / ${bp('Variable')}`,''),
-    pubTile('No profile',noProf,noProf?'⚠ will use fallback':'✓ all assigned'),
-    pubTile('DAM data',covered+'/12','months'),
-    pubTile('Regulated',`PSO €${getRegulated().pso.toFixed(4)}/kWh`,`FPA LV/MV/HV: €${getRegulated().fpaLV.toFixed(4)} / €${getRegulated().fpaMV.toFixed(4)} / €${getRegulated().fpaHV.toFixed(4)}`),
-    pubTile('Changelog',changelog.length+' entries','tariff history'),
-  ].join('');
-}
-function pubTile(l,v,s){
-  return `<div class="pub-tile"><div class="pub-tile-lbl">${l}</div><div class="pub-tile-val">${v}</div><div class="pub-tile-sub">${s}</div></div>`;
-}
-// Shared persist path: bundles the current in-memory suppliers/profiles/tariffs/
-// regulated/notices/DAM state and publishes it in one PUT — this is what "Save &
-// publish" always did. Individual panes (Suppliers, Profiles, Notices, DAM) call
-// this right when their own Save/Add/Delete action fires, so those edits reach the
-// database immediately instead of silently staying in this browser tab until
-// someone separately visits the Publish page. Returns the server's result summary
-// on success, or null on failure (status message is shown inline either way).
-async function persistConfig(statusElId, successMsg){
-  const st=statusElId?document.getElementById(statusElId):null;
-  if(st) showStatus(st,'ok','Saving…');
-  try{
-    const payload={
-      version:5,suppliers,profiles,tariffs,
-      regulated:getRegulated(),
-      notices:getNotices(),
-      damMonthly,damBySlot,damDailyData,damRowCount,
-      damYear:fv('dam-year'),
-      savedAt:new Date().toISOString()
-    };
-    const resp=await fetch(_adminApiBase+'/api/admin/config',{
-      method:'PUT',
-      headers:authHeaders(),
-      body:JSON.stringify(payload)
-    });
-    if(resp.status===401){showLogin('Session expired — please sign in again.');return null;}
-    if(!resp.ok){const err=await resp.json().catch(()=>({}));throw new Error(apiErrorText(err.detail,'HTTP '+resp.status));}
-    const result=await resp.json();
-    const ts=new Date().toLocaleTimeString();
-    const savedLabel=document.getElementById('saved-label');
-    if(savedLabel) savedLabel.textContent='Published '+ts;
-    localStorage.setItem('elec-config-v5',JSON.stringify(payload)); // local backup
-    if(st) showStatus(st,'ok',typeof successMsg==='function'?successMsg(result,ts):(successMsg||'Saved ✓'));
-    return result;
-  }catch(e){
-    if(st) showStatus(st,'err','Save failed: '+e.message);
-    return null;
-  }
-}
-async function saveAll(){
-  await persistConfig('pub-status',(result,ts)=>`Published at ${ts} — ${result.approved_tariffs} approved tariff(s) live.`);
-}
-function loadSnapshot(){
-  const box=document.getElementById('snapshot-box');
-  try{
-    const raw=localStorage.getItem('elec-config-v5');
-    if(!raw){box.textContent='Nothing published yet.';box.style.display='';return;}
-    const cfg=JSON.parse(raw);
-    // Omit large arrays for readability
-    const summary={...cfg,
-      profiles:cfg.profiles.map(p=>({id:p.id,name:p.name,desc:p.desc,covW:p.covW,covNW:p.covNW,rows:p.rows,months:'[48-slot arrays omitted]'})),
-      damBySlot:'[slot arrays omitted]'
-    };
-    box.textContent=JSON.stringify(summary,null,2);
-    box.style.display='';
-  } catch(e){box.textContent='Error: '+e.message;box.style.display='';}
-}
-
 /* ── Auth helpers ── */
 const _adminApiBase=window.location.protocol==='file:'?'http://localhost:8000':'';
 
@@ -5630,7 +5526,7 @@ async function loadConfig(){
     if(cfg.changelog) changelog=cfg.changelog;
     if(cfg.reports) reports=cfg.reports;
     if(cfg.docTariffIds) docTariffIds=new Set(cfg.docTariffIds);
-    if(cfg.savedAt) document.getElementById('saved-label').textContent='Last saved '+new Date(cfg.savedAt).toLocaleString();
+    document.getElementById('saved-label').textContent='Data loaded '+new Date().toLocaleTimeString();
   }catch(e){
     document.getElementById('saved-label').textContent='⚠ API offline — start server';
     console.warn('Could not load from API:',e);

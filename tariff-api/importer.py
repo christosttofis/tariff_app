@@ -1,6 +1,12 @@
 """
-Shared logic for importing the full localStorage cfg JSON into the database.
-Used by both seed.py (CLI) and the admin "Publish" endpoint (PUT /api/admin/config).
+One-off import of a legacy localStorage cfg JSON export into the database.
+Used only by seed.py (CLI) for first-time setup.
+
+It REPLACES all suppliers, profiles and tariffs, and every imported tariff
+becomes "approved". That is fine for loading an empty database, but destructive
+on a live one: it was also behind the admin panel's old "Save & publish"
+button, removed 2026-09-30 for exactly that reason. seed.py refuses to run
+against a database that already has data unless --force is given.
 
 The cfg JSON shape is produced by admin.html's saveAll() function:
   {version, suppliers, profiles, tariffs, regulated, notices,
