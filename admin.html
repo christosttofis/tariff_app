@@ -85,6 +85,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .badge-status-rejected{background:rgba(166,64,58,.12);color:#7a3530;font-weight:600}
 .badge-status-draft{background:var(--bg3);color:var(--text3);font-weight:600}
 .badge-status-suspended{background:rgba(99,102,241,.12);color:#4338ca;font-weight:600}
+.badge-status-archived{background:var(--bg3);color:var(--text3);font-weight:600;border:1px dashed var(--border)}
 .btn-suspend{background:rgba(99,102,241,.1);color:#4338ca;border-color:rgba(99,102,241,.4)}
 .btn-suspend:hover{background:rgba(99,102,241,.2)}
 .btn-approve{background:rgba(47,111,78,.1);color:var(--green);border-color:rgba(47,111,78,.4)}
@@ -1520,7 +1521,7 @@ const LANG = {
     EMPTY_TARIFFS:'No tariffs yet. Click "+ Add tariff".',
     EMPTY_TARIFFS_FILTER:'No tariffs match the current filters.',
     STATUS_LIVE:'● Live', STATUS_PENDING:'⏳ Pending review', STATUS_REJECTED:'✕ Rejected',
-    STATUS_DRAFT:'◌ Draft', STATUS_SUSPENDED:'⏸ Suspended',
+    STATUS_DRAFT:'◌ Draft', STATUS_SUSPENDED:'⏸ Suspended', STATUS_ARCHIVED:'▣ Archived by supplier',
     BTN_REVIEW:'🔍 Review', BTN_SUSPEND:'⏸ Suspend', BTN_RESTORE:'▶ Restore', BTN_VIEW:'View',
     // Users pane
     PANE_USERS_TITLE:'User management',
@@ -1706,7 +1707,7 @@ const LANG = {
     EMPTY_TARIFFS:'Δεν υπάρχουν διατιμήσεις ακόμα. Κάντε κλικ στο "+ Προσθήκη διατίμησης".',
     EMPTY_TARIFFS_FILTER:'Καμία διατίμηση δεν ταιριάζει με τα τρέχοντα φίλτρα.',
     STATUS_LIVE:'● Ενεργό', STATUS_PENDING:'⏳ Σε αναμονή αξιολόγησης', STATUS_REJECTED:'✕ Απορρίφθηκε',
-    STATUS_DRAFT:'◌ Πρόχειρο', STATUS_SUSPENDED:'⏸ Ανεσταλμένο',
+    STATUS_DRAFT:'◌ Πρόχειρο', STATUS_SUSPENDED:'⏸ Ανεσταλμένο', STATUS_ARCHIVED:'▣ Αρχειοθετήθηκε από προμηθευτή',
     BTN_REVIEW:'🔍 Αξιολόγηση', BTN_SUSPEND:'⏸ Αναστολή', BTN_RESTORE:'▶ Επαναφορά', BTN_VIEW:'Προβολή',
     // Users pane
     PANE_USERS_TITLE:'Διαχείριση χρηστών',
@@ -3174,7 +3175,7 @@ async function saveTariff(){
       :_adminApiBase+'/api/admin/tariffs';
     const resp=await fetch(url,{method:editId?'PUT':'POST',headers:authHeaders(),body:JSON.stringify(tariff)});
     if(resp.status===401){showLogin('Session expired.');return;}
-    if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(editorStatus,'err','Save failed: '+(e.detail||resp.status));return;}
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(editorStatus,'err','Save failed: '+apiErrorText(e.detail,resp.status));return;}
     const saved=await resp.json();
     if(editId){
       const i=tariffs.findIndex(t=>t.id===editId);
@@ -3381,7 +3382,9 @@ function openReview(id){
     row('profileId','Profile',prof?prof.name+' ('+prof.id+')':'None assigned'),
     row('vulnerable','Vulnerable tariff',t.vulnerable?'Yes — eligible customers only':'No'),
     row('discounts','Discounts',(t.discounts||[]).length
-      ?(t.discounts||[]).map(d=>d.label+(d.pct!=null?' ('+d.pct+'%)':'')+(d.euro!=null?' (€'+d.euro+')':'')).join(', ')
+      ?(t.discounts||[]).map(d=>(d.type==='standing'?'Standing':'Energy')+' −'+d.percentage+'%'
+          +(d.durationMonths?' for '+d.durationMonths+' months':' (permanent)')
+          +(d.conditions?' — '+d.conditions:'')).join('; ')
       :'None'),
   );
 
@@ -3760,18 +3763,20 @@ function renderTariffItem(t){
     : '';
   const miniLog=renderTariffMiniLog(t.id);
   const status=t.status||'approved';
-  const statusLabel={approved:T('STATUS_LIVE'),pending:T('STATUS_PENDING'),rejected:T('STATUS_REJECTED'),draft:T('STATUS_DRAFT'),suspended:T('STATUS_SUSPENDED')};
+  const statusLabel={approved:T('STATUS_LIVE'),pending:T('STATUS_PENDING'),rejected:T('STATUS_REJECTED'),draft:T('STATUS_DRAFT'),suspended:T('STATUS_SUSPENDED'),archived:T('STATUS_ARCHIVED')};
   const statusBadge='<span class="badge badge-status-'+status+'">'+(statusLabel[status]||status)+'</span>';
   const isPending=status==='pending';
   const isSuspended=status==='suspended';
+  const isArchived=status==='archived';
   const rowExtra=isPending?'border-left:3px solid var(--yellow);padding-left:10px;background:rgba(188,108,37,.025)'
-    :isSuspended?'border-left:3px solid #4338ca;padding-left:10px;background:rgba(99,102,241,.025)':'';
+    :isSuspended?'border-left:3px solid #4338ca;padding-left:10px;background:rgba(99,102,241,.025)'
+    :isArchived?'border-left:3px dashed var(--border);padding-left:10px;opacity:.7':'';
   const reviewBtn=isPending
     ?'<button class="btn btn-sm btn-review" onclick="openReview(\''+t.id+'\')">'+T('BTN_REVIEW')+'</button>'
     :'';
   const suspendBtn=status==='approved'
     ?'<button class="btn btn-sm btn-suspend" onclick="suspendTariff(\''+t.id+'\')" title="Temporarily take offline">'+T('BTN_SUSPEND')+'</button>'
-    :isSuspended
+    :(isSuspended||isArchived)
     ?'<button class="btn btn-sm btn-approve" onclick="setTariffStatus(\''+t.id+'\',\'approved\')" title="Put back online">'+T('BTN_RESTORE')+'</button>'
     :'';
   return '<div class="item-row" style="flex-direction:column;align-items:stretch;gap:0;'+rowExtra+'">'
@@ -5210,7 +5215,7 @@ async function persistConfig(statusElId, successMsg){
       body:JSON.stringify(payload)
     });
     if(resp.status===401){showLogin('Session expired — please sign in again.');return null;}
-    if(!resp.ok){const err=await resp.json().catch(()=>({}));throw new Error(err.detail||('HTTP '+resp.status));}
+    if(!resp.ok){const err=await resp.json().catch(()=>({}));throw new Error(apiErrorText(err.detail,'HTTP '+resp.status));}
     const result=await resp.json();
     const ts=new Date().toLocaleTimeString();
     const savedLabel=document.getElementById('saved-label');
@@ -5253,6 +5258,18 @@ let _sessionActive=false;
 
 function authHeaders(extra){
   return {'Content-Type':'application/json',...(extra||{})};
+}
+
+// FastAPI returns validation errors (422) as a list of {loc, msg}; turn that
+// into readable text instead of "[object Object]".
+function apiErrorText(detail,fallback){
+  if(Array.isArray(detail)){
+    return detail.map(d=>{
+      const loc=(d.loc||[]).filter(x=>x!=='body').join(' › ');
+      return (loc?loc+': ':'')+String(d.msg||'').replace(/^Value error, /,'');
+    }).join('; ');
+  }
+  return detail||fallback;
 }
 
 function _isStrongPassword(pw){
@@ -5808,6 +5825,10 @@ async function loadConfig(){
           <label data-t="LBL_NEW_EMAIL">New email</label>
           <input type="email" id="acct-new-email" placeholder="new@example.com">
         </div>
+        <div class="field">
+          <label>Current password</label>
+          <input type="password" id="acct-email-pw" placeholder="••••••••" autocomplete="current-password">
+        </div>
         <button class="btn btn-primary" style="font-size:12px;padding:7px 16px" onclick="doUpdateEmail()" data-t="BTN_UPDATE_EMAIL">Update email</button>
         <div class="acct-msg" id="acct-email-msg"></div>
       </div>
@@ -5863,6 +5884,7 @@ function openAccountModal(){
   const email=sessionStorage.getItem('cera_admin_email')||'';
   document.getElementById('acct-current-email').value=email;
   document.getElementById('acct-new-email').value='';
+  document.getElementById('acct-email-pw').value='';
   document.getElementById('acct-cur-pw').value='';
   document.getElementById('acct-new-pw').value='';
   document.getElementById('acct-confirm-pw').value='';
@@ -5880,11 +5902,13 @@ function _acctMsg(id,text,ok){
 }
 async function doUpdateEmail(){
   const newEmail=document.getElementById('acct-new-email').value.trim();
+  const curPw=document.getElementById('acct-email-pw').value;
   if(!newEmail){_acctMsg('acct-email-msg','Please enter a new email.',false);return;}
+  if(!curPw){_acctMsg('acct-email-msg','Please enter your current password to change your email.',false);return;}
   try{
     const resp=await fetch(_adminApiBase+'/api/auth/email',{
       method:'PUT',headers:{...authHeaders(),'Content-Type':'application/json'},
-      body:JSON.stringify({new_email:newEmail})
+      body:JSON.stringify({new_email:newEmail,current_password:curPw})
     });
     const data=await resp.json().catch(()=>({}));
     if(resp.ok){
@@ -5892,9 +5916,10 @@ async function doUpdateEmail(){
       document.getElementById('acct-current-email').value=newEmail;
       document.getElementById('user-email-label').textContent=newEmail;
       document.getElementById('acct-new-email').value='';
+      document.getElementById('acct-email-pw').value='';
       _acctMsg('acct-email-msg','Email updated successfully.',true);
     }else{
-      _acctMsg('acct-email-msg',data.detail||'Update failed.',false);
+      _acctMsg('acct-email-msg',apiErrorText(data.detail,'Update failed.'),false);
     }
   }catch(e){_acctMsg('acct-email-msg','Network error.',false);}
 }

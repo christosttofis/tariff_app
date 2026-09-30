@@ -190,6 +190,7 @@ Navigate to **Tariffs** in the left menu.
 | **Approved** | Reviewed and approved by CERA | Yes |
 | **Rejected** | Reviewed and not approved | No |
 | **Suspended** | Previously approved, temporarily withdrawn | No |
+| **Archived** | Was live at some point, then deleted by the supplier (see 6.9) | No |
 
 ### 6.2 Reviewing a pending tariff
 
@@ -232,6 +233,49 @@ Click **View** then **Delete** inside the modal. A confirmation prompt is shown.
 ### 6.8 Tariff documents
 
 Suppliers upload supporting documents (PDF, Word) when submitting or resubmitting a tariff. A 📎 button appears on tariffs that have documents attached. Click it to open the documents list where each file can be downloaded individually.
+
+### 6.9 Archived tariffs (deleted by a supplier)
+
+Suppliers can delete their own tariffs at any time, without CERA approval. What happens depends on whether the tariff was **ever** public, not just its current status:
+
+- **Any tariff that has ever been approved** is **archived**, not removed. This includes one that is currently pending or rejected because the supplier edited it after it went live. They are hidden from the public calculator immediately, but stay in the supplier's list and in the admin Tariffs list with a grey **▣ Archived by supplier** badge. The supplier can no longer edit it, delete it again, or upload documents to it.
+- **Tariffs that were never approved** (a new submission still pending, a draft, or one rejected on first review) are removed entirely.
+
+Both cases are recorded in the **Changelog** with the supplier's email. An archive shows as a status change to `archived`, and a removal shows as `Deleted`.
+
+To put an archived tariff back online, click **▶ Restore** next to it (the same button used for suspended tariffs). To remove it permanently, use **View → Delete** as in 6.7.
+
+### 6.10 Tariff input checks and limits
+
+Every tariff is checked by the server before it is saved, whether it comes from a supplier, the admin editor, or **Save & publish**. A tariff that fails a check is rejected with a message explaining which field is wrong. Nothing is stored.
+
+These checks protect the public calculator. Before they existed, a single tariff containing malformed data (for example, a price entered as text) could stop the comparison working for **every** customer once approved.
+
+| What | Allowed values |
+|---|---|
+| Energy prices: fixed rate, ToU peak/off-peak rates, Variable tier rates, Dynamic price floor | 0 to **€5/kWh** (adjustable, see below) |
+| Dynamic adder, custom FPA | −€5 to +€5/kWh (same setting; these can legitimately be negative) |
+| Standing charge, MDM, Variable tier fixed charge | 0 to **€1,000/month** (adjustable, see below) |
+| Dynamic multiplier | above 0, up to 10 |
+| ToU high-season months | 1–12 (0 = no high season) |
+| ToU peak hours | 0–24 |
+| Variable tiers | 1–20 tiers; each tier's limit higher than the previous; only the last tier may be open-ended |
+| Discounts | at most 20 per tariff; energy or standing; above 0% and up to 100%; duration 1–120 months or blank (permanent); conditions up to 500 characters |
+| Load profile | must be an existing profile |
+
+Values must be real numbers: text, "NaN" and "Infinity" are refused.
+
+**Adjusting the two limits.** The €5/kWh and €1,000/month limits are settings, not code. If a genuine tariff is ever refused because it exceeds them, raise them:
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `TARIFF_MAX_ENERGY_RATE` | `5` | Maximum €/kWh for any energy price (also the ± range for adder and custom FPA) |
+| `TARIFF_MAX_MONTHLY_CHARGE` | `1000` | Maximum €/month for standing charge, MDM and tier fixed charges |
+
+- **On the local server:** add or change the line in `tariff-api\.env`, e.g. `TARIFF_MAX_ENERGY_RATE=8`, then restart the server (15.3).
+- **On Azure App Service:** App Service → **Settings → Environment variables** (Application settings) → add or edit the setting → **Apply**. The app restarts automatically.
+
+Set them comfortably above any real tariff. They exist to catch typos and malformed data, not to regulate prices. The other limits in the table above are fixed in `tariff-api/schemas.py` and would need a code change.
 
 ---
 
@@ -361,6 +405,8 @@ The **Publish** page's **💾 Save & publish** button is now a manual, optional 
 
 - You suspect something didn't save correctly and want to force a full re-sync
 - You want to record a "last published" timestamp as a manual checkpoint (shown on the Publish page after clicking, and kept as a local backup snapshot you can inspect with **Load snapshot**)
+
+> ⚠ **Known issue, do not use Save & publish until fixed (found 2026-09-30).** Publishing currently resets the status of **every** tariff to Approved. Pending, draft, rejected, suspended and archived tariffs all go live immediately, and rejection reasons are lost. Save individual changes with each section's own Save button instead.
 
 > Because it re-sends everything your browser currently has loaded, avoid clicking **Save & publish** if you know another admin might be mid-edit in a different browser tab at the same time — your snapshot could overwrite their in-progress changes to sections you haven't touched. For routine day-to-day work, just use each section's own Save button and ignore the Publish page entirely.
 

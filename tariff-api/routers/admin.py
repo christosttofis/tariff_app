@@ -38,13 +38,13 @@ from serializers import (
 )
 
 from routers.shared import (
-    _add_changelog, _apply_tariff_body, _diff_fields, _document_dicts, _document_response,
+    _add_changelog, _apply_tariff_body, _assert_profile_exists, _diff_fields, _document_dicts, _document_response,
     _message_targets, _new_tariff, _now, _save_pdf_upload, _uid,
 )
 
 router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
-_VALID_STATUSES = {"draft", "pending", "approved", "rejected", "suspended"}
+_VALID_STATUSES = {"draft", "pending", "approved", "rejected", "suspended", "archived"}
 
 
 def _dam_to_dict(d: models.DamData | None) -> dict:
@@ -187,6 +187,7 @@ def create_tariff(
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(require_admin),
 ):
+    _assert_profile_exists(db, body)
     t = _new_tariff(body, status="approved")
     db.add(t)
     _add_changelog(db, action="created", tariff_id=t.id,
@@ -218,6 +219,7 @@ def update_tariff(
     t = db.get(models.Tariff, tariff_id)
     if not t:
         raise HTTPException(404, "Tariff not found")
+    _assert_profile_exists(db, body)
     changes = _diff_fields(db, t, body)   # capture diff before modifying t
     _apply_tariff_body(t, body)
     _add_changelog(db, action="updated", tariff_id=tariff_id,

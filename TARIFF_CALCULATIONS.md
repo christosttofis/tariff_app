@@ -84,6 +84,11 @@ Because of this simplification, once the customer enters a value the UI shows a 
 - Customers can toggle individual discounts off in the UI (`window._discountState`); toggled-off discounts are excluded from the factor calculation for that tariff.
 - Multiple active discounts of the same type stack additively (percentages summed, then floored at 0% remaining — i.e. cannot go negative).
 - `annualCostNoDiscount(t, dc)` recomputes the full breakdown with all discounts forced off, to show the "full price" (strikethrough) alongside the discounted price.
+- Discount data format (enforced server-side since 2026-09-30, `schemas.DiscountIn`): `{type: 'energy'|'standing', percentage: >0–100, durationMonths: 1–120 | null, conditions: string}`. Both the admin editor and the supplier portal save this shape. The supplier portal previously saved `{label, pct, euro}`, which the engine ignored.
+
+### Input validation and failure isolation
+- Every tariff's `rates`, `discounts` and charges are validated on save against a per-pricing-type schema (`schemas.py`: `FixedRatesIn`, `TouRatesIn`, `DynamicRatesIn`, `VariableRatesIn`, `DiscountIn`). The engine can therefore assume numeric, finite, in-range values. Limits are listed in `ADMIN_MANUAL.md` §6.10.
+- As a safety net, `/api/public/calculate` prices each tariff independently: if the engine raises for one tariff, or returns a non-finite total, that tariff is skipped and logged, and the rest of the comparison is still returned.
 
 ### Regulated charges (network/PSO/RES) & MDM
 - Not part of the supplier ranking/comparison — always shown as a separate line item, added on top of the supplier's own cost. Labelled to the customer as **"additional charges"**, not "regulated charges" — MDM (below) is not always actually CERA-regulated, so the old wording overclaimed.
@@ -145,4 +150,5 @@ When adding a new pricing type or changing how an existing one works:
 1. Update `monthly_breakdown(tariff, dc, ...)` (and, if the Annual/Monthly split differs meaningfully, keep the `isMonthly` branch logic consistent with the pattern above).
 2. Add a new chapter to both the **Annual mode** and **Monthly mode** sections above, following the same structure (source of monthly kWh → intra-day/slot logic → price lookup/formula).
 3. If the change affects FPA, discounts, or regulated-charge treatment, update the **Common calculations** section too.
+3a. Add or update the matching rates schema in `tariff-api/schemas.py` (`_RATES_MODEL`). Otherwise the new fields are rejected or silently dropped on save.
 4. Consider whether the change should also be surfaced to customers — e.g. via a notice (`cfg.notices` / `assumptions_en` shown on the customer page) or a per-supplier explanatory field on the supplier admin page — so the assumptions are visible to end users, not just documented here internally.

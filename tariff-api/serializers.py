@@ -30,6 +30,7 @@ def tariff_to_dict(t: models.Tariff) -> dict:
         "vulnerable": t.vulnerable,
         "status": t.status,
         "rejectionReason": t.rejection_reason,
+        "everPublished": bool(t.everPublished),
         "createdAt": t.createdAt,
         "updatedAt": t.updatedAt,
     }

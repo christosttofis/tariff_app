@@ -13,7 +13,8 @@ Design notes
   customer calculator.  Approval workflow is a later phase.
 """
 
-from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Text, false
+from sqlalchemy.orm import validates
 
 from database import Base
 
@@ -90,8 +91,20 @@ class Tariff(Base):
 
     # Approval workflow — not yet used in the UI, defaults to 'approved' so
     # all imported data is immediately visible to the customer calculator.
-    status = Column(String, default="approved")  # draft | pending | approved | rejected
+    status = Column(String, default="approved")  # draft | pending | approved | rejected | suspended | archived
     rejection_reason = Column(String, nullable=True)
+    # True once the tariff has ever been approved (i.e. shown to the public).
+    # Survives later edits that send it back to pending, so a supplier deleting
+    # it archives it instead of erasing a tariff customers may have chosen.
+    everPublished = Column(Boolean, nullable=False, default=False, server_default=false())
+
+    @validates("status")
+    def _track_published(self, key, value):
+        # Every path that approves a tariff (admin create/status change,
+        # Publish import) sets `status`, so this is the one place to record it.
+        if value == "approved":
+            self.everPublished = True
+        return value
 
     createdAt = Column(String, nullable=True)   # ISO-8601 string
     updatedAt = Column(String, nullable=True)   # ISO-8601 string

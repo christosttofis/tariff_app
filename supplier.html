@@ -92,6 +92,7 @@ tr:hover td{background:var(--bg3)}
 .badge-rejected{background:#fdecea;color:var(--red)}
 .badge-draft{background:var(--bg3);color:var(--text3)}
 .badge-suspended{background:#fdecea;color:var(--red)}
+.badge-archived{background:var(--bg3);color:var(--text3)}
 
 /* ── Buttons ── */
 .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid var(--border2);border-radius:var(--radius);font-size:12px;font-family:var(--font);font-weight:500;background:var(--bg2);color:var(--text);cursor:pointer;transition:all .1s}
@@ -561,7 +562,7 @@ const LANG = {
     TH_NAME:'Name', TH_CONTRACT:'Contract', TH_VOLTAGE:'Voltage', TH_PRICING:'Pricing', TH_STATUS:'Status', TH_ACTIONS:'Actions',
     EMPTY_TARIFFS:'No tariffs yet. Submit your first tariff to get started.',
     STATUS_LIVE:'● Live', STATUS_PENDING:'⏳ Pending review', STATUS_REJECTED:'✕ Rejected', STATUS_DRAFT:'◌ Draft',
-    STATUS_SUSPENDED:'● Suspended',
+    STATUS_SUSPENDED:'● Suspended', STATUS_ARCHIVED:'▣ Archived',
     BTN_DOCS:'📎 Docs', BTN_EDIT:'Edit', BTN_DELETE:'Delete',
     EDIT_NOTE:'Editing will unpublish this tariff until re-approved',
     FORM_TITLE_NEW:'Submit new tariff', FORM_TITLE_EDIT:'Edit tariff',
@@ -615,6 +616,10 @@ const LANG = {
     MSG_TARIFF_UPDATED:'Tariff updated and resubmitted for review.', MSG_TARIFF_SUBMITTED:'Tariff submitted for CERA review.',
     MSG_DOC_UPLOAD_FAILED:'Document upload failed: ',
     CONFIRM_DELETE:'Delete "{name}"?\n\nThis cannot be undone.',
+    CONFIRM_ARCHIVE:'Remove "{name}" from the public comparison?\n\nIt has been published before, so it will be kept in your list as Archived (read-only) and can only be restored by CERA.',
+    PH_DISC_CONDITIONS:'Conditions, e.g. direct debit', PH_DISC_PCT:'% off', PH_DISC_MONTHS:'Months (blank = permanent)',
+    ERR_VALIDATION:'Please correct the following:',
+    ACCT_ERR_EMAIL_PW:'Please enter your current password to change your email.',
     ACCT_TITLE:'My Account', ACCT_EMAIL_SECTION:'Change email', ACCT_CURRENT_EMAIL:'Current email',
     ACCT_NEW_EMAIL:'New email', BTN_UPDATE_EMAIL:'Update email',
     ACCT_PW_SECTION:'Change password', ACCT_CUR_PW:'Current password', ACCT_NEW_PW:'New password',
@@ -666,7 +671,7 @@ const LANG = {
     EMPTY_TARIFFS:'Δεν υπάρχουν διατιμήσεις ακόμη. Υποβάλετε την πρώτη σας διατίμηση για να ξεκινήσετε.',
     STATUS_LIVE:'● Ενεργή', STATUS_PENDING:'⏳ Σε αναμονή έγκρισης',
     STATUS_REJECTED:'✕ Απορρίφθηκε', STATUS_DRAFT:'◌ Πρόχειρη',
-    STATUS_SUSPENDED:'● Ανενεργή',
+    STATUS_SUSPENDED:'● Ανενεργή', STATUS_ARCHIVED:'▣ Αρχειοθετημένη',
     BTN_DOCS:'📎 Έγγραφα', BTN_EDIT:'Επεξεργασία', BTN_DELETE:'Διαγραφή',
     EDIT_NOTE:'Η επεξεργασία θα αποδημοσιεύσει την διατίμηση μέχρι νέας έγκρισης',
     FORM_TITLE_NEW:'Υποβολή νέας διατίμησης',
@@ -742,6 +747,10 @@ const LANG = {
     MSG_TARIFF_SUBMITTED:'Η διατίμηση υποβλήθηκε για έγκριση από ΡΑΕΚ.',
     MSG_DOC_UPLOAD_FAILED:'Η φόρτωση εγγράφου απέτυχε: ',
     CONFIRM_DELETE:'Διαγραφή "{name}";\n\nΑυτή η ενέργεια δεν μπορεί να αναιρεθεί.',
+    CONFIRM_ARCHIVE:'Αφαίρεση "{name}" από τη δημόσια σύγκριση;\n\nΈχει δημοσιευθεί στο παρελθόν, οπότε θα παραμείνει στη λίστα σας ως Αρχειοθετημένη (μόνο για ανάγνωση) και μπορεί να επαναφερθεί μόνο από τη ΡΑΕΚ.',
+    PH_DISC_CONDITIONS:'Προϋποθέσεις, π.χ. πάγια εντολή', PH_DISC_PCT:'% έκπτωση', PH_DISC_MONTHS:'Μήνες (κενό = μόνιμη)',
+    ERR_VALIDATION:'Παρακαλώ διορθώστε τα ακόλουθα:',
+    ACCT_ERR_EMAIL_PW:'Παρακαλώ εισάγετε τον υφιστάμενο κωδικό σας για να αλλάξετε το email.',
     ACCT_TITLE:'Ο λογαριασμός μου',
     ACCT_EMAIL_SECTION:'Αλλαγή email', ACCT_CURRENT_EMAIL:'Τρέχον email', ACCT_NEW_EMAIL:'Νέο email',
     BTN_UPDATE_EMAIL:'Ενημέρωση email',
@@ -1126,6 +1135,7 @@ function statusBadge(status){
     rejected: ['badge-rejected', T('STATUS_REJECTED')],
     draft:    ['badge-draft',    T('STATUS_DRAFT')],
     suspended:['badge-suspended',T('STATUS_SUSPENDED')],
+    archived: ['badge-archived', T('STATUS_ARCHIVED')],
   };
   const [cls, label] = map[status] || ['badge-draft', status];
   return `<span class="badge ${cls}">${label}</span>`;
@@ -1142,7 +1152,7 @@ function renderTariffs(){
     if(t.status==='approved') live++;
     else if(t.status==='pending') pending++;
     else if(t.status==='rejected') rejected++;
-    else draft++;
+    else if(t.status!=='archived') draft++;
   });
   document.getElementById('cnt-live').textContent    = live;
   document.getElementById('cnt-pending').textContent = pending;
@@ -1150,7 +1160,8 @@ function renderTariffs(){
   document.getElementById('cnt-draft').textContent   = draft;
 
   tbody.innerHTML = tariffs.map(t => {
-    const canEdit   = true; // suppliers can always edit (goes back to pending)
+    // Suppliers can edit anything except archived tariffs (edits go back to pending)
+    const archived  = t.status === 'archived';
     const editNote  = t.status === 'approved' ? ` title="${T('EDIT_NOTE')}"` : '';
     return `<tr>
       <td><strong>${esc(t.name)}</strong></td>
@@ -1160,8 +1171,8 @@ function renderTariffs(){
       <td>${statusBadge(t.status||'draft')}${t.status==='rejected'&&t.rejectionReason?`<div style="font-size:11px;color:var(--red);margin-top:4px;max-width:220px">${esc(t.rejectionReason)}</div>`:''}</td>
       <td style="text-align:right;white-space:nowrap">
         <button class="btn btn-sm" data-id="${esc(t.id)}" onclick="openDocsModal(this.dataset.id)">${T('BTN_DOCS')}</button>
-        <button class="btn btn-sm" data-id="${esc(t.id)}"${editNote} onclick="openForm(this.dataset.id)" style="margin-left:6px">${T('BTN_EDIT')}</button>
-        <button class="btn btn-sm btn-danger" data-id="${esc(t.id)}" data-name="${esc(t.name)}" onclick="deleteTariff(this.dataset.id,this.dataset.name)" style="margin-left:6px">${T('BTN_DELETE')}</button>
+        ${archived ? '' : `<button class="btn btn-sm" data-id="${esc(t.id)}"${editNote} onclick="openForm(this.dataset.id)" style="margin-left:6px">${T('BTN_EDIT')}</button>
+        <button class="btn btn-sm btn-danger" data-id="${esc(t.id)}" data-name="${esc(t.name)}" onclick="deleteTariff(this.dataset.id,this.dataset.name)" style="margin-left:6px">${T('BTN_DELETE')}</button>`}
       </td>
     </tr>`;
   }).join('');
@@ -1190,12 +1201,26 @@ async function loadProfiles(){
 }
 
 async function deleteTariff(id, name){
-  if(!confirm(T('CONFIRM_DELETE').replace('{name}',name))) return;
+  // Published tariffs are archived server-side rather than removed.
+  const t = tariffs.find(x => x.id === id);
+  const willArchive = t && (t.everPublished || t.status === 'approved' || t.status === 'suspended');
+  if(!confirm(T(willArchive ? 'CONFIRM_ARCHIVE' : 'CONFIRM_DELETE').replace('{name}',name))) return;
   const resp = await fetch(_base + '/api/supplier/tariffs/' + encodeURIComponent(id), {method:'DELETE', headers: authHeaders()});
   if(resp.status === 401){ _localSignOut(T('ERR_SESSION_EXPIRED_SHORT')); return; }
   if(!resp.ok){ alert(T('ERR_DELETE_FAILED')); return; }
-  tariffs = tariffs.filter(t => t.id !== id);
-  renderTariffs();
+  await loadTariffs();
+}
+
+// FastAPI returns validation errors (422) as a list of {loc, msg}; turn that
+// into readable text instead of "[object Object]".
+function apiErrorText(detail, fallback){
+  if(Array.isArray(detail)){
+    return T('ERR_VALIDATION') + ' ' + detail.map(d => {
+      const loc = (d.loc || []).filter(x => x !== 'body').join(' › ');
+      return (loc ? loc + ': ' : '') + String(d.msg || '').replace(/^Value error, /, '');
+    }).join('; ');
+  }
+  return detail || fallback;
 }
 
 // ── Tariff form ────────────────────────────────────────────────────────────────
@@ -1366,7 +1391,7 @@ async function submitForm(){
     const resp   = await fetch(url, {method, headers: authHeaders(), body: JSON.stringify(body)});
     if(resp.status === 401){ _localSignOut(T('ERR_SESSION_EXPIRED_SHORT')); return; }
     const data   = await resp.json().catch(()=>({}));
-    if(!resp.ok){ setFormStatus('err', data.detail || ('Error: HTTP ' + resp.status)); return; }
+    if(!resp.ok){ setFormStatus('err', apiErrorText(data.detail, 'Error: HTTP ' + resp.status)); return; }
 
     if(isEdit){
       const idx = tariffs.findIndex(t => t.id === data.id);
@@ -1492,31 +1517,36 @@ function addDiscount(type, existing){
   addDiscountRow(type, existing);
 }
 function addDiscountRow(type, existing){
+  // Same shape as admin.html and the pricing engine:
+  // {type, percentage, durationMonths (null = permanent), conditions}
   const container = document.getElementById(type+'-discounts');
   const row = document.createElement('div');
   row.className = 'discount-row';
   row.dataset.type = type;
-  const labelVal  = existing?.label  || '';
-  const pctVal    = existing?.pct    != null ? existing.pct    : '';
-  const euroVal   = existing?.euro   != null ? existing.euro   : '';
+  const condVal  = existing?.conditions || '';
+  const pctVal   = existing?.percentage != null ? existing.percentage : '';
+  const monthVal = existing?.durationMonths != null ? existing.durationMonths : '';
+  const inputStyle = 'padding:5px 8px;border:1px solid var(--border);border-radius:2px;font-size:12px;background:var(--bg);color:var(--text);';
   row.innerHTML =
-    `<input type="text"   placeholder="Label"  value="${esc(labelVal)}"  style="flex:1;min-width:100px;padding:5px 8px;border:1px solid var(--border);border-radius:2px;font-size:12px;background:var(--bg);color:var(--text);">`+
-    `<input type="number" placeholder="% off"  value="${esc(pctVal)}"  step="0.1" min="0" max="100" style="width:70px;padding:5px 8px;border:1px solid var(--border);border-radius:2px;font-size:12px;font-family:var(--mono);background:var(--bg);color:var(--text);">`+
-    `<span style="font-size:11px;color:var(--text3)">%  or</span>`+
-    `<input type="number" placeholder="€ off"  value="${esc(euroVal)}" step="0.01" min="0" style="width:70px;padding:5px 8px;border:1px solid var(--border);border-radius:2px;font-size:12px;font-family:var(--mono);background:var(--bg);color:var(--text);">`+
-    `<span style="font-size:11px;color:var(--text3)">€</span>`+
+    `<input type="text"   class="disc-conditions" placeholder="${esc(T('PH_DISC_CONDITIONS'))}" value="${esc(condVal)}" maxlength="500" style="flex:1;min-width:100px;${inputStyle}">`+
+    `<input type="number" class="disc-pct" placeholder="${esc(T('PH_DISC_PCT'))}" value="${esc(pctVal)}" step="0.01" min="0.01" max="100" style="width:80px;font-family:var(--mono);${inputStyle}">`+
+    `<span style="font-size:11px;color:var(--text3)">%</span>`+
+    `<input type="number" class="disc-months" placeholder="${esc(T('PH_DISC_MONTHS'))}" title="${esc(T('PH_DISC_MONTHS'))}" value="${esc(monthVal)}" step="1" min="1" max="120" style="width:110px;font-family:var(--mono);${inputStyle}">`+
     `<button onclick="this.closest('.discount-row').remove()" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:14px;padding:2px 4px">✕</button>`;
   container.appendChild(row);
 }
 function getDiscounts(){
   const discounts = [];
   document.querySelectorAll('.discount-row').forEach(row => {
-    const inputs = row.querySelectorAll('input');
-    const label  = inputs[0].value.trim();
-    const pct    = parseFloat(inputs[1].value);
-    const euro   = parseFloat(inputs[2].value);
-    if(!label) return;
-    discounts.push({type: row.dataset.type, label, pct: isNaN(pct)?null:pct, euro: isNaN(euro)?null:euro});
+    const pct    = parseFloat(row.querySelector('.disc-pct').value);
+    const months = parseInt(row.querySelector('.disc-months').value);
+    if(!(pct > 0)) return;
+    discounts.push({
+      type: row.dataset.type,
+      percentage: pct,
+      durationMonths: months > 0 ? months : null,
+      conditions: row.querySelector('.disc-conditions').value.trim(),
+    });
   });
   return discounts;
 }
@@ -1701,6 +1731,10 @@ boot();
           <label data-t="ACCT_NEW_EMAIL">New email</label>
           <input type="email" id="acct-new-email" placeholder="new@example.com">
         </div>
+        <div class="field">
+          <label data-t="ACCT_CUR_PW">Current password</label>
+          <input type="password" id="acct-email-pw" placeholder="••••••••" autocomplete="current-password">
+        </div>
         <button class="btn btn-primary" style="font-size:12px;padding:7px 16px" onclick="doUpdateEmail()" data-t="BTN_UPDATE_EMAIL">Update email</button>
         <div class="acct-msg" id="acct-email-msg"></div>
       </div>
@@ -1758,6 +1792,7 @@ function openAccountModal(){
   const email = sessionStorage.getItem('cera_sup_email') || '';
   document.getElementById('acct-current-email').value = email;
   document.getElementById('acct-new-email').value = '';
+  document.getElementById('acct-email-pw').value = '';
   document.getElementById('acct-cur-pw').value = '';
   document.getElementById('acct-new-pw').value = '';
   document.getElementById('acct-confirm-pw').value = '';
@@ -1775,11 +1810,13 @@ function _acctMsg(id, text, ok){
 }
 async function doUpdateEmail(){
   const newEmail = document.getElementById('acct-new-email').value.trim();
+  const curPw = document.getElementById('acct-email-pw').value;
   if(!newEmail){ _acctMsg('acct-email-msg', T('ACCT_ERR_NEW_EMAIL'), false); return; }
+  if(!curPw){ _acctMsg('acct-email-msg', T('ACCT_ERR_EMAIL_PW'), false); return; }
   try{
     const resp = await fetch(_base + '/api/auth/email', {
       method:'PUT', headers:{...authHeaders(),'Content-Type':'application/json'},
-      body: JSON.stringify({new_email: newEmail})
+      body: JSON.stringify({new_email: newEmail, current_password: curPw})
     });
     const data = await resp.json().catch(()=>({}));
     if(resp.ok){
@@ -1787,9 +1824,10 @@ async function doUpdateEmail(){
       document.getElementById('acct-current-email').value = newEmail;
       document.getElementById('topbar-email').textContent = newEmail;
       document.getElementById('acct-new-email').value = '';
+      document.getElementById('acct-email-pw').value = '';
       _acctMsg('acct-email-msg', T('ACCT_EMAIL_OK'), true);
     } else {
-      _acctMsg('acct-email-msg', data.detail || T('ACCT_UPDATE_FAILED'), false);
+      _acctMsg('acct-email-msg', apiErrorText(data.detail, T('ACCT_UPDATE_FAILED')), false);
     }
   }catch(e){ _acctMsg('acct-email-msg', T('ACCT_NETWORK_ERR'), false); }
 }

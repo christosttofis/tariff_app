@@ -13,6 +13,14 @@ Scoping
   user.supplier_id). The supplier name in a request body is never trusted:
   it must match the caller's own supplier or the request is rejected.
   Tariffs a supplier creates or edits always go (back) to "pending" review.
+
+Deletion
+--------
+  A tariff that has EVER been public (Tariff.everPublished, including one
+  since edited back to pending) is archived, not removed: hidden from
+  customers, kept read-only in the supplier's list and the admin panel, and
+  logged. Tariffs that were never public are deleted outright, also logged. Only an admin can
+  permanently delete or restore an archived tariff.
 """
 
 import email_utils
@@ -24,7 +32,7 @@ import models
 from auth import CurrentUser, require_supplier
 from database import get_db
 from routers.shared import (
-    _add_changelog, _apply_tariff_body, _diff_fields, _document_dicts, _document_response,
+    _add_changelog, _apply_tariff_body, _assert_profile_exists, _diff_fields, _document_dicts, _document_response,
     _message_targets, _new_tariff, _now, _save_pdf_upload,
 )
 from schemas import TariffIn
@@ -40,6 +48,11 @@ def _own_tariff(db: Session, tariff_id: str, user: CurrentUser) -> models.Tariff
     if not t or t.supplier != user.supplier_name:
         raise HTTPException(404, "Tariff not found")
     return t
+
+
+def _assert_not_archived(t: models.Tariff) -> None:
+    if t.status == "archived":
+        raise HTTPException(409, "This tariff is archived and can no longer be changed")
 
 
 def _assert_own_supplier_name(body: TariffIn, user: CurrentUser) -> None:
@@ -58,6 +71,7 @@ def list_tariffs(db: Session = Depends(get_db), user: CurrentUser = Depends(requ
 @router.post("/tariffs", status_code=201, summary="Submit a new tariff for review")
 def create_tariff(body: TariffIn, db: Session = Depends(get_db), user: CurrentUser = Depends(require_supplier)):
     _assert_own_supplier_name(body, user)
+    _assert_profile_exists(db, body)
     # A client-chosen id must not collide with (and silently overwrite-fail on)
     # an existing tariff, including another supplier's.
     if body.id and db.get(models.Tariff, body.id):
@@ -76,8 +90,10 @@ def create_tariff(body: TariffIn, db: Session = Depends(get_db), user: CurrentUs
 def update_tariff(tariff_id: str, body: TariffIn, db: Session = Depends(get_db),
                   user: CurrentUser = Depends(require_supplier)):
     t = _own_tariff(db, tariff_id, user)
+    _assert_not_archived(t)
     # Without this, a supplier could reassign its own tariff to another supplier's name.
     _assert_own_supplier_name(body, user)
+    _assert_profile_exists(db, body)
     changes = _diff_fields(db, t, body)   # capture diff before modifying t
     _apply_tariff_body(t, body)
     t.status = "pending"
@@ -89,12 +105,20 @@ def update_tariff(tariff_id: str, body: TariffIn, db: Session = Depends(get_db),
     return tariff_to_dict(t)
 
 
-@router.delete("/tariffs/{tariff_id}", status_code=204, summary="Delete own tariff")
+@router.delete("/tariffs/{tariff_id}", status_code=204,
+               summary="Delete own tariff (archived instead if it has ever been public)")
 def delete_tariff(tariff_id: str, db: Session = Depends(get_db), user: CurrentUser = Depends(require_supplier)):
     t = _own_tariff(db, tariff_id, user)
-    _add_changelog(db, action="deleted", tariff_id=tariff_id,
-                   tariff_name=t.name, supplier=t.supplier, changes=[], actor=user)
-    db.delete(t)
+    _assert_not_archived(t)
+    if t.everPublished or t.status in ("approved", "suspended"):
+        _add_changelog(db, action="updated", tariff_id=tariff_id, tariff_name=t.name, supplier=t.supplier,
+                       changes=[{"field": "status", "from": t.status, "to": "archived"}], actor=user)
+        t.status = "archived"
+        t.updatedAt = _now()
+    else:
+        _add_changelog(db, action="deleted", tariff_id=tariff_id,
+                       tariff_name=t.name, supplier=t.supplier, changes=[], actor=user)
+        db.delete(t)
     db.commit()
 
 
@@ -108,6 +132,7 @@ async def upload_document(
     user: CurrentUser = Depends(require_supplier),
 ):
     t = _own_tariff(db, tariff_id, user)
+    _assert_not_archived(t)
     doc = await _save_pdf_upload(db, tariff_id, file, user)
     # A new doc on a live/rejected tariff sends it back to pending review
     resubmitted = False

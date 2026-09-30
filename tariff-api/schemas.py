@@ -6,7 +6,9 @@ import re
 from typing import Any, Literal
 
 from email_validator import EmailNotValidError, validate_email
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+
+from config import TARIFF_MAX_ENERGY_RATE, TARIFF_MAX_MONTHLY_CHARGE
 
 _URL_RE = re.compile(r"^https?://", re.IGNORECASE)
 
@@ -62,6 +64,87 @@ class ProfileIn(BaseModel):
     colCount: int = 0
 
 
+# ── Tariff pricing data ──────────────────────────────────────────────────────
+# `rates` and `discounts` are fed straight into the public calculator
+# (pricing/engine.py), so they are validated as strictly as the fixed fields:
+# numbers only (no text, NaN or Infinity), within sane bounds. A single
+# malformed approved tariff would otherwise break /api/public/calculate for
+# every customer. Limits come from config.py (TARIFF_MAX_*), adjustable
+# without a code change. Unknown keys are dropped rather than stored.
+
+def _energy(default: float | None = 0.0, *, lo: float = 0.0):
+    """A €/kWh value."""
+    return Field(default, ge=lo, le=TARIFF_MAX_ENERGY_RATE, allow_inf_nan=False)
+
+
+def _monthly(default: float | None = 0.0):
+    """A €/month (or €/period) charge."""
+    return Field(default, ge=0, le=TARIFF_MAX_MONTHLY_CHARGE, allow_inf_nan=False)
+
+
+class _RatesBase(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+
+class FixedRatesIn(_RatesBase):
+    rate: float = _energy()
+
+
+class TouRatesIn(_RatesBase):
+    # High-season months (1–12, inclusive); 0/0 means no high season.
+    hiStart: int = Field(0, ge=0, le=12)
+    hiEnd: int = Field(0, ge=0, le=12)
+    # Peak windows as hours of the day, [start, end).
+    hiPeakStart: float = Field(0, ge=0, le=24, allow_inf_nan=False)
+    hiPeakEnd: float = Field(0, ge=0, le=24, allow_inf_nan=False)
+    loPeakStart: float = Field(0, ge=0, le=24, allow_inf_nan=False)
+    loPeakEnd: float = Field(0, ge=0, le=24, allow_inf_nan=False)
+    hiPeakRate: float = _energy()
+    hiOffRate: float = _energy()
+    loPeakRate: float = _energy()
+    loOffRate: float = _energy()
+
+
+class DynamicRatesIn(_RatesBase):
+    # Effective price = max(DAM, damFloor) × mult + adder
+    mult: float = Field(1.0, gt=0, le=10, allow_inf_nan=False)
+    adder: float = _energy(lo=-TARIFF_MAX_ENERGY_RATE)
+    damFloor: float | None = _energy(None)
+
+
+class TierIn(_RatesBase):
+    upTo: float | None = Field(None, gt=0, le=10_000_000, allow_inf_nan=False)   # kWh; null = no upper bound
+    rate: float = _energy()
+    fixedCharge: float | None = _monthly(None)
+
+
+class VariableRatesIn(_RatesBase):
+    resetMonths: int = Field(2, ge=1, le=12)
+    tiers: list[TierIn] = Field(..., min_length=1, max_length=20)
+
+    @model_validator(mode="after")
+    def _tiers_ascending(self):
+        caps = [t.upTo for t in self.tiers]
+        if any(c is None for c in caps[:-1]):
+            raise ValueError("only the last tier may have no upper limit")
+        bounded = [c for c in caps if c is not None]
+        if any(b <= a for a, b in zip(bounded, bounded[1:])):
+            raise ValueError("tier limits must be strictly increasing")
+        return self
+
+
+_RATES_MODEL = {"Fixed": FixedRatesIn, "ToU": TouRatesIn, "Dynamic": DynamicRatesIn, "Variable": VariableRatesIn}
+
+
+class DiscountIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    type: Literal["energy", "standing"]
+    percentage: float = Field(..., gt=0, le=100, allow_inf_nan=False)
+    durationMonths: int | None = Field(None, ge=1, le=120)   # null = permanent
+    conditions: str = Field("", max_length=500)
+
+
 class TariffIn(BaseModel):
     id: str | None = Field(None, max_length=100)
     name: str = Field(..., max_length=200)
@@ -69,24 +152,39 @@ class TariffIn(BaseModel):
     contract: Literal["Domestic", "Commercial", "Industrial"]
     voltage: Literal["LV", "MV", "HV"]
     pricing: Literal["Fixed", "ToU", "Dynamic", "Variable"]
-    standing: float = 0.0
-    mdm: float = 0.0
+    standing: float = _monthly()
+    mdm: float = _monthly()
     mdmSource: Literal["global", "custom"] = "custom"
     mdmInvoiceMonths: Literal[1, 2] = 2
     rates: dict[str, Any] = {}
     profileId: str | None = Field(None, max_length=100)
     fpaSource: Literal["global", "custom", "none"] = "global"
-    fpaCustom: float = 0.0
+    # Fuel adjustment can legitimately be negative.
+    fpaCustom: float = _energy(lo=-TARIFF_MAX_ENERGY_RATE)
     durationMonths: int | None = Field(None, ge=1, le=120)
     loadEntitlement: Literal["any", "lt70", "gt70"] | None = None
-    discounts: list[Any] = []
+    discounts: list[DiscountIn] = Field([], max_length=20)
     vulnerable: bool = False
     createdAt: str | None = None
     updatedAt: str | None = None
 
+    @model_validator(mode="after")
+    def _validate_rates(self):
+        """Validate `rates` against the model for this tariff's pricing type and
+        replace it with the cleaned (typed, unknown-keys-dropped) version."""
+        try:
+            parsed = _RATES_MODEL[self.pricing].model_validate(self.rates)
+        except ValidationError as e:
+            problems = "; ".join(
+                f"{'.'.join(str(p) for p in err['loc']) or 'rates'}: {err['msg']}" for err in e.errors()
+            )
+            raise ValueError(f"invalid {self.pricing} rates — {problems}") from None
+        self.rates = parsed.model_dump()
+        return self
+
 
 class TariffStatusIn(BaseModel):
-    status: Literal["draft", "pending", "approved", "rejected", "suspended"]
+    status: Literal["draft", "pending", "approved", "rejected", "suspended", "archived"]
     reason: str | None = Field(None, max_length=1000)  # rejection reason (only used when status=rejected)
 
 

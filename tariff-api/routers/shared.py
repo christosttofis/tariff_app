@@ -45,6 +45,10 @@ def _add_changelog(db, *, action, tariff_id, tariff_name, supplier, changes, act
 
 # ── Tariffs ───────────────────────────────────────────────────────────────────
 
+def _discounts(body: TariffIn) -> list[dict]:
+    return [d.model_dump() for d in body.discounts]
+
+
 def _new_tariff(body: TariffIn, *, status: str) -> models.Tariff:
     now = _now()
     return models.Tariff(
@@ -54,7 +58,7 @@ def _new_tariff(body: TariffIn, *, status: str) -> models.Tariff:
         mdmInvoiceMonths=body.mdmInvoiceMonths, rates=json.dumps(body.rates),
         profileId=body.profileId, fpaSource=body.fpaSource, fpaCustom=body.fpaCustom,
         durationMonths=body.durationMonths, loadEntitlement=body.loadEntitlement,
-        discounts=json.dumps(body.discounts), vulnerable=body.vulnerable,
+        discounts=json.dumps(_discounts(body)), vulnerable=body.vulnerable,
         status=status,
         createdAt=now, updatedAt=now,
     )
@@ -67,8 +71,13 @@ def _apply_tariff_body(t: models.Tariff, body: TariffIn) -> None:
     t.mdmInvoiceMonths = body.mdmInvoiceMonths; t.rates = json.dumps(body.rates)
     t.profileId = body.profileId; t.fpaSource = body.fpaSource; t.fpaCustom = body.fpaCustom
     t.durationMonths = body.durationMonths; t.loadEntitlement = body.loadEntitlement
-    t.discounts = json.dumps(body.discounts); t.vulnerable = body.vulnerable
+    t.discounts = json.dumps(_discounts(body)); t.vulnerable = body.vulnerable
     t.updatedAt = _now()
+
+
+def _assert_profile_exists(db: Session, body: TariffIn) -> None:
+    if body.profileId and not db.get(models.Profile, body.profileId):
+        raise HTTPException(422, f"Unknown profile '{body.profileId}'")
 
 
 def _profile_label(db: Session, profile_id) -> str:
@@ -111,10 +120,10 @@ def _diff_fields(db: Session, old: models.Tariff, body: TariffIn) -> list[dict]:
     if old_rates != body.rates:
         changes.append({"field": "rates", "from": json.dumps(old_rates), "to": json.dumps(body.rates)})
     old_disc = json.loads(old.discounts) if old.discounts else []
-    if old_disc != body.discounts:
+    if old_disc != _discounts(body):
         changes.append({"field": "discounts",
                         "from": json.dumps(old_disc),
-                        "to":   json.dumps(body.discounts)})
+                        "to":   json.dumps(_discounts(body))})
     return changes
 
 

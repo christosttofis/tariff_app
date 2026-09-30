@@ -10,6 +10,8 @@ pricing/ package as pure, independently-testable functions.
 """
 
 import json
+import logging
+import math
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -27,6 +29,8 @@ from schemas import PublicCalculateIn, PublicSampleInvoiceIn
 from serializers import tariff_to_dict
 
 router = APIRouter(prefix="/api/public", tags=["public-calculate"])
+
+logger = logging.getLogger(__name__)
 
 
 def _load_context(db: Session):
@@ -68,6 +72,58 @@ def _calc_kwargs(t: dict, profiles_by_id: dict, regulated_rates: dict, *, is_mon
     }
 
 
+def _tariff_result(t: dict, dc, profiles_by_id: dict, profile_names: dict, suppliers_regulated: dict, regulated_rates: dict, *,
+                   body: PublicCalculateIn, is_monthly, monthly_kwh_flat, annual_kwh, dam_monthly, dam_by_slot, dam_daily_data) -> dict | None:
+    """One tariff's comparison entry, or None if it can't be priced (e.g. a Dynamic tariff with no DAM data)."""
+    kwargs = _calc_kwargs(
+        t, profiles_by_id, regulated_rates,
+        is_monthly=is_monthly, monthly_kwh_flat=monthly_kwh_flat, annual_kwh=annual_kwh,
+        discount_overrides=body.discountOverrides, offers_enabled=body.offersEnabled,
+        dam_monthly=dam_monthly, dam_by_slot=dam_by_slot, dam_daily_data=dam_daily_data,
+    )
+    base = annual_cost_for_tariff(t, dc, **kwargs)
+    if base is None:
+        return None
+    if not math.isfinite(base):
+        raise ValueError(f"non-finite annual cost {base!r}")
+
+    supplier_regulated = suppliers_regulated.get(t["supplier"], False)
+    mdm = mdm_for_tariff(t, supplier_regulated, regulated_rates)
+    reg_bd = regulated_breakdown(t["voltage"], annual_kwh, mdm, t.get("mdmInvoiceMonths"), supplier_regulated, regulated_rates)
+
+    has_discounts = bool(t.get("discounts"))
+    full_base = annual_cost_no_discount(t, dc, **kwargs) if has_discounts else None
+
+    months = monthly_breakdown(t, dc, **kwargs)
+    mo_kwh = monthly_kwh_display(
+        t, dc, is_monthly=is_monthly, monthly_kwh_flat=monthly_kwh_flat, annual_kwh=annual_kwh,
+        profile_months=kwargs["profile_months"],
+    )
+
+    entry = {
+        "id": t["id"],
+        "base": base,
+        "reg": reg_bd["total"],
+        "fullBase": full_base,
+        "months": months,
+        "moKwh": mo_kwh,
+        "regBd": {k: v for k, v in reg_bd.items() if k != "total"},
+        "fpaRate": get_tariff_fpa(t, regulated_rates),
+        # Already shown to the customer today (renderDiscountToggles) —
+        # not new exposure, just relocated alongside the rest of the
+        # per-tariff pricing result.
+        "discounts": t.get("discounts") or [],
+        "profileName": profile_names.get(t.get("profileId")),
+    }
+    if t.get("pricing") == "Variable":
+        entry["tierSummary"] = format_tier_summary(t)
+        entry["resetMonths"] = (t.get("rates") or {}).get("resetMonths") or 1
+    if t.get("pricing") == "Dynamic":
+        entry["damFloor"] = (t.get("rates") or {}).get("damFloor")
+
+    return entry
+
+
 @router.post("/calculate", summary="Compute ranked tariff comparison for the customer calculator")
 def calculate(body: PublicCalculateIn, db: Session = Depends(get_db)):
     tariffs, profiles_by_id, profile_names, suppliers_regulated, regulated_rates, dam_monthly, dam_by_slot, dam_daily_data = _load_context(db)
@@ -94,52 +150,23 @@ def calculate(body: PublicCalculateIn, db: Session = Depends(get_db)):
     results = []
     no_dam = []
     for t in matched:
-        kwargs = _calc_kwargs(
-            t, profiles_by_id, regulated_rates,
-            is_monthly=is_monthly, monthly_kwh_flat=monthly_kwh_flat, annual_kwh=annual_kwh,
-            discount_overrides=body.discountOverrides, offers_enabled=body.offersEnabled,
-            dam_monthly=dam_monthly, dam_by_slot=dam_by_slot, dam_daily_data=dam_daily_data,
-        )
-        base = annual_cost_for_tariff(t, dc, **kwargs)
-        if base is None:
+        # One tariff with data the engine can't handle must not take the whole
+        # comparison down for every customer: skip it and log it instead.
+        # (Input validation in schemas.TariffIn is the primary defence; this
+        # is the safety net for anything already stored or missed there.)
+        try:
+            entry = _tariff_result(
+                t, dc, profiles_by_id, profile_names, suppliers_regulated, regulated_rates,
+                body=body, is_monthly=is_monthly, monthly_kwh_flat=monthly_kwh_flat, annual_kwh=annual_kwh,
+                dam_monthly=dam_monthly, dam_by_slot=dam_by_slot, dam_daily_data=dam_daily_data,
+            )
+        except Exception:
+            logger.exception("Skipping tariff %s (%s) in public calculation: pricing engine failed", t.get("id"), t.get("name"))
+            continue
+        if entry is None:
             if t.get("pricing") == "Dynamic":
                 no_dam.append({"id": t["id"], "name": t["name"], "supplier": t["supplier"]})
             continue
-
-        supplier_regulated = suppliers_regulated.get(t["supplier"], False)
-        mdm = mdm_for_tariff(t, supplier_regulated, regulated_rates)
-        reg_bd = regulated_breakdown(t["voltage"], annual_kwh, mdm, t.get("mdmInvoiceMonths"), supplier_regulated, regulated_rates)
-
-        has_discounts = bool(t.get("discounts"))
-        full_base = annual_cost_no_discount(t, dc, **kwargs) if has_discounts else None
-
-        months = monthly_breakdown(t, dc, **kwargs)
-        mo_kwh = monthly_kwh_display(
-            t, dc, is_monthly=is_monthly, monthly_kwh_flat=monthly_kwh_flat, annual_kwh=annual_kwh,
-            profile_months=kwargs["profile_months"],
-        )
-
-        entry = {
-            "id": t["id"],
-            "base": base,
-            "reg": reg_bd["total"],
-            "fullBase": full_base,
-            "months": months,
-            "moKwh": mo_kwh,
-            "regBd": {k: v for k, v in reg_bd.items() if k != "total"},
-            "fpaRate": get_tariff_fpa(t, regulated_rates),
-            # Already shown to the customer today (renderDiscountToggles) —
-            # not new exposure, just relocated alongside the rest of the
-            # per-tariff pricing result.
-            "discounts": t.get("discounts") or [],
-            "profileName": profile_names.get(t.get("profileId")),
-        }
-        if t.get("pricing") == "Variable":
-            entry["tierSummary"] = format_tier_summary(t)
-            entry["resetMonths"] = (t.get("rates") or {}).get("resetMonths") or 1
-        if t.get("pricing") == "Dynamic":
-            entry["damFloor"] = (t.get("rates") or {}).get("damFloor")
-
         results.append(entry)
 
     results.sort(key=lambda r: r["base"])

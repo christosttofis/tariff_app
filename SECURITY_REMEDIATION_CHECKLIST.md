@@ -109,6 +109,20 @@ Outside-attacker testing over HTTP against an isolated instance on a throwaway d
 
 ---
 
+## Round 11 — Supplier-submitted data validation (2026-09-30)
+
+Reviewed every field a supplier can send. Ownership checks were already complete after Round 10; the gaps were in the tariff **content**.
+
+- [x] **HIGH — one malformed tariff could take the public calculator down → fixed, verified.** `rates` (`dict[str, Any]`) and `discounts` (`list[Any]`) were stored unvalidated and fed straight into the pricing engine. A price or discount sent as text, a nested object, or a non-object discount was accepted. Once approved, it made `/api/public/calculate` return 500 **for every customer**. Admin approval didn't catch it, because the admin view renders `"0.15"` the same as `0.15`. **Fix:** a strict per-pricing-type schema (`FixedRatesIn`/`TouRatesIn`/`DynamicRatesIn`/`VariableRatesIn`/`DiscountIn` in `schemas.py`). It enforces numbers only, finite values and sane bounds; unknown keys are dropped rather than stored. It applies to supplier, admin editor and Publish alike.
+- [x] **MED — absurd or negative values accepted → fixed.** Negative prices (shown to customers as a −€19,718/yr bill and ranked #1), 1e300, NaN standing charges, −300% "discounts", nonexistent profile IDs, and multi-MB junk in `rates` were all accepted. Now: energy prices 0–`TARIFF_MAX_ENERGY_RATE` (default €5/kWh), monthly charges 0–`TARIFF_MAX_MONTHLY_CHARGE` (default €1,000), discounts above 0 and up to 100%, and the profile must exist. Limits are adjustable without code (`config.py`, `ADMIN_MANUAL.md` §6.10). `Infinity` previously caused a 500 on save; it is now a clean 422.
+- [x] **Defense in depth — calculator failure isolation.** `/api/public/calculate` now prices each tariff independently. A tariff the engine can't handle, such as a legacy row stored before validation existed, is skipped and logged instead of failing the whole response. Verified with a malformed row inserted directly into the database: the comparison still returns 200 with all other tariffs intact.
+- [x] **MED — email change without re-authentication → fixed.** `PUT /api/auth/email` did not ask for the current password, so a stolen session could change the email and then take the account over via forgot-password. It now requires `current_password` (both portals updated).
+- [x] **Functional — supplier discounts never worked → fixed.** `supplier.html` saved discounts as `{label, pct, euro}`; the engine, customer page and admin form use `{type, percentage, durationMonths, conditions}`. Supplier-entered discounts were silently ignored in prices and would have shown "undefined%". The supplier form now uses the shared format (the unsupported "€ off" type was dropped). The admin review panel had the mirror-image bug and showed admin-format discounts as "undefined"; this is also fixed.
+- [x] **Supplier deletion of live tariffs → archive + audit.** Any tariff that has **ever** been approved becomes `archived` when a supplier deletes it: hidden from customers, read-only in the supplier's list, visible to admins, restorable by an admin, logged. This is tracked by a new `tariffs.everPublished` flag (migration `5c1e7a9d2f40`, backfilled from current status plus changelog approval history). The flag is set automatically on any transition to `approved`, so a live tariff edited back to pending, or later rejected, is still archived rather than erased. Tariffs never approved are deleted outright, also logged.
+- **Verified live** (disposable SQLite DB, email disabled): 24 malformed inputs → all 422. 10 valid edge cases (limits, negative FPA/adder, every pricing type, admin-format discounts) → 201. Every seeded tariff re-saves unchanged, and all 11 tariffs in the dev database pass the new schema unchanged (read-only check). Archive, restore and audit flow all passed. Email re-auth: missing/wrong/right password → 422/400/200. Browser run in Edge (Playwright) of both portals: discount entry round-trips in the new format, validation errors are readable, archived badge and read-only row shown, email form asks for the password, admin review shows the discount correctly. No JS exceptions on supplier, admin or customer pages.
+
+---
+
 ## Open items — must be handled before go-live
 
 These are deployment/production tasks, tracked in full in `AZURE_DEPLOYMENT_CHECKLIST.md` and project memory.
@@ -119,6 +133,7 @@ These are deployment/production tasks, tracked in full in `AZURE_DEPLOYMENT_CHEC
 - [ ] **Disable API docs in production** — set `TARIFF_ENABLE_DOCS=0` so `/docs`, `/redoc`, `/openapi.json` don't expose the full route surface.
 - [ ] **Restrict `admin.html`** to CERA IPs (checklist has the procedure).
 - [ ] **Rate limiter is in-memory/single-process** — needs a shared store (e.g. Redis) only if ever scaled to multiple workers/instances.
+- [ ] **"Save & publish" resets every tariff to Approved (found 2026-09-30, not yet fixed).** `PUT /api/admin/config` validates tariffs with `TariffIn`, which has no `status` field, so `importer.py` defaults every tariff to `approved`. Verified on a throwaway DB: one Publish turned pending, draft and rejected tariffs live. It also drops `rejection_reason`/`mdmSource`/`mdmInvoiceMonths`. It deletes and re-creates all suppliers too, which on PostgreSQL likely fails against the `users.supplier_id` foreign key. Until fixed, do not use Save & publish (warning added to `ADMIN_MANUAL.md` §12).
 - [ ] **External IT certification** — this document is the security summary to hand over.
 - [~] **Round 6 follow-up** — live UI walkthrough confirming `ConfigImportIn` accepts every real "Publish" payload.
 

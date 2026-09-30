@@ -4,7 +4,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 import email_utils
@@ -64,6 +64,10 @@ class ResendOtpIn(BaseModel):
 
 class UpdateEmailIn(BaseModel):
     new_email: str
+    # Re-authentication: without it, anyone holding a stolen session cookie
+    # could change the email and then take the account over via
+    # forgot-password.
+    current_password: str = Field(..., max_length=200)
 
     _validate_new_email = field_validator("new_email")(_check_email)
 
@@ -314,12 +318,14 @@ def update_email(
     db: Session = Depends(get_db),
     current: CurrentUser = Depends(get_current_user),
 ):
+    user = db.get(models.User, current.id)
+    if not verify_password(body.current_password, user.password_hash):
+        raise HTTPException(400, "Current password is incorrect.")
     new_email = body.new_email.strip()
     if not new_email:
         raise HTTPException(400, "Email cannot be empty.")
     if db.query(models.User).filter(models.User.email == new_email).first():
         raise HTTPException(409, "This email is already registered.")
-    user = db.get(models.User, current.id)
     user.email = new_email
     db.commit()
     return {"message": "Email updated."}

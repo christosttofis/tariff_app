@@ -86,3 +86,12 @@ TARIFF_BASE_URL = os.getenv("TARIFF_BASE_URL", "http://localhost:8000").rstrip("
 # production - these otherwise expose the full route/schema surface
 # (including every admin endpoint's shape) to anyone, unauthenticated.
 TARIFF_ENABLE_DOCS = os.getenv("TARIFF_ENABLE_DOCS", "1") == "1"
+
+# ── Tariff input sanity limits ───────────────────────────────────────────────
+# Upper bounds enforced on every tariff saved (supplier portal, admin editor,
+# admin Publish). They exist to reject typos and malformed data before it can
+# reach the public calculator, not to police pricing - set them well above any
+# real tariff. Adjust via Application Settings / .env; no code change needed.
+# See ADMIN_MANUAL.md "Tariff input limits".
+TARIFF_MAX_ENERGY_RATE = float(os.getenv("TARIFF_MAX_ENERGY_RATE", "5"))           # €/kWh
+TARIFF_MAX_MONTHLY_CHARGE = float(os.getenv("TARIFF_MAX_MONTHLY_CHARGE", "1000"))   # €/month
