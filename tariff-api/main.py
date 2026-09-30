@@ -28,8 +28,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -394,7 +393,29 @@ def report_tariff(body: TariffReportIn, request: Request, db: Session = Depends(
 
 
 # ── Static file serving ───────────────────────────────────────────────────────
-# Serves admin.html and customer.html from the parent directory.
-# Declared last so /api/... routes above are matched first.
+# Only these files are served. This used to be a StaticFiles mount of the whole
+# project folder, which also exposed tariff-api/.env (secrets), the source code,
+# .git, internal documents and uploaded tariff PDFs to anyone who could reach
+# the server. An explicit allowlist means a new file in the folder is never
+# public by accident.
 _STATIC_ROOT = Path(__file__).parent.parent
-app.mount("/", StaticFiles(directory=str(_STATIC_ROOT), html=False), name="static")
+_PUBLIC_FILES = {
+    "customer.html": "text/html; charset=utf-8",
+    "supplier.html": "text/html; charset=utf-8",
+    "admin.html": "text/html; charset=utf-8",
+    "reset-password.html": "text/html; charset=utf-8",   # linked from invite/reset emails
+    "Logo_Transparent.png": "image/png",
+}
+
+
+def _static_route(name: str, media_type: str):
+    path = _STATIC_ROOT / name
+
+    def serve():
+        return FileResponse(path, media_type=media_type)
+    serve.__name__ = "static_" + name.replace(".", "_").replace("-", "_")
+    return serve
+
+
+for _name, _media_type in _PUBLIC_FILES.items():
+    app.add_api_route("/" + _name, _static_route(_name, _media_type), methods=["GET", "HEAD"], include_in_schema=False)
