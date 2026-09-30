@@ -566,6 +566,19 @@ If you need to fully remove the account from the database:
 
 ## 15. Server Operations
 
+### 14.9 Network restriction (admin access only from the CERA office / VPN)
+
+On the live site, admin accounts only work from the CERA office network and the CERA VPN. From anywhere else, the admin page, admin sign-in and every admin action show only **"Website unavailable"**. The page doesn't say why, on purpose. Customers and suppliers are not affected.
+
+- **Working from home:** connect to the CERA VPN first, then open the admin page.
+- **If the VPN drops while you're working**, your next click shows "Website unavailable". Unsaved edits are lost. Reconnect and sign in again.
+- **Every blocked attempt** appears in **Login activity** with the reason `network_blocked` and the address it came from.
+
+**Changing the allowed addresses.** The list is the setting `TARIFF_ADMIN_ALLOWED_NETWORKS`: comma-separated addresses or ranges, e.g. `203.0.113.10/32,198.51.100.0/28`. CERA IT provides the office and VPN addresses and should tell you if they change.
+- **On Azure:** App Service → **Settings → Environment variables** → edit `TARIFF_ADMIN_ALLOWED_NETWORKS` → **Apply**. The app restarts automatically. A typo in the list stops the app from starting; check **Log stream** and correct it.
+- **Emergency (e.g. the VPN is down and an admin task can't wait):** clear the value and Apply. The restriction is then off (anyone with an admin password and 2FA code can sign in from anywhere). Put the value back as soon as possible.
+- **Locally:** the setting is normally not set, so there is no restriction on a development PC. To try it, add `TARIFF_ADMIN_ALLOWED_NETWORKS=127.0.0.1/32` to `tariff-api\.env` and restart (15.3). That PC is then "inside"; anyone opening the app through its network address is "outside".
+
 ### 15.1 Starting the server
 
 Double-click **`start.bat`** in the project root folder. This will:
@@ -662,6 +675,10 @@ This restores into a separate, throwaway database (`tariff_app_test`) rather tha
 - Check that Python 3.12 or higher is installed
 - On CERA's corporate network, dependency installation may fail — the `start.bat` script includes the necessary trusted-host flags, but if issues persist contact IT
 - Check that the `.env` file exists inside the `tariff-api/` folder and contains the required values
+
+### An admin sees "Website unavailable"
+
+The admin is outside the allowed networks (14.9). Check that the VPN is connected; with split-tunnel VPNs, CERA IT must route the site's address through the VPN. In **Login activity**, look for `network_blocked` entries: the IP shown is the address the site saw. If it's a genuine CERA address that's missing from the list, ask IT to confirm it and add it to `TARIFF_ADMIN_ALLOWED_NETWORKS`.
 
 ### Emails are not being sent
 - Check the Azure client secret in the `.env` file has not expired (secrets are set to expire after 12 months)

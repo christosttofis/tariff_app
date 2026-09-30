@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 
 import email_utils
 import models
+from client_ip import UNAVAILABLE_DETAIL, admin_network_allowed
 from config import TARIFF_SECRET_KEY
 from database import get_db
 
@@ -236,6 +237,12 @@ def get_current_user(
     user = db.get(models.User, int(payload["sub"]))
     if not user or not user.is_active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found or deactivated")
+
+    # Admin accounts only work from the CERA office/VPN networks. Checked on
+    # every request, not just at login, so a stolen admin cookie or a VPN
+    # that drops mid-session gets nothing. Deliberately a generic 404.
+    if user.role == "admin" and not admin_network_allowed(request):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, UNAVAILABLE_DETAIL)
 
     # Invalidate tokens issued before the most recent password change — closes the
     # window where an old (stolen or superseded) token stays valid after a reset.

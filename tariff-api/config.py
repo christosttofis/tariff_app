@@ -18,6 +18,7 @@ which one supplied the value, only that os.environ has it by the time this
 runs.
 """
 
+import ipaddress
 import logging
 import os
 from pathlib import Path
@@ -88,10 +89,47 @@ TARIFF_BASE_URL = os.getenv("TARIFF_BASE_URL", "http://localhost:8000").rstrip("
 TARIFF_ENABLE_DOCS = os.getenv("TARIFF_ENABLE_DOCS", "1") == "1"
 
 # ── Tariff input sanity limits ───────────────────────────────────────────────
-# Upper bounds enforced on every tariff saved (supplier portal, admin editor,
-# admin Publish). They exist to reject typos and malformed data before it can
+# Upper bounds enforced on every tariff saved (supplier portal, admin
+# editor). They exist to reject typos and malformed data before it can
 # reach the public calculator, not to police pricing - set them well above any
 # real tariff. Adjust via Application Settings / .env; no code change needed.
 # See ADMIN_MANUAL.md "Tariff input limits".
 TARIFF_MAX_ENERGY_RATE = float(os.getenv("TARIFF_MAX_ENERGY_RATE", "5"))           # €/kWh
 TARIFF_MAX_MONTHLY_CHARGE = float(os.getenv("TARIFF_MAX_MONTHLY_CHARGE", "1000"))   # €/month
+
+# ── Admin network restriction ────────────────────────────────────────────────
+# Admin accounts (and admin.html) only work from these networks - the CERA
+# office and VPN egress addresses. Comma-separated IPs/CIDRs, e.g.
+# "203.0.113.10/32,198.51.100.0/28". Empty = restriction OFF (local dev, the
+# reviewer demo). See client_ip.py and ADMIN_MANUAL.md "Network restriction".
+def _parse_networks(raw: str) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
+    networks = []
+    for part in raw.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            networks.append(ipaddress.ip_network(part, strict=False))
+        except ValueError as e:
+            # Fail loudly: a typo must not silently lock admins out, or silently
+            # leave the restriction wider than intended.
+            raise RuntimeError(f"TARIFF_ADMIN_ALLOWED_NETWORKS: invalid entry {part!r} ({e})") from None
+    return networks
+
+
+TARIFF_ADMIN_ALLOWED_NETWORKS = _parse_networks(os.getenv("TARIFF_ADMIN_ALLOWED_NETWORKS", ""))
+if not TARIFF_ADMIN_ALLOWED_NETWORKS:
+    logger.warning(
+        "TARIFF_ADMIN_ALLOWED_NETWORKS is not set - admin accounts can be used "
+        "from any network. Expected for local dev/demo; in production set it to "
+        "the CERA office and VPN egress addresses."
+    )
+
+# How many reverse proxies in front of the app append to X-Forwarded-For.
+# 0 = use the TCP peer address (local dev, direct connections).
+# 1 = Azure App Service (its front end appends the real client IP).
+# Never trust X-Forwarded-For entries beyond this count: a client can put
+# anything it likes at the start of that header.
+TARIFF_TRUSTED_PROXY_HOPS = int(os.getenv("TARIFF_TRUSTED_PROXY_HOPS", "0"))
+if TARIFF_TRUSTED_PROXY_HOPS < 0:
+    raise RuntimeError("TARIFF_TRUSTED_PROXY_HOPS must be 0 or more")

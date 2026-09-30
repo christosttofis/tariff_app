@@ -213,30 +213,23 @@ cd tariff-api && python -m uvicorn main:app --host 0.0.0.0 --port 8000
 4. Confirm **Always On** is set to **On** (same page) — this prevents the app from sleeping between requests
 5. Click **Save**
 
-### Step 6a — Client-IP / `X-Forwarded-For` trust (rate-limiting correctness)
+### Step 6a — Client IP and admin network restriction (required)
 
-The per-IP rate limiter in `main.py` keys on `request.client.host`. Behind a
-reverse proxy (Azure App Service's front end, Cloudflare, nginx, etc.) that
-value comes from the `X-Forwarded-For` header via uvicorn's proxy-header
-handling, so getting this wrong makes the limiter either trust a client-spoofed
-IP (limiter becomes bypassable) or bucket every user under the proxy's single IP
-(limiter throttles everyone at once).
+The app works out who is calling from the client IP. That drives the **admin network restriction** (admin accounts and `admin.html` only work from the CERA office and VPN) and the per-IP rate limiter. Behind Azure App Service, the real client IP is in the `X-Forwarded-For` header. A client can put any address it likes at the *start* of that header, but it can't change the entry the Azure front end appends at the *end*. The app therefore trusts only that last entry (`tariff-api/client_ip.py`).
 
-- **Do NOT set `FORWARDED_ALLOW_IPS=*`.** That tells uvicorn to trust
-  `X-Forwarded-For` from *any* caller, which lets an attacker rotate the header
-  to get an unlimited number of rate-limit buckets (verified in black-box
-  testing on 2026-09-25). Leave it at uvicorn's default (`127.0.0.1`) so only
-  the local platform front end is trusted, or pin it to the specific proxy IP.
-- **Ensure the front end overwrites (not appends to) any client-supplied
-  `X-Forwarded-For`.** Azure App Service's front end appends the real client IP;
-  confirm the value the app sees is the platform-supplied one, not attacker text.
-- **The real credential-abuse defense is the per-account lockout** (3 failed
-  password/OTP attempts → 180-minute lock), which keys on the account, not the
-  IP, and is therefore unaffected by any `X-Forwarded-For` manipulation. The IP
-  limiter is best-effort overload protection, not the primary anti-brute-force
-  control.
-- The `admin.html` IP-restriction below ("Restricting access to `admin.html`")
-  further limits exposure of the highest-value surface.
+Add these **Application settings** (App Service → Settings → Environment variables):
+
+| Setting | Value | Why |
+|---|---|---|
+| `TARIFF_TRUSTED_PROXY_HOPS` | `1` | One proxy (the App Service front end) in front of the app. Use `2` only if Azure Front Door or Application Gateway is added in front later. |
+| `TARIFF_ADMIN_ALLOWED_NETWORKS` | e.g. `203.0.113.10/32,198.51.100.0/28` | CERA office egress IP(s) + VPN egress IP(s), comma-separated. **Get these from CERA IT.** Empty = restriction off (a warning is logged at startup). An invalid entry stops the app from starting, so check the log stream after saving. |
+
+Also:
+- **Do NOT set `FORWARDED_ALLOW_IPS=*`.** The app doesn't need it (it reads the header itself). With it, uvicorn would trust client-supplied addresses elsewhere.
+- **Keep Cloudflare on "DNS only" (grey cloud)** (Step 10). Proxying through Cloudflare would add a second proxy hop and change which entry is the real client.
+- **Ask CERA IT to confirm the VPN is full-tunnel**, or to add `tariffs.cera.org.cy` to the routes sent through the VPN. With split-tunnel, an admin's traffic to the site wouldn't come from the VPN address and would be blocked.
+- **Verify once after deployment** (Step 8): sign in as an admin from the office or VPN. Then open `https://<site>/admin.html` from a phone on mobile data: it must show only "Website unavailable". Admin → **Login activity** shows the IP the app saw for each attempt. Attempts from outside are logged as `network_blocked`.
+- The per-account lockout (3 failed password/OTP attempts → 180-minute lock) remains the main defence against password guessing. Sign-ins to admin accounts from outside the allowed networks are refused before the password is even checked, so they can't lock an admin out.
 
 ---
 
@@ -342,26 +335,14 @@ After this, both `https://cera-tariff-tool.azurewebsites.net` and `https://tarif
 
 ---
 
-## Restricting access to `admin.html` (recommended before go-live)
+## Restricting access to `admin.html` and the admin API
 
-The admin panel is reachable at a normal URL and shows only a login form to unauthenticated visitors, but CERA may prefer to restrict it to the office network entirely. Azure App Service access restrictions apply at the whole-app level, so the practical way to scope this to just the admin page is a path-based rule:
+This is handled **inside the application**, not with App Service access restrictions: those apply to the whole site (customers and suppliers too) and can't target one page or the API. Setting `TARIFF_ADMIN_ALLOWED_NETWORKS` in Step 6a is all that's needed. Outside those networks:
+- `admin.html` returns a plain "Website unavailable" page;
+- admin sign-in returns "Website unavailable" (the password is never checked);
+- every admin API request, even with a valid session, returns "Website unavailable".
 
-1. In the App Service → **Settings → Networking** → **Access restriction**
-2. Under **Site access restrictions**, click **Add rule**:
-   - **Action:** Allow
-   - **Priority:** 100
-   - **Source:** CERA office IP address / range
-   - **Route:** `/admin.html`
-3. Add a second rule:
-   - **Action:** Deny
-   - **Priority:** 200
-   - **Source:** Any
-   - **Route:** `/admin.html`
-4. Leave the default rule for all other routes (`customer.html`, `supplier.html`, `/api/...`) as **Allow all** — suppliers and the public still need to reach those
-
-This restricts `admin.html` to the CERA office network while `customer.html` and `supplier.html` remain publicly reachable, as intended. Remove or widen the rule if admin staff need remote access (e.g. add a VPN egress IP).
-
-> Note: `/api/admin/*` calls made *by* admin.html run from the same browser session, so they originate from the same allowed IP and are not blocked by this rule.
+Customers and suppliers are unaffected. To change the allowed addresses later, or to switch the restriction off in an emergency, edit or clear the setting and click **Apply**. The app restarts automatically (see `ADMIN_MANUAL.md` §14.9).
 
 ---
 

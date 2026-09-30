@@ -5283,6 +5283,18 @@ function _isStrongPassword(pw){
         if(data&&data.detail==='password_expired') _showPasswordExpiredModal();
       }catch(e){}
     }
+    // Outside the CERA office/VPN networks the server answers every admin
+    // request with 404 "Website unavailable" (e.g. the VPN dropped mid-session).
+    // Reloading the page lets the server show its own "Website unavailable" page.
+    if(resp.status===404){
+      try{
+        const data=await resp.clone().json();
+        if(data&&data.detail==='Website unavailable'){
+          if(typeof _unsaved!=='undefined') _unsaved.clear(); // no "Leave site?" prompt
+          window.location.replace('admin.html');
+        }
+      }catch(e){}
+    }
     return resp;
   };
 })();

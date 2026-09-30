@@ -131,15 +131,41 @@ Reviewed every field a supplier can send. Ownership checks were already complete
 
 ---
 
+## Round 13 — Whole project folder was publicly downloadable (2026-09-30)
+
+- [x] **CRITICAL — server exposed secrets, source code, git history and internal documents → fixed, verified.** The static files were served by a `StaticFiles` mount of the entire project folder, so anyone who could reach the server could download `tariff-api/.env` (JWT signing secret, Azure client secret, database credentials), all source code, `.git/` (the full repository history), internal documents (`handover.docx`, security/architecture reviews, deployment plans), the SQLite fallback DB file and uploaded tariff PDFs (bypassing the authenticated download endpoint). `start.bat` binds `0.0.0.0:8000`, so on the CERA workstation that meant anyone on the same network. Found while planning the admin network restriction; verified by requesting each path from a throwaway instance (status codes only, contents never read). **Fix:** the mount is replaced by explicit routes for exactly five files (`customer.html`, `supplier.html`, `admin.html`, `reset-password.html`, `Logo_Transparent.png`). Everything else is 404, including case variants and encoded paths. Verified: 20 sensitive/trick paths all 404; the 5 public files and the API unaffected.
+- [ ] **Follow-up (manual): rotate the secrets that were exposed**: `TARIFF_SECRET_KEY` (signs sessions; rotating it signs everyone out), the Azure app client secret, and the PostgreSQL password. This matters if the local server was ever reachable by other machines (Windows Firewall / network setup). The external repo history is unaffected; `.env` was never committed.
+
+## Round 14 — Admin access restricted to the CERA office / VPN networks (2026-09-30)
+
+- [x] **Admin accounts usable from anywhere on the internet → restricted, verified.** New setting `TARIFF_ADMIN_ALLOWED_NETWORKS` (CIDR list; empty = off with a startup warning). Outside those networks, the only response is a generic "Website unavailable" (404) for all of the following:
+  - `admin.html`;
+  - admin sign-in, checked *before* the password, so no password oracle and no lockout DoS from the internet;
+  - OTP verify/resend;
+  - every authenticated admin request, enforced in `get_current_user` for the admin role, so a stolen cookie or a dropped VPN mid-session gets nothing.
+
+  Blocked sign-ins are logged as `network_blocked`. Suppliers and customers are unaffected.
+- [x] **Trusted client IP (`client_ip.py`), which closes the Round 9 `X-Forwarded-For` item.** With `TARIFF_TRUSTED_PROXY_HOPS=1` (Azure), only the rightmost `X-Forwarded-For` entry, the one appended by the Azure front end, is trusted. Client-supplied entries further left are ignored, ports are stripped, and unparseable values are treated as "not allowed". The rate limiter and all IP logging (login activity, tariff reports) now use the same helper, so rotating `X-Forwarded-For` no longer escapes the rate limit.
+- **Verified live** on throwaway servers, for four configurations: restriction on with this machine allowed; on with it outside; behind-proxy mode; off.
+  - Admin sign-in with the correct password from outside → 404, `network_blocked` logged, and 6 wrong passwords caused no failed-attempt count or lockout.
+  - OTP started inside and finished outside → 404.
+  - All 46 admin API routes with a valid admin cookie → 404 "Website unavailable".
+  - `admin.html` → plain page with no branding; the public pages, supplier sign-in and flows, and the calculator all work.
+  - Spoofed `X-Forwarded-For` (allowed IP first, real IP appended) → blocked; no header → blocked; a rotating header can't dodge the rate limit.
+  - Browser (Edge): admin working inside, VPN drops, next click shows only "Website unavailable", no "Leave site?" prompt.
+  - Earlier suites rerun unchanged: role separation 160/160 and unsaved-changes 28/28.
+- [ ] **On Azure before go-live:** set both settings (see `AZURE_DEPLOYMENT_CHECKLIST.md` Step 6a) with the office and VPN addresses from CERA IT, then confirm from the VPN and from mobile data that the IP the app sees is right. This can't be simulated locally.
+
 ## Open items — must be handled before go-live
 
 These are deployment/production tasks, tracked in full in `AZURE_DEPLOYMENT_CHECKLIST.md` and project memory.
 
 - [ ] **HTTPS** — load-bearing, not just good practice: the `Secure` session cookie means login silently fails over plain HTTP on a real domain.
 - [ ] **Production secrets** — set a real random `TARIFF_SECRET_KEY` (never the dev fallback) and real Azure/Graph credentials in Key Vault.
-- [ ] **`X-Forwarded-For` / `FORWARDED_ALLOW_IPS` trust** configured correctly at the proxy (Round 9 above; checklist Step 6a).
+- [ ] **Admin network restriction settings on Azure** (`TARIFF_ADMIN_ALLOWED_NETWORKS`, `TARIFF_TRUSTED_PROXY_HOPS=1`) with addresses from CERA IT, and a VPN full-tunnel confirmation (Round 14; checklist Step 6a). This replaces the earlier `X-Forwarded-For` trust item, now handled in code.
 - [ ] **Disable API docs in production** — set `TARIFF_ENABLE_DOCS=0` so `/docs`, `/redoc`, `/openapi.json` don't expose the full route surface.
-- [ ] **Restrict `admin.html`** to CERA IPs (checklist has the procedure).
+- [x] ~~Restrict `admin.html` to CERA IPs~~: done in-app (Round 14); covers the admin API too, not just the page.
+- [ ] **Rotate secrets exposed by the static-file issue** (Round 13).
 - [ ] **Rate limiter is in-memory/single-process** — needs a shared store (e.g. Redis) only if ever scaled to multiple workers/instances.
 - [ ] **External IT certification** — this document is the security summary to hand over.
 - [~] **Round 6 follow-up** — live UI walkthrough confirming `ConfigImportIn` accepts every real "Publish" payload.

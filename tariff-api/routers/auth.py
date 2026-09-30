@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 import email_utils
 import models
+from client_ip import UNAVAILABLE_DETAIL, admin_network_allowed, client_ip_str
 from auth import (
     CurrentUser, check_password_reuse, clear_auth_cookie, create_pending_token, create_token,
     decode_pending_token, get_current_user, record_password_change, resolve_supplier_name,
@@ -32,7 +33,7 @@ def _log_login(db: Session, request: Request, *, email: str, user_id: int | None
         user_id=user_id,
         success=success,
         reason=reason,
-        ip_address=request.client.host if request.client else None,
+        ip_address=client_ip_str(request),
         user_agent=request.headers.get("user-agent"),
         ts=datetime.now(timezone.utc).isoformat(),
     ))
@@ -81,6 +82,15 @@ class UpdatePasswordIn(BaseModel):
 def login(body: LoginIn, request: Request, response: Response, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == body.email).first()
     now = datetime.now(timezone.utc)
+
+    # Admin accounts only work from the CERA office/VPN networks. Checked
+    # before the password on purpose: the password is never tested from
+    # outside (no way to confirm a guess), and failed attempts from the
+    # internet can't lock an admin out. Response is the generic
+    # "Website unavailable" (the admin page itself is unavailable outside too).
+    if user and user.role == "admin" and not admin_network_allowed(request):
+        _log_login(db, request, email=body.email, user_id=user.id, success=False, reason="network_blocked")
+        raise HTTPException(404, UNAVAILABLE_DETAIL)
 
     # Check lockout before verifying password
     if user and user.locked_until:
@@ -165,6 +175,10 @@ def verify_otp(body: VerifyOtpIn, request: Request, response: Response, db: Sess
     if not user:
         _log_login(db, request, email=email, user_id=None, success=False, reason="user_not_found")
         raise HTTPException(401, "User not found or deactivated.")
+    # A login started inside the network must also be finished inside it.
+    if user.role == "admin" and not admin_network_allowed(request):
+        _log_login(db, request, email=email, user_id=user.id, success=False, reason="network_blocked")
+        raise HTTPException(404, UNAVAILABLE_DETAIL)
 
     # Reuse the same failed_attempts/locked_until fields as password login — a
     # correct password already resets them to 0 before OTP starts, so guessing
@@ -239,9 +253,13 @@ _OTP_RESEND_COOLDOWN_SECONDS = 120  # 2 minutes
 
 
 @router.post("/resend-otp", summary="Resend OTP code (minimum 2 minutes between sends)")
-def resend_otp(body: ResendOtpIn, db: Session = Depends(get_db)):
+def resend_otp(body: ResendOtpIn, request: Request, db: Session = Depends(get_db)):
     email = decode_pending_token(body.pending_token)
     now = datetime.now(timezone.utc)
+
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if user and user.role == "admin" and not admin_network_allowed(request):
+        raise HTTPException(404, UNAVAILABLE_DETAIL)
 
     rec = (
         db.query(models.OtpCode)

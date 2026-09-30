@@ -28,7 +28,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -37,6 +37,7 @@ import jwt
 import email_utils
 import models
 from auth import ACCESS_COOKIE_NAME, ALGORITHM, SECRET_KEY, run_password_expiry_check
+from client_ip import UNAVAILABLE_HTML, admin_network_allowed, client_ip_str
 from config import TARIFF_BASE_URL, TARIFF_ENABLE_DOCS
 from database import SessionLocal, get_db
 from routers import admin as admin_router
@@ -103,7 +104,10 @@ def _is_rate_limited(client_ip: str) -> bool:
 
 @app.middleware("http")
 async def rate_limit_middleware(request, call_next):
-    client_ip = request.client.host if request.client else "unknown"
+    # Same trusted-IP rule as the admin network check (client_ip.py): behind
+    # Azure this is the address the front end saw, not a client-supplied
+    # X-Forwarded-For value that could be rotated to get unlimited buckets.
+    client_ip = client_ip_str(request) or "unknown"
     if not _is_rate_limited(client_ip):
         return await call_next(request)
 
@@ -384,7 +388,7 @@ def report_tariff(body: TariffReportIn, request: Request, db: Session = Depends(
         reporterEmail=body.reporter_email,
         status="open",
         createdAt=datetime.now(timezone.utc).isoformat(),
-        ipAddress=request.client.host if request.client else None,
+        ipAddress=client_ip_str(request),
     )
     db.add(r)
     db.commit()
@@ -411,7 +415,11 @@ _PUBLIC_FILES = {
 def _static_route(name: str, media_type: str):
     path = _STATIC_ROOT / name
 
-    def serve():
+    def serve(request: Request):
+        # The admin panel is only served inside the CERA office/VPN networks;
+        # outside, a plain "Website unavailable" (same as the admin API).
+        if name == "admin.html" and not admin_network_allowed(request):
+            return HTMLResponse(UNAVAILABLE_HTML, status_code=404)
         return FileResponse(path, media_type=media_type)
     serve.__name__ = "static_" + name.replace(".", "_").replace("-", "_")
     return serve

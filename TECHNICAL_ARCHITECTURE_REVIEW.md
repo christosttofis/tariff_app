@@ -29,7 +29,8 @@ A tariff comparison and regulatory-monitoring tool for the Cyprus Energy Regulat
 
 ```
 tariff-api/
-  main.py            FastAPI app, CORS/CSP, rate-limit middleware, static mount, Alembic upgrade at startup, background scheduler
+  client_ip.py       Trusted client IP (X-Forwarded-For hop rule) + admin network check
+  main.py            FastAPI app, CORS/CSP, rate-limit middleware, 5-file static allowlist, Alembic upgrade at startup, background scheduler
   pricing/           Server-side tariff-pricing engine (pure functions, one module per concern) — see §15
   routers/public_calc.py  /api/public/calculate + /api/public/sample-invoice — orchestrates the pricing engine
   auth.py            JWT issuance/verification, password hashing/policy, lockout-aware get_current_user
@@ -113,6 +114,8 @@ Two roles only: `admin` (CERA staff) and `supplier` (scoped to one `supplier_nam
 - `/api/auth/*` stays shared (login is role-agnostic). `/api/public/*` stays anonymous.
 - The underlying tariff/document/message logic lives in `routers/shared.py`, so the two routers differ only in guards and scoping, not in duplicated business logic.
 - This layout also means perimeter controls (e.g. restricting admin access to the CERA VPN) can target a path prefix or a single router dependency.
+
+**Admin network restriction (2026-09-30).** Admin accounts only work from the networks in `TARIFF_ADMIN_ALLOWED_NETWORKS` (CERA office + VPN). This is enforced in `get_current_user` for the admin role (every request), at sign-in before the password check, at OTP verify/resend, and on `admin.html`. The only response outside is a generic 404 "Website unavailable". The client IP comes from `client_ip.py`: behind Azure (`TARIFF_TRUSTED_PROXY_HOPS=1`) only the rightmost `X-Forwarded-For` entry is trusted. The same helper feeds the rate limiter and IP logging. Static files are served from an explicit five-file allowlist: the earlier whole-folder mount exposed `.env`, source and `.git`. See `SECURITY_REMEDIATION_CHECKLIST.md` Rounds 13–14.
 
 **Tariff input validation (2026-09-30).** Tariff content is validated as strictly as the fixed fields: `rates` against a per-pricing-type schema and `discounts` against `DiscountIn` (numbers only, finite, bounded by `TARIFF_MAX_ENERGY_RATE`/`TARIFF_MAX_MONTHLY_CHARGE` from `config.py`), and the profile must exist. Previously a single malformed approved tariff could make `/api/public/calculate` fail for every customer. The calculator now also isolates per-tariff failures. Email change requires the current password. Details: `SECURITY_REMEDIATION_CHECKLIST.md` Round 11.
 
