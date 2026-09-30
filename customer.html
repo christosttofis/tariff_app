@@ -198,6 +198,18 @@ html.a11y-mode a{text-decoration:underline}
 .notices-body ul,.notices-body ol{padding-left:20px;margin:6px 0}
 .notices-body li{margin:3px 0}
 .notices-body strong{color:var(--text);font-weight:600}
+/* Vulnerable-consumer modal: admin text is often pasted from other websites with inline
+   fonts/sizes/colours/backgrounds — normalise it to the site style and restore list indents
+   (removed by the global reset) so numbering like "10." is not clipped at the modal edge. */
+.vulnerable-body{display:block;font-size:13px;line-height:1.7;color:var(--text2);max-height:65vh;overflow-y:auto;overflow-wrap:anywhere}
+.vulnerable-body *{font-family:var(--font)!important;font-size:inherit!important;line-height:inherit!important;color:inherit!important;background:transparent!important}
+.vulnerable-body p,.vulnerable-body ul,.vulnerable-body ol{margin:0 0 10px!important}
+.vulnerable-body ul,.vulnerable-body ol{padding-left:28px!important;margin-top:10px!important}
+.vulnerable-body li{margin:0 0 6px!important;padding-left:2px}
+.vulnerable-body li>p{margin:0!important}
+.vulnerable-body li::marker{color:var(--text3)}
+.vulnerable-body p:empty,.vulnerable-body br:last-child{display:none}
+.vulnerable-body strong,.vulnerable-body b{color:var(--text)!important;font-weight:600}
 .notices-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:2px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);font-size:12px;font-family:var(--font);cursor:pointer;transition:all .12s}
 .notices-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
 .page-footer{margin-top:48px;padding-top:24px;border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
@@ -1666,7 +1678,11 @@ function openVulnerableModal(){
     :(notices.vulnerable_en||notices.vulnerable_el||'');
   if(!body) return;
   document.getElementById('vulnerable-modal-title').textContent=T('TITLE_VULNERABLE_MODAL');
-  document.getElementById('vulnerable-modal-body').innerHTML=DOMPurify.sanitize(body);
+  const bodyEl=document.getElementById('vulnerable-modal-body');
+  bodyEl.innerHTML=DOMPurify.sanitize(body);
+  // Pasted text often contains spacer paragraphs (<p>&nbsp;</p>) that leave large gaps
+  bodyEl.querySelectorAll('p').forEach(p=>{if(!p.textContent.trim()&&!p.querySelector('img'))p.remove();});
+  bodyEl.scrollTop=0;
   document.getElementById('vulnerable-overlay').style.display='flex';
 }
 function closeVulnerableModal(){
@@ -2546,12 +2562,12 @@ function applyEstimate(){
 </div>
 <!-- Vulnerable consumer modal -->
 <div id="vulnerable-overlay" class="sup-modal-overlay" style="display:none" onclick="if(event.target.id==='vulnerable-overlay')closeVulnerableModal()">
-  <div class="sup-modal-box" style="max-width:500px">
-    <div class="sup-modal-head">
-      <h2 id="vulnerable-modal-title" style="font-size:14px"></h2>
-      <button onclick="closeVulnerableModal()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--text3)">✕</button>
+  <div class="sup-modal-box" style="max-width:640px">
+    <div class="sup-modal-head" style="gap:12px">
+      <h2 id="vulnerable-modal-title" style="font-size:14px;line-height:1.4"></h2>
+      <button onclick="closeVulnerableModal()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--text3);flex-shrink:0">✕</button>
     </div>
-    <div class="sup-modal-body" id="vulnerable-modal-body" style="font-size:13px;line-height:1.7;max-height:60vh;overflow-y:auto"></div>
+    <div class="sup-modal-body vulnerable-body" id="vulnerable-modal-body"></div>
   </div>
 </div>
 
