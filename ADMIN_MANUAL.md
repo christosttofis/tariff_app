@@ -412,6 +412,16 @@ There is no Publish step. Every section of the admin panel saves itself when you
 
 A green "Saved ✓" (or the updated list) confirms the change reached the server. If you see "Save failed", nothing was changed. Fix the problem shown and save again.
 
+**Unsaved-changes warnings.** If you edit a form and haven't clicked its Save button yet:
+
+- Its menu item shows a yellow **●**. Your edits stay in the form, but they are **not live** until you save.
+- Leaving that page asks first. **Cancel** takes you back to finish and save. **OK** moves on and keeps the edits in the form, still marked ●.
+- Closing the tariff editor or the supplier-details window asks before throwing away your edits.
+- **Sign out** asks first. Automatic sign-outs (idle timeout, expired session) can't wait for an answer, so save before stepping away.
+- Reloading or closing the browser tab shows the browser's own "Leave site?" prompt.
+
+The supplier portal has the same protection for its tariff form.
+
 > **History:** the admin panel used to have a **Publish** page with a **💾 Save & publish** button. It dated from the early version of the tool, when all data lived in the browser and had to be pushed out in one go for the customer tab to see it. After every section gained its own save, the button became redundant and dangerous: it replaced all suppliers, profiles and tariffs with the browser's copy, and set every tariff to Approved. It was removed on 2026-09-30.
 
 ---

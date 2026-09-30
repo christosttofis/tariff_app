@@ -620,6 +620,8 @@ const LANG = {
     PH_DISC_CONDITIONS:'Conditions, e.g. direct debit', PH_DISC_PCT:'% off', PH_DISC_MONTHS:'Months (blank = permanent)',
     ERR_VALIDATION:'Please correct the following:',
     ACCT_ERR_EMAIL_PW:'Please enter your current password to change your email.',
+    CONFIRM_DISCARD:'You have unsaved changes to this tariff.\n\nDiscard them?',
+    CONFIRM_DISCARD_SIGNOUT:'You have unsaved changes to a tariff.\n\nSign out and discard them?',
     ACCT_TITLE:'My Account', ACCT_EMAIL_SECTION:'Change email', ACCT_CURRENT_EMAIL:'Current email',
     ACCT_NEW_EMAIL:'New email', BTN_UPDATE_EMAIL:'Update email',
     ACCT_PW_SECTION:'Change password', ACCT_CUR_PW:'Current password', ACCT_NEW_PW:'New password',
@@ -750,6 +752,8 @@ const LANG = {
     CONFIRM_ARCHIVE:'Αφαίρεση "{name}" από τη δημόσια σύγκριση;\n\nΈχει δημοσιευθεί στο παρελθόν, οπότε θα παραμείνει στη λίστα σας ως Αρχειοθετημένη (μόνο για ανάγνωση) και μπορεί να επαναφερθεί μόνο από τη ΡΑΕΚ.',
     PH_DISC_CONDITIONS:'Προϋποθέσεις, π.χ. πάγια εντολή', PH_DISC_PCT:'% έκπτωση', PH_DISC_MONTHS:'Μήνες (κενό = μόνιμη)',
     ERR_VALIDATION:'Παρακαλώ διορθώστε τα ακόλουθα:',
+    CONFIRM_DISCARD:'Έχετε μη αποθηκευμένες αλλαγές σε αυτή τη διατίμηση.\n\nΝα απορριφθούν;',
+    CONFIRM_DISCARD_SIGNOUT:'Έχετε μη αποθηκευμένες αλλαγές σε διατίμηση.\n\nΑποσύνδεση και απόρριψη των αλλαγών;',
     ACCT_ERR_EMAIL_PW:'Παρακαλώ εισάγετε τον υφιστάμενο κωδικό σας για να αλλάξετε το email.',
     ACCT_TITLE:'Ο λογαριασμός μου',
     ACCT_EMAIL_SECTION:'Αλλαγή email', ACCT_CURRENT_EMAIL:'Τρέχον email', ACCT_NEW_EMAIL:'Νέο email',
@@ -1109,6 +1113,9 @@ async function doResendOtp(){
 }
 
 function doLogout(msg){
+  // msg is set for automatic sign-outs (idle timeout, expired session), which can't wait for an answer
+  if(!msg && _formUnsaved && !confirm(T('CONFIRM_DISCARD_SIGNOUT'))) return;
+  _formUnsaved = false;
   fetch(_base + '/api/auth/logout', {method:'POST'}).catch(()=>{});
   _localSignOut(msg);
 }
@@ -1224,7 +1231,24 @@ function apiErrorText(detail, fallback){
 }
 
 // ── Tariff form ────────────────────────────────────────────────────────────────
+// Unsaved-changes guard for the tariff form: any real edit (typing, or
+// adding/removing a discount or tier row) marks it; closing the form, signing
+// out, or reloading/closing the tab then asks before discarding.
+let _formUnsaved = false;
+['input','change'].forEach(evt => document.addEventListener(evt, e => {
+  // getClientRects: ignore a late "change" from a field whose form was already saved and hidden
+  if(e.isTrusted && e.target instanceof Element && e.target.getClientRects().length
+     && e.target.closest('#form-overlay')) _formUnsaved = true;
+}, true));
+document.addEventListener('click', e => {
+  if(!e.isTrusted || !(e.target instanceof Element)) return;
+  const b = e.target.closest('#form-overlay button[onclick]');
+  if(b && /addDiscount|addTierRow|removeTierRow|\.remove\(\)/.test(b.getAttribute('onclick'))) _formUnsaved = true;
+}, true);
+window.addEventListener('beforeunload', e => { if(_formUnsaved){ e.preventDefault(); e.returnValue = ''; } });
+
 function openForm(id){
+  _formUnsaved = false;
   document.getElementById('form-overlay').classList.remove('hidden');
   document.getElementById('form-status').textContent = '';
   document.getElementById('form-status').className   = 'status-msg';
@@ -1243,6 +1267,8 @@ function openForm(id){
 }
 
 function closeForm(){
+  if(_formUnsaved && !confirm(T('CONFIRM_DISCARD'))) return;
+  _formUnsaved = false;
   document.getElementById('form-overlay').classList.add('hidden');
 }
 
@@ -1411,13 +1437,14 @@ async function submitForm(){
       });
       if(!uploadResp.ok){
         const ud = await uploadResp.json().catch(()=>({}));
-        renderTariffs(); closeForm();
+        _formUnsaved = false; renderTariffs(); closeForm();
         setPageStatus('ok', (isEdit ? T('MSG_TARIFF_UPDATED') : T('MSG_TARIFF_SUBMITTED')) + ' ' + T('MSG_DOC_UPLOAD_FAILED') + (ud.detail || 'unknown error'));
         return;
       }
       fileInput.value = '';
     }
 
+    _formUnsaved = false;
     renderTariffs();
     closeForm();
     setPageStatus('ok', isEdit ? T('MSG_TARIFF_UPDATED') : T('MSG_TARIFF_SUBMITTED'));

@@ -35,6 +35,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .nav-item.active{color:var(--accent);border-left-color:var(--accent);background:rgba(30,58,95,.06)}
 .sidebar-foot{padding:14px 20px;border-top:1px solid var(--border)}
 .saved-label{font-size:11px;color:var(--text3);font-family:var(--mono)}
+.nav-item.nav-unsaved::after{content:'●';color:var(--yellow);margin-left:auto;padding-left:6px;font-size:11px}
 .main{padding:30px 36px;overflow-y:auto;max-height:100vh}
 .page-head{margin-bottom:24px}
 .page-head h1{font-size:20px;font-weight:600;font-family:var(--font);color:var(--accent)}
@@ -1856,7 +1857,71 @@ function sv(id){return document.getElementById(id)?.value||'';}
 function showStatus(el,type,msg){if(!el)return;el.className='status show '+type;el.textContent=msg;}
 
 /* ── Nav ── */
+/* ── Unsaved-changes guard ──
+   Forms whose edits are held on the page until their own Save button is
+   clicked. Typing in one marks it unsaved: its menu item gets a ● marker,
+   leaving its page / closing its window / signing out asks first, and
+   reloading or closing the tab triggers the browser's "Leave site?" prompt.
+   A successful save (or re-opening the form fresh) marks it clean again.
+   Forms that save instantly (e.g. the sample-invoice checkbox) aren't listed. */
+const _UNSAVED_FORMS={
+  tariff:         {label:'the tariff editor',          pane:null,        sel:'#editor-overlay'},
+  supplierDetails:{label:'supplier details',           pane:null,        sel:'#sup-modal-overlay'},
+  supplierNew:    {label:'the new supplier name',      pane:'suppliers', sel:'#sup-name'},
+  profile:        {label:'the load profile form',      pane:'profiles',  sel:'#prof-name,#prof-desc,#prof-raw'},
+  invite:         {label:'the user invitation form',   pane:'users',     sel:'#inv-email,#inv-supplier'},
+  message:        {label:'the notification being written', pane:'messages', sel:'#msg-subject,#msg-body'},
+  schedule:       {label:'the recurring notification form', pane:'messages', sel:'#sched-form'},
+  dam:            {label:'DAM price data',             pane:'dam',       sel:'#dam-year,#dam-unit,#dam-file-input,#dam-raw'},
+  regulated:      {label:'regulated charges',          pane:'regulated', sel:'#reg-lv,#reg-mv,#reg-hv,#reg-fpa-lv,#reg-fpa-mv,#reg-fpa-hv,#reg-pso,#reg-res,#reg-mdm'},
+  notices:        {label:'notices',                    pane:'notices',   sel:'#assumptions-en,#assumptions-el,#legal-en,#legal-el,#vulnerable-en,#vulnerable-el'},
+};
+const _unsaved=new Set();
+function _refreshUnsavedMarkers(){
+  document.querySelectorAll('.nav-item.nav-unsaved').forEach(n=>n.classList.remove('nav-unsaved'));
+  _unsaved.forEach(k=>{
+    const pane=_UNSAVED_FORMS[k].pane;
+    const nav=pane&&document.querySelector(`.nav-item[onclick="showPane('${pane}')"]`);
+    if(nav) nav.classList.add('nav-unsaved');
+  });
+}
+function markUnsaved(key){_unsaved.add(key);_refreshUnsavedMarkers();}
+function markClean(key){_unsaved.delete(key);_refreshUnsavedMarkers();}
+function _unsavedLabels(keys){return keys.map(k=>'• '+_UNSAVED_FORMS[k].label).join('\n');}
+// true = OK to discard (nothing unsaved, or the admin confirmed); clears the flag
+function confirmDiscard(key){
+  if(!_unsaved.has(key)) return true;
+  if(!confirm('You have unsaved changes in '+_UNSAVED_FORMS[key].label+'.\n\nDiscard them?')) return false;
+  markClean(key); return true;
+}
+['input','change'].forEach(evt=>document.addEventListener(evt,e=>{
+  if(!e.isTrusted||!(e.target instanceof Element)) return;   // only real user edits
+  // A field that lost focus after its form was saved and hidden can still fire
+  // a late "change" event; ignore anything not currently on screen.
+  if(!e.target.getClientRects().length) return;
+  for(const [k,f] of Object.entries(_UNSAVED_FORMS)){
+    if(e.target.closest(f.sel)){markUnsaved(k);break;}
+  }
+},true));
+// Adding/removing discount or tier rows in the tariff editor changes the
+// tariff without any typing, so count those clicks as edits too.
+document.addEventListener('click',e=>{
+  if(!e.isTrusted||!(e.target instanceof Element)) return;
+  const b=e.target.closest('#editor-overlay button[onclick]');
+  if(b&&/addDiscount|addTierRow|removeTierRow|\.remove\(\)/.test(b.getAttribute('onclick'))) markUnsaved('tariff');
+},true);
+window.addEventListener('beforeunload',e=>{
+  if(_unsaved.size){e.preventDefault();e.returnValue='';}
+});
+
 function showPane(id){
+  // Leaving a page with unsaved edits: they stay in the form, but aren't live.
+  const current=document.querySelector('.pane.active')?.id?.replace(/^pane-/,'');
+  if(current&&current!==id){
+    const pending=[..._unsaved].filter(k=>_UNSAVED_FORMS[k].pane===current);
+    if(pending.length&&!confirm('You have unsaved changes in:\n'+_unsavedLabels(pending)
+        +'\n\nThey are NOT saved and NOT live yet. Leave this page anyway?\n(Your edits stay in the form, marked ● in the menu, until you save them or reload.)')) return;
+  }
   document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('pane-'+id).classList.add('active');
@@ -1886,6 +1951,7 @@ async function addSupplier(){
     const saved=await resp.json();
     suppliers.push(saved);
     document.getElementById('sup-name').value='';
+    markClean('supplierNew');
     renderSuppliers();
     showStatus(st,'ok',`Saved — "${name}" added.`);
   } catch(e){showStatus(st,'err','Save failed: '+e.message);}
@@ -1904,9 +1970,11 @@ function openSupModal(name){
   document.getElementById('sup-tel').value=o.tel||'';
   document.getElementById('sup-regulated').checked=!!o.regulated;
   _supModalOrigRegulated=!!o.regulated;
+  markClean('supplierDetails');
   document.getElementById('sup-modal-overlay').style.display='flex';
 }
 function closeSupModal(){
+  if(!confirmDiscard('supplierDetails')) return;
   document.getElementById('sup-modal-overlay').style.display='none';
 }
 
@@ -1930,7 +1998,10 @@ function closeRegulatedConfirm(){
   _pendingRegulatedState=null;
 }
 function confirmRegulatedToggle(){
-  if(_pendingRegulatedState!==null) document.getElementById('sup-regulated').checked=_pendingRegulatedState;
+  if(_pendingRegulatedState!==null){
+    document.getElementById('sup-regulated').checked=_pendingRegulatedState;
+    markUnsaved('supplierDetails'); // set programmatically, so the input listener doesn't see it
+  }
   closeRegulatedConfirm();
 }
 async function saveSupplierDetails(){
@@ -1973,6 +2044,7 @@ async function saveSupplierDetails(){
         ts:new Date().toISOString(),actorRole:'admin'});
     }
     suppliers[idx]=saved;
+    markClean('supplierDetails');
     closeSupModal();
     renderSuppliers();
     renderTariffs(); // refresh tariff list in case supplier name changed
@@ -2128,6 +2200,7 @@ async function parseAndAddProfile(){
     if(ex>=0) profiles[ex]=saved; else profiles.push(saved);
     document.getElementById('prof-name').value='';
     document.getElementById('prof-raw').value='';
+    markClean('profile');
     renderProfiles();
     refreshProfileDropdowns();
     showStatus(status,'ok',
@@ -2282,6 +2355,7 @@ function usersToggleForm(){
     sel.innerHTML = suppliers.map(s=>`<option value="${esc(s.name)}">${esc(s.name)}</option>`).join('');
     document.getElementById('inv-email').value = '';
     document.getElementById('users-form-msg').textContent = '';
+    markClean('invite');
   }
 }
 
@@ -2360,6 +2434,7 @@ async function usersInvite(){
       msgEl.style.color='var(--green)';
       msgEl.textContent = 'Invitation sent to ' + email + '.';
       document.getElementById('inv-email').value = '';
+      markClean('invite');
       usersLoad();
     } else {
       msgEl.style.color='var(--red)';
@@ -2534,6 +2609,7 @@ async function sendMessage(){
       statusEl.style.color='var(--green)'; statusEl.textContent='Notification sent.';
       document.getElementById('msg-subject').value='';
       document.getElementById('msg-body').value='';
+      markClean('message');
       messagesLoad();
     } else {
       statusEl.style.color='var(--red)'; statusEl.textContent=data.detail || 'Failed to send notification.';
@@ -2657,8 +2733,10 @@ function schedToggleAudienceMode(){
 function schedToggleForm(){
   const form = document.getElementById('sched-form');
   const opening = form.style.display === 'none';
+  if(!opening && !confirmDiscard('schedule')) return;
   form.style.display = opening ? 'block' : 'none';
   if(!opening){ _editingScheduleId = null; return; }
+  markClean('schedule');
   if(_editingScheduleId === null){
     // Fresh "new schedule" open (not triggered via editSchedule) — reset the form
     document.getElementById('sched-subject').value = '';
@@ -2696,6 +2774,7 @@ async function saveSchedule(){
     const data = await resp.json().catch(()=>({}));
     if(resp.ok){
       _editingScheduleId = null;
+      markClean('schedule');
       document.getElementById('sched-form').style.display = 'none';
       schedulesLoad();
     } else {
@@ -2707,7 +2786,9 @@ async function saveSchedule(){
 function editSchedule(id){
   const s = _schedulesCache.find(x => x.id === id);
   if(!s) return;
+  if(_editingScheduleId !== id && !confirmDiscard('schedule')) return;
   _editingScheduleId = id;
+  markClean('schedule');
   document.getElementById('sched-form').style.display = 'block';
   document.getElementById('sched-subject').value = s.subject;
   document.getElementById('sched-body').value = s.body;
@@ -2791,6 +2872,7 @@ function onEditSupplierChange(){
   }
 }
 function openEditor(id){
+  markClean('tariff'); // fields are reloaded below
   const t=id!=null?tariffs.find(x=>x.id===id):null;
   document.getElementById('edit-id').value=id??'';
   document.getElementById('editor-title').textContent=t?T('MODAL_EDIT_TARIFF'):T('MODAL_ADD_TARIFF');
@@ -2873,6 +2955,7 @@ function openEditor(id){
   document.getElementById('editor-overlay').style.display='flex';
 }
 function closeEditor(){
+  if(!confirmDiscard('tariff')) return;
   document.getElementById('editor-overlay').style.display='none';
   setEditorLocked(false); // reset for next open
 }
@@ -3161,7 +3244,7 @@ async function saveTariff(){
       addChangelogEntry({action:'created',tariffId:saved.id,tariffName:saved.name,supplier:saved.supplier,changes,ts:now});
       tariffs.push(saved);
     }
-    renderTariffs();closeEditor();
+    markClean('tariff');renderTariffs();closeEditor();
   } catch(e){showStatus(editorStatus,'err','Save failed: '+e.message);}
 }
 async function deleteTariff(id){
@@ -4284,6 +4367,7 @@ async function saveDamData(){
     if(resp.status===401){showLogin('Session expired.');return;}
     if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(st,'err','Save failed: '+(e.detail||resp.status));return;}
     showStatus(st,'ok','Saved ✓ — DAM data now live.');
+    markClean('dam');
   } catch(e){showStatus(st,'err','Save failed: '+e.message);}
 }
 
@@ -4338,6 +4422,7 @@ async function saveRegulated(){
     if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(st,'err','Save failed: '+(e.detail||resp.status));return;}
     const saved=await resp.json();
     setRegulated(saved);
+    markClean('regulated');
     // Refresh local changelog from server so the new entry is visible
     try {
       const cfgResp=await fetch(_adminApiBase+'/api/admin/config',{headers:authHeaders()});
@@ -4509,6 +4594,7 @@ async function saveNotices(){
     if(resp.status===401){showLogin('Session expired.');return;}
     if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(st,'err','Save failed: '+(e.detail||resp.status));return;}
     showStatus(st,'ok','Saved ✓ — now live on the customer calculator.');
+    markClean('notices');
   } catch(e){showStatus(st,'err','Save failed: '+e.message);}
 }
 
@@ -5452,11 +5538,14 @@ async function doResendOtp(){
 }
 
 function doLogout(msg){
+  // msg is set for automatic sign-outs (idle timeout, expired session), which can't wait for an answer
+  if(!msg&&_unsaved.size&&!confirm('You have unsaved changes in:\n'+_unsavedLabels([..._unsaved])+'\n\nSign out and discard them?')) return;
   fetch(_adminApiBase+'/api/auth/logout',{method:'POST'}).catch(()=>{});
   _localSignOut(msg);
 }
 
 function _localSignOut(msg){
+  _unsaved.clear();_refreshUnsavedMarkers();
   _sessionActive=false;
   sessionStorage.removeItem('cera_admin_email');
   sessionStorage.removeItem('cera_admin_role');
