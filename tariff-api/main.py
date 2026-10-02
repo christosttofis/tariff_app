@@ -14,8 +14,6 @@ import asyncio
 import json
 import logging
 import math
-import random
-import string
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -45,6 +43,7 @@ from routers import auth as auth_router
 from routers import public_calc as public_calc_router
 from routers import supplier as supplier_router
 from routers.admin import run_due_scheduled_notifications
+from routers.shared import _uid
 from schemas import TariffReportIn
 from serializers import supplier_to_dict, tariff_to_public_summary_dict
 
@@ -355,12 +354,6 @@ def get_public_config(db: Session = Depends(get_db)):
         ],
         "savedAt": datetime.now(timezone.utc).isoformat(),
     }
-
-
-def _uid() -> str:
-    ts = int(time.time() * 1000)
-    rand = "".join(random.choices(string.ascii_lowercase + string.digits, k=4))
-    return f"{ts:x}{rand}"
 
 
 @app.post("/api/public/report-tariff", summary="Report an issue with a published tariff, or a general site issue")

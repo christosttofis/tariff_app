@@ -156,6 +156,20 @@ Reviewed every field a supplier can send. Ownership checks were already complete
   - Earlier suites rerun unchanged: role separation 160/160 and unsaved-changes 28/28.
 - [ ] **On Azure before go-live:** set both settings (see `AZURE_DEPLOYMENT_CHECKLIST.md` Step 6a) with the office and VPN addresses from CERA IT, then confirm from the VPN and from mobile data that the IP the app sees is right. This can't be simulated locally.
 
+## Round 15 — Automated scanners (2026-10-02)
+
+The first run of off-the-shelf scanners, so findings no longer depend on manual review alone.
+
+- [x] **pip-audit (third-party libraries): 13 advisories in PyJWT 2.13.0 → upgraded to 2.15.1, verified.** The app only uses HS256 with one fixed secret and a single-algorithm allow-list (no JWK/JWKS, no public-key algorithms), so most advisories didn't apply; the upgrade clears them all. Verified on a throwaway server: admin and supplier sign-in and OTP work; tampered, malformed, `alg=none` and wrong-key tokens all get a clean 401 (never a 500). Re-run: no known vulnerabilities.
+- [x] **bandit (Python code): 11 low-severity results, 0 real problems.** The 2 non-cryptographic random-ID results were hardened anyway: `_uid()` (tariff, report, message and changelog IDs) used `random.choices` with 4 characters. It now uses `secrets` with 8 characters, and the duplicate copy in `main.py` is replaced by the shared one. This wasn't exploitable, since every access is ownership-checked, but IDs are no longer guessable from the creation time. Verified: role suite 160/160, public report works, new IDs in the new format. The 9 accepted results:
+  - `config.py:36`: the labelled dev-only key, used only with an explicit `TARIFF_ALLOW_DEV_SECRET=1`, with a warning;
+  - `main.py:121`: deliberately ignores an unreadable login body when logging a rate-limit hit;
+  - `seed_demo_data.py`: the fake demo password;
+  - `scripts/verify_customer_calc.py`: `assert` statements in a verification script.
+- [x] **gitleaks (secrets): clean.** All 62 commits scanned, including the extracted text of every Word/PDF ever committed; the two image-only PDFs were checked by eye (architecture diagrams, no values). The only secrets on disk are in `tariff-api/.env`, which is git-ignored and was never committed (see Open items: production secrets in Key Vault).
+- [ ] **semgrep (code patterns):** can't run on this PC (no Windows build, and WSL needs admin rights). To run in GitHub Actions instead.
+- [ ] **OWASP ZAP (attack test against a running throwaway copy):** pending; needs a portable Java.
+
 ## Open items — must be handled before go-live
 
 These are deployment/production tasks, tracked in full in `AZURE_DEPLOYMENT_CHECKLIST.md` and project memory.

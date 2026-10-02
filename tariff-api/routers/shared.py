@@ -7,7 +7,7 @@ document and message logic lives here so it isn't duplicated between them.
 """
 
 import json
-import random
+import secrets
 import string
 import time
 import uuid
@@ -24,8 +24,11 @@ from schemas import TariffIn
 
 
 def _uid() -> str:
+    # Timestamp keeps IDs roughly sortable; the random part comes from the OS
+    # CSPRNG (secrets) so IDs aren't predictable from the time of creation.
     ts = int(time.time() * 1000)
-    rand = "".join(random.choices(string.ascii_lowercase + string.digits, k=4))
+    alphabet = string.ascii_lowercase + string.digits
+    rand = "".join(secrets.choice(alphabet) for _ in range(8))
     return f"{ts:x}{rand}"
 
 
