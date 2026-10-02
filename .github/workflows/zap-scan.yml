@@ -28,13 +28,15 @@ jobs:
 
       - name: Start a throwaway copy with fake demo data
         run: |
-          python tariff-api/seed_demo_data.py /tmp/ci.db
+          # Settings first: the app (and the seed script, which imports it) refuses to
+          # start without a signing key. The key is random per run and never stored.
           export DATABASE_URL="sqlite:////tmp/ci.db"
           export TARIFF_SECRET_KEY="$(openssl rand -hex 32)"
           export TARIFF_ENABLE_DOCS=1
           export TARIFF_ADMIN_ALLOWED_NETWORKS=""
           export AZURE_TENANT_ID="" AZURE_CLIENT_ID="" AZURE_CLIENT_SECRET=""
           export TARIFF_EMAIL_FROM="" TARIFF_ADMIN_EMAIL=""
+          python tariff-api/seed_demo_data.py /tmp/ci.db
           nohup python .github/scripts/ci_server.py > /tmp/app.log 2>&1 &
           for i in $(seq 60); do curl -sf http://127.0.0.1:8002/customer.html > /dev/null && break; sleep 1; done
           curl -sf http://127.0.0.1:8002/customer.html > /dev/null || { cat /tmp/app.log; exit 1; }
