@@ -16,7 +16,7 @@ jobs:
   zap:
     name: ZAP (visitor, supplier, admin)
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97   # v7.0.0
@@ -41,36 +41,19 @@ jobs:
           for i in $(seq 60); do curl -sf http://127.0.0.1:8002/customer.html > /dev/null && break; sleep 1; done
           curl -sf http://127.0.0.1:8002/customer.html > /dev/null || { cat /tmp/app.log; exit 1; }
 
-      - name: Sign in as the demo supplier and demo admin
+      - name: Start ZAP (local to this machine only)
         run: |
-          python - <<'EOF'
-          import os, requests
-          for role, email in (("supplier", "acme.energy@demo.local"), ("admin", "admin1@demo.local")):
-              r = requests.post("http://127.0.0.1:8002/api/auth/login", json={"email": email, "password": "Demo123!"})
-              r.raise_for_status()
-              token = r.cookies["cera_access_token"]
-              print(f"::add-mask::{token}")
-              with open(os.environ["GITHUB_ENV"], "a") as f:
-                  f.write(f"COOKIE_{role.upper()}=cera_access_token={token}\n")
-          print("signed in: supplier, admin")
-          EOF
+          echo "ZAP_KEY=$(openssl rand -hex 16)" >> "$GITHUB_ENV"
+          source "$GITHUB_ENV"
+          docker run -d --name zap --network host zaproxy/zap-stable:2.17.0 \
+            zap.sh -daemon -silent -host 127.0.0.1 -port 8090 -config api.key="$ZAP_KEY"
 
-      - name: ZAP as visitor, supplier, admin
-        run: |
-          mkdir -p zap-out && chmod a+rwx zap-out
-          for role in visitor supplier admin; do
-            case $role in
-              visitor)  cookie="cera_zap=visitor" ;;
-              supplier) cookie="$COOKIE_SUPPLIER" ;;
-              admin)    cookie="$COOKIE_ADMIN" ;;
-            esac
-            echo "=== ZAP: $role ==="
-            docker run --rm --network host \
-              -v "$PWD/.github/zap:/zap/plan:ro" -v "$PWD/zap-out:/zap/wrk" \
-              -e ZAP_ROLE="$role" -e ZAP_COOKIE="$cookie" \
-              zaproxy/zap-stable:2.17.0 zap.sh -cmd -autorun /zap/plan/plan.yaml \
-              || echo "ZAP exited with $? for $role (the gate below decides pass/fail)"
-          done
+      - name: Use the app as visitor, supplier and admin through ZAP, then attack it
+        run: python .github/scripts/zap_scan.py http://127.0.0.1:8002 http://127.0.0.1:8090 "$ZAP_KEY" zap-out
+
+      - name: ZAP log (for troubleshooting)
+        if: failure()
+        run: docker logs zap 2>&1 | tail -n 80
 
       - name: Pass/fail on High-risk alerts
         run: python .github/scripts/zap_gate.py zap-out
