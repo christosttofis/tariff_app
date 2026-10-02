@@ -99,3 +99,14 @@ python -m uvicorn main:app --host 127.0.0.1 --port 8000
 Do **not** add `--reload` — it causes HTTP 500 errors on POST requests with
 this Python/uvicorn combination (a known, documented issue, not something to
 debug).
+
+## Automated security checks
+
+Two GitHub Actions workflows scan the project on GitHub's own throwaway Linux machines. They use no repository secrets: real credentials (`tariff-api/.env`) are never committed or uploaded.
+
+| Workflow | When | What it runs | Fails on |
+|---|---|---|---|
+| `.github/workflows/security-checks.yml` | every push/PR to `master`, Mondays 06:00 UTC, manual | pip-audit (libraries), bandit (Python code), semgrep (code patterns: `p/python`, `p/owasp-top-ten`, `p/javascript`), gitleaks (full git history) | any known library vulnerability, any secret, high-severity bandit, ERROR-severity semgrep |
+| `.github/workflows/zap-scan.yml` | Mondays 06:30 UTC, manual | OWASP ZAP (`.github/zap/plan.yaml`): API import, spider, passive and active scan as visitor, demo supplier and demo admin, against a copy started with `.github/scripts/ci_server.py` and fake demo data | any High-risk alert (`.github/scripts/zap_gate.py`) |
+
+Results are in the repository's **Actions** tab. Full reports (bandit, semgrep, ZAP HTML/JSON) are attached to each run as artifacts and kept for 30 days. Findings and how they were handled are recorded in `SECURITY_REMEDIATION_CHECKLIST.md`.

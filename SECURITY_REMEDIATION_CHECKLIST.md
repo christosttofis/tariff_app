@@ -167,8 +167,29 @@ The first run of off-the-shelf scanners, so findings no longer depend on manual 
   - `seed_demo_data.py`: the fake demo password;
   - `scripts/verify_customer_calc.py`: `assert` statements in a verification script.
 - [x] **gitleaks (secrets): clean.** All 62 commits scanned, including the extracted text of every Word/PDF ever committed; the two image-only PDFs were checked by eye (architecture diagrams, no values). The only secrets on disk are in `tariff-api/.env`, which is git-ignored and was never committed (see Open items: production secrets in Key Vault).
-- [ ] **semgrep (code patterns):** can't run on this PC (no Windows build, and WSL needs admin rights). To run in GitHub Actions instead.
-- [ ] **OWASP ZAP (attack test against a running throwaway copy):** pending; needs a portable Java.
+- [x] **semgrep (code patterns):** can't run on the development PC (no Windows build, and WSL needs admin rights). Moved to GitHub Actions (Round 16).
+- [x] **OWASP ZAP (attack test against a running throwaway copy):** a 2-minute rehearsal ran locally; the full scan moved to GitHub Actions (Round 16). The development PC's managed ESET network protection treats ZAP's probes as real attacks: it blocked 27 of them ("PHP/CVE-2024-4577"), which also distorts results. ZAP is therefore not run on CERA workstations.
+
+## Round 16 — Automated scans on GitHub Actions; rehearsal findings (2026-10-02)
+
+- [x] **Two workflows, on GitHub's throwaway Linux machines.** They use no repository secrets and never read `.env`. Permissions are read-only, and every third-party step is pinned (actions by commit SHA, images by version, gitleaks by version plus SHA-256). Details are in `REVIEWER_SETUP.md` → "Automated security checks".
+  - `security-checks.yml`: pip-audit, bandit, semgrep and gitleaks, on every push and every Monday. The Monday run catches newly published library vulnerabilities even when the code hasn't changed.
+  - `zap-scan.yml`: ZAP as visitor, demo supplier and demo admin, against a copy with fake demo data, every Monday and on demand.
+  - **Policy:** a run fails (❌ + email) on any library vulnerability, any secret, high-severity bandit, ERROR-severity semgrep, or a High-risk ZAP alert. Everything else is reported in the run's artifacts, which are kept 30 days, and reviewed in batches here.
+- [x] **Accepted bandit results** (low severity; they don't fail the run):
+  - `config.py`: the labelled dev-only key (B105);
+  - `main.py`: the deliberate try/except/pass in rate-limit logging (B110);
+  - `seed_demo_data.py`: the demo password (B105);
+  - `scripts/verify_customer_calc.py`: `assert` statements (B101).
+- [ ] **ZAP rehearsal findings, to assess after the first full CI run.** None is High:
+  - CSP allows `'unsafe-inline'` for scripts and styles (Medium);
+  - CDN scripts have no Subresource Integrity attribute (Medium);
+  - HTML pages contain developer comments (Info).
+- [x] **Windows-only: the local dev server can be knocked offline. Recorded, not fixed.** The cause is uvicorn on Windows with the default Proactor event loop: after one abruptly reset connection fails in `accept()` (WinError 64), it permanently stops accepting connections.
+  - Reproduced during the ZAP rehearsal, where ESET's resets triggered it. A Selector-loop server survived 300 deliberately reset connections.
+  - Affects only `start.bat` local development, which isn't reachable from the network.
+  - Production on Azure App Service runs Linux, where this code path doesn't exist.
+- Design note for the inspection: sign-out clears the browser cookie, but tokens are stateless JWTs. A copied token stays valid until it expires (1 hour sliding, 12-hour absolute cap). This is standard for JWT sessions; server-side revocation would need a token blocklist or version counter.
 
 ## Open items — must be handled before go-live
 

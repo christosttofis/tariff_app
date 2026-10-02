@@ -1,0 +1,85 @@
+# OWASP ZAP attack test against a throwaway copy of the app on GitHub's machine.
+# Fake demo data only (seed_demo_data.py), email off, a random signing key per run.
+# Needs no secrets and never sees tariff-api/.env. ZAP only targets 127.0.0.1 here.
+# Fails only on High-risk alerts; everything else is in the summary and the reports.
+name: ZAP scan
+
+on:
+  schedule:
+    - cron: "30 6 * * 1"   # Mondays 06:30 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  zap:
+    name: ZAP (visitor, supplier, admin)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97   # v7.0.0
+        with:
+          python-version: "3.14"
+
+      - name: Install the app
+        run: pip install -r tariff-api/requirements.txt
+
+      - name: Start a throwaway copy with fake demo data
+        run: |
+          python tariff-api/seed_demo_data.py /tmp/ci.db
+          export DATABASE_URL="sqlite:////tmp/ci.db"
+          export TARIFF_SECRET_KEY="$(openssl rand -hex 32)"
+          export TARIFF_ENABLE_DOCS=1
+          export TARIFF_ADMIN_ALLOWED_NETWORKS=""
+          export AZURE_TENANT_ID="" AZURE_CLIENT_ID="" AZURE_CLIENT_SECRET=""
+          export TARIFF_EMAIL_FROM="" TARIFF_ADMIN_EMAIL=""
+          nohup python .github/scripts/ci_server.py > /tmp/app.log 2>&1 &
+          for i in $(seq 60); do curl -sf http://127.0.0.1:8002/customer.html > /dev/null && break; sleep 1; done
+          curl -sf http://127.0.0.1:8002/customer.html > /dev/null || { cat /tmp/app.log; exit 1; }
+
+      - name: Sign in as the demo supplier and demo admin
+        run: |
+          python - <<'EOF'
+          import os, requests
+          for role, email in (("supplier", "acme.energy@demo.local"), ("admin", "admin1@demo.local")):
+              r = requests.post("http://127.0.0.1:8002/api/auth/login", json={"email": email, "password": "Demo123!"})
+              r.raise_for_status()
+              token = r.cookies["cera_access_token"]
+              print(f"::add-mask::{token}")
+              with open(os.environ["GITHUB_ENV"], "a") as f:
+                  f.write(f"COOKIE_{role.upper()}=cera_access_token={token}\n")
+          print("signed in: supplier, admin")
+          EOF
+
+      - name: ZAP as visitor, supplier, admin
+        run: |
+          mkdir -p zap-out && chmod a+rwx zap-out
+          for role in visitor supplier admin; do
+            case $role in
+              visitor)  cookie="cera_zap=visitor" ;;
+              supplier) cookie="$COOKIE_SUPPLIER" ;;
+              admin)    cookie="$COOKIE_ADMIN" ;;
+            esac
+            echo "=== ZAP: $role ==="
+            docker run --rm --network host \
+              -v "$PWD/.github/zap:/zap/plan:ro" -v "$PWD/zap-out:/zap/wrk" \
+              -e ZAP_ROLE="$role" -e ZAP_COOKIE="$cookie" \
+              zaproxy/zap-stable:2.17.0 zap.sh -cmd -autorun /zap/plan/plan.yaml \
+              || echo "ZAP exited with $? for $role (the gate below decides pass/fail)"
+          done
+
+      - name: Pass/fail on High-risk alerts
+        run: python .github/scripts/zap_gate.py zap-out
+
+      - name: App log (for troubleshooting)
+        if: always()
+        run: tail -n 100 /tmp/app.log || true
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a   # v7.0.1
+        if: always()
+        with:
+          name: zap-reports
+          path: zap-out/
+          retention-days: 30
