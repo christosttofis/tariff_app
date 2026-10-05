@@ -240,16 +240,22 @@ print("requests recorded by ZAP:", z("/JSON/core/view/numberOfMessages/", baseur
 for rx in (r".*/api/auth/logout.*", r".*/api/auth/password.*", r".*/api/auth/email.*"):
     z("/JSON/ascan/action/excludeFromScan/", regex=rx)
 z("/JSON/ascan/action/setOptionMaxScanDurationInMins/", Integer=str(MAX_SCAN_MIN))
-z("/JSON/ascan/action/setOptionMaxRuleDurationInMins/", Integer="5")
+z("/JSON/ascan/action/setOptionMaxRuleDurationInMins/", Integer="10")   # 5 cut SQLi + path traversal short
 z("/JSON/ascan/action/setOptionThreadPerHost/", Integer="4")
 aid = z("/JSON/ascan/action/scan/", url=APP, recurse="true", inScopeOnly="false")["scan"]
 last = -1
-while (st := int(z("/JSON/ascan/view/status/", scanId=aid)["status"])) < 100:
-    if st // 10 != last // 10:
-        print(f"active scan {st}%  alerts so far: {z('/JSON/core/view/numberOfAlerts/', baseurl=APP)['numberOfAlerts']}", flush=True)
-        last = st
-    time.sleep(20)
-print("active scan done; requests sent:", z("/JSON/core/view/numberOfMessages/", baseurl=APP)["numberOfMessages"])
+zap_crashed = False
+try:
+    while (st := int(z("/JSON/ascan/view/status/", scanId=aid)["status"])) < 100:
+        if st // 10 != last // 10:
+            print(f"active scan {st}%  alerts so far: {z('/JSON/core/view/numberOfAlerts/', baseurl=APP)['numberOfAlerts']}", flush=True)
+            last = st
+        time.sleep(20)
+    print("active scan done; requests sent:", z("/JSON/core/view/numberOfMessages/", baseurl=APP)["numberOfMessages"])
+except requests.RequestException as e:
+    zap_crashed = True
+    print(f"::error::ZAP stopped responding during the active scan ({type(e).__name__}). "
+          "This is a scan-setup problem, not a finding; see the 'ZAP log' step.")
 
 # sessions still valid at the end? (if not, later parts of the scan weren't signed in)
 for role, ck in (("supplier", sup), ("admin", adm)):
@@ -258,9 +264,11 @@ for role, ck in (("supplier", sup), ("admin", adm)):
 
 # ── 7. reports ──
 os.makedirs(OUT, exist_ok=True)
+json.dump({"ok": ok, "calls": calls}, open(os.path.join(OUT, "coverage.json"), "w"))
+if zap_crashed:
+    sys.exit("No report: ZAP crashed before the scan finished.")
 open(os.path.join(OUT, "zap-all.json"), "w", encoding="utf-8").write(z("/OTHER/core/other/jsonreport/"))
 open(os.path.join(OUT, "zap-all.html"), "w", encoding="utf-8").write(z("/OTHER/core/other/htmlreport/"))
-json.dump({"ok": ok, "calls": calls}, open(os.path.join(OUT, "coverage.json"), "w"))
 
 # coverage guard
 if ok["supplier"] < 8 or ok["admin"] < 30:
