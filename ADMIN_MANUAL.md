@@ -322,12 +322,31 @@ Every action in this section (add/overwrite, rename, delete) saves straight to t
 
 Parsing and saving happen in one step: the file is validated and, if valid, saved immediately. The status message underneath confirms how many time slots and months were covered. If you reuse the name of an existing profile, you'll be asked to confirm overwriting it — the existing profile's underlying record is updated in place, so tariffs already assigned to it stay correctly assigned.
 
-The server also checks every profile before saving it, because profiles drive every tariff's price in the public calculator. A single bad value would otherwise stop the calculator from showing any results to customers. It rejects the profile, with a message saying exactly what is wrong (for example `months › 2 › W › 5: Input should be a valid number`), unless it has:
-- exactly **12 months**;
-- exactly **48** working-day and **48** non-working-day values per month;
-- every value a real, non-negative number (no text, blanks, `Infinity` or negative values).
+#### Checks before saving
 
-If a profile is rejected, the previously saved version is left unchanged. Check the CSV for an empty, non-numeric or negative cell.
+Profiles drive every tariff's price in the public calculator, and a single bad value would stop the calculator showing any results to customers. So the whole CSV is checked before anything is saved.
+
+**Refused:** the profile is not saved. Every problem is listed with its line number, column and time, up to 10 and then "…and N more". For example:
+
+> Profile not saved: 3 problems found:
+> • Line 31, Mar_WD at 14:30: "abc" is not a number
+> • Line 31, Mar_NWD at 14:30: empty cell
+> • Line 32, Jul_WD at 15:00: negative value -0.2
+
+The problems that cause a refusal are:
+- a cell that is empty, not a number, or negative;
+- a time row that appears twice ("Time 09:00 appears twice (lines 20 and 51)");
+- a missing time row ("Missing time rows: 14:30");
+- a time that isn't on the half hour (e.g. `14:15`);
+- two columns for the same month and day type.
+
+Rows without a time, such as a "Total" line, are skipped as before. `24:00` is accepted as `00:00`.
+
+**Warned:** you're asked "Save anyway?", and **Cancel** saves nothing:
+- a month or day type with no column or no usage at all ("No data for: March non-working days"). If saved, it shows as partial coverage;
+- values over **10× the profile's typical value**, which usually means a typo or a different unit ("July working days at 12:00: 4.2").
+
+The server repeats the essential checks as a safety net: exactly 12 months, 48 working-day and 48 non-working-day values per month, all real non-negative numbers. If it refuses, the message names the month, day type and time (e.g. "March, working days, 03:00: Input should be a valid number"). The previously saved version of a profile is never changed by a refused save.
 
 ### Renaming a profile
 

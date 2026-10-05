@@ -486,7 +486,7 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
       <div class="btn-row">
         <button class="btn btn-primary" onclick="parseAndAddProfile()" data-t="BTN_PARSE_SAVE">⚡ Parse &amp; save profile</button>
       </div>
-      <div class="status" id="prof-status"></div>
+      <div class="status" id="prof-status" style="white-space:pre-line"></div>
     </div>
 
     <div class="card"><div class="card-title" data-t="CARD_SAVED_PROF">Saved profiles</div><div id="profile-list"></div><div class="status" id="profile-list-status"></div></div>
@@ -2098,6 +2098,29 @@ function renderSuppliers(){
 /* ─────────────────────────────────────────
    PROFILE PARSER — DSO transposed format
    ───────────────────────────────────────── */
+const _PROF_MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const _PROF_DT={W:'working days',NW:'non-working days'};
+
+// Server-side profile validation errors (the safety net behind the parser's own
+// checks) point at e.g. months › 2 › W › 5; say "March, working days, 03:00" instead.
+function profileErrorText(detail,fallback){
+  if(!Array.isArray(detail)) return apiErrorText(detail,fallback);
+  return detail.map(d=>{
+    const loc=(d.loc||[]).filter(x=>x!=='body');
+    const msg=String(d.msg||'').replace(/^Value error, /,'');
+    if(loc[0]==='months'&&Number.isInteger(loc[1])){
+      let where=_PROF_MONTHS[loc[1]]||('month '+(loc[1]+1));
+      if(loc[2]==='W'||loc[2]==='NW') where+=', '+_PROF_DT[loc[2]];
+      if(Number.isInteger(loc[3])){
+        const endMin=(loc[3]+1)*30;
+        where+=', '+String(Math.floor(endMin/60)%24).padStart(2,'0')+':'+String(endMin%60).padStart(2,'0');
+      }
+      return where+': '+msg;
+    }
+    return (loc.length?loc.join(' › ')+': ':'')+msg;
+  }).join('; ');
+}
+
 async function parseAndAddProfile(){
   const name=document.getElementById('prof-name').value.trim();
   const desc=document.getElementById('prof-desc').value.trim();
@@ -2107,7 +2130,11 @@ async function parseAndAddProfile(){
   if(!name){showStatus(status,'err','Profile name is required.');return;}
   if(!raw){showStatus(status,'err','No data pasted.');return;}
 
-  const lines=raw.split(/\r?\n/).map(l=>l.trim()).filter(l=>l.length);
+  // Keep each non-blank line's original line number (1-based) for error messages
+  const lines=[], lineNos=[];
+  document.getElementById('prof-raw').value.split(/\r?\n/).forEach((l,i)=>{
+    l=l.trim(); if(l){lines.push(l);lineNos.push(i+1);}
+  });
 
   // Find header row (contains TIME or Jan_WD etc.)
   let headerIdx=-1;
@@ -2130,7 +2157,7 @@ async function parseAndAddProfile(){
     const mNames=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
     const mi=mNames.indexOf(mMatch[1]);
     const dt=h.includes('NWD')||h.includes('NW')?'NW':'W';
-    colMap.push({c,mi,dt});
+    colMap.push({c,mi,dt,label:headerParts[c]});
   }
 
   if(colMap.length===0){showStatus(status,'err','Could not parse column headers. Expected Jan_WD, Jan_NWD format.');return;}
@@ -2152,22 +2179,80 @@ async function parseAndAddProfile(){
   const raw_data=Array.from({length:12},()=>({W:new Array(48).fill(0),NW:new Array(48).fill(0)}));
   let parsed=0, skipped=0;
 
-  const dataLines=lines.slice(headerIdx+1);
-  dataLines.forEach(line=>{
+  // Check the whole file before saving. Problems that would silently corrupt the
+  // profile (text/empty/negative cells, duplicate or missing time rows, duplicate
+  // columns) refuse the save, with the exact place in the file. Unusual-but-possible
+  // things (a month with no column or no usage, very high values) only warn.
+  const errors=[], warnings=[];
+  const where=(lineNo,label,time)=>`Line ${lineNo}, ${label} at ${time}`;
+  const seenCol={};
+  colMap.forEach(({mi,dt,label})=>{
+    const k=mi+dt;
+    if(seenCol[k]) errors.push(`Columns ${seenCol[k]} and ${label} are both ${_PROF_MONTHS[mi]} ${_PROF_DT[dt]}`);
+    else seenCol[k]=label;
+  });
+  const slotLine={};
+  lines.slice(headerIdx+1).forEach((line,i)=>{
+    const lineNo=lineNos[headerIdx+1+i];
     const parts=line.split(/[,;\t]/).map(s=>s.trim());
     if(!parts[0]) return;
-    const timeLabel=parts[0]; // e.g. "00:30"
+    let timeLabel=parts[0]; // e.g. "00:30"
+    if(/^\d:\d\d$/.test(timeLabel)) timeLabel='0'+timeLabel;   // 0:30 → 00:30
+    if(timeLabel==='24:00') timeLabel='00:00';                   // end of day, either way
     const slotIdx=slotOrder.indexOf(timeLabel);
-    if(slotIdx<0){skipped++;return;}
-    colMap.forEach(({c,mi,dt})=>{
-      const val=parseFloat(parts[c]);
-      if(isNaN(val)) return;
+    if(slotIdx<0){
+      // A time-like label that isn't a half-hour slot is a data error; other rows
+      // (e.g. a "Total" line) are just skipped, as before.
+      if(/^\d{1,2}:\d{2}/.test(timeLabel)) errors.push(`Line ${lineNo}: "${parts[0]}" is not a half-hour time (expected 00:30, 01:00 … 23:30, 00:00)`);
+      else skipped++;
+      return;
+    }
+    if(slotLine[slotIdx]!==undefined){errors.push(`Time ${timeLabel} appears twice (lines ${slotLine[slotIdx]} and ${lineNo})`);return;}
+    slotLine[slotIdx]=lineNo;
+    colMap.forEach(({c,mi,dt,label})=>{
+      const cell=parts[c]===undefined?'':parts[c];
+      if(cell===''){errors.push(`${where(lineNo,label,timeLabel)}: empty cell`);return;}
+      const val=Number(cell);
+      if(!Number.isFinite(val)){errors.push(`${where(lineNo,label,timeLabel)}: "${cell}" is not a number`);return;}
+      if(val<0){errors.push(`${where(lineNo,label,timeLabel)}: negative value ${cell}`);return;}
       raw_data[mi][dt][slotIdx]+=val;
     });
     parsed++;
   });
 
-  if(!parsed){showStatus(status,'err','No valid data rows found. Check time labels (expected HH:MM format like 00:30).');return;}
+  if(!parsed&&!errors.length){showStatus(status,'err','No valid data rows found. Check time labels (expected HH:MM format like 00:30).');return;}
+  const missingSlots=slotOrder.filter((t,s)=>slotLine[s]===undefined);
+  if(parsed&&missingSlots.length) errors.push(`Missing time rows: ${missingSlots.join(', ')}`);
+  if(errors.length){
+    const shown=errors.slice(0,10);
+    if(errors.length>10) shown.push(`…and ${errors.length-10} more`);
+    showStatus(status,'err',`Profile not saved: ${errors.length} problem${errors.length>1?'s':''} found:\n• `+shown.join('\n• '));
+    return;
+  }
+
+  // Warnings: months/day types with no column or no usage at all, and values far
+  // above this profile's typical level (median of its non-zero values).
+  const noData=[];
+  for(let mi=0;mi<12;mi++) for(const dt of ['W','NW']){
+    if(!raw_data[mi][dt].some(v=>v>0)) noData.push(`${_PROF_MONTHS[mi]} ${_PROF_DT[dt]}`);
+  }
+  if(noData.length) warnings.push(`No data for: ${noData.join(', ')}`);
+  const nonZero=raw_data.flatMap(m=>[...m.W,...m.NW]).filter(v=>v>0).sort((a,b)=>a-b);
+  const median=nonZero.length?nonZero[Math.floor(nonZero.length/2)]:0;
+  if(median>0){
+    const high=[];
+    raw_data.forEach((m,mi)=>['W','NW'].forEach(dt=>m[dt].forEach((v,s)=>{
+      if(v>10*median) high.push(`${_PROF_MONTHS[mi]} ${_PROF_DT[dt]} at ${slotOrder[s]}: ${v}`);
+    })));
+    if(high.length){
+      const shownHigh=high.slice(0,10).concat(high.length>10?[`…and ${high.length-10} more`]:[]);
+      warnings.push(`Unusually high values (over 10× this profile's typical value of ${median}):\n  - `+shownHigh.join('\n  - '));
+    }
+  }
+  if(warnings.length&&!confirm(`Please check this profile before saving:\n\n• ${warnings.join('\n• ')}\n\nSave anyway?`)){
+    showStatus(status,'err','Not saved. Correct the CSV and try again.');
+    return;
+  }
 
   // Store raw unnormalised HHFFs.
   // Normalisation uses actual calendar day counts at runtime (year 2026)
@@ -2195,7 +2280,7 @@ async function parseAndAddProfile(){
       :_adminApiBase+'/api/admin/profiles';
     const resp=await fetch(url,{method:ex>=0?'PUT':'POST',headers:authHeaders(),body:JSON.stringify(profile)});
     if(resp.status===401){showLogin('Session expired.');return;}
-    if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(status,'err','Save failed: '+apiErrorText(e.detail,resp.status));return;}
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(status,'err','Save failed: '+profileErrorText(e.detail,resp.status));return;}
     const saved=await resp.json();
     if(ex>=0) profiles[ex]=saved; else profiles.push(saved);
     document.getElementById('prof-name').value='';
@@ -2220,7 +2305,7 @@ async function editProfileName(id){
   try{
     const resp=await fetch(_adminApiBase+'/api/admin/profiles/'+encodeURIComponent(id),{method:'PUT',headers:authHeaders(),body:JSON.stringify(body)});
     if(resp.status===401){showLogin('Session expired.');return;}
-    if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(st,'err','Save failed: '+apiErrorText(e.detail,resp.status));return;}
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(st,'err','Save failed: '+profileErrorText(e.detail,resp.status));return;}
     const saved=await resp.json();
     const idx=profiles.findIndex(x=>x.id===id);
     if(idx>=0) profiles[idx]=saved;
