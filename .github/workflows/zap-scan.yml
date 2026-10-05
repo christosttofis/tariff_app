@@ -47,8 +47,10 @@ jobs:
           source "$GITHUB_ENV"
           # --shm-size: ZAP's DOM XSS rule drives a headless browser in the container;
           # with Docker's default 64 MB of shared memory it crashed ZAP mid-scan.
+          # -Xmx4g: Java's default (1/4 of the runner's 8 GB) filled up at ~91% of the scan
+          # and ZAP shut itself down.
           docker run -d --name zap --network host --shm-size=2g zaproxy/zap-stable:2.17.0 \
-            zap.sh -daemon -silent -host 127.0.0.1 -port 8090 -config api.key="$ZAP_KEY"
+            zap.sh -Xmx4g -daemon -silent -host 127.0.0.1 -port 8090 -config api.key="$ZAP_KEY"
 
       - name: Use the app as visitor, supplier and admin through ZAP, then attack it
         env:

@@ -251,6 +251,9 @@ for rx in (r".*/api/auth/logout.*", r".*/api/auth/password.*", r".*/api/auth/ema
 z("/JSON/ascan/action/setOptionMaxScanDurationInMins/", Integer=str(MAX_SCAN_MIN))
 z("/JSON/ascan/action/setOptionMaxRuleDurationInMins/", Integer="10")   # 5 cut SQLi + path traversal short
 z("/JSON/ascan/action/setOptionThreadPerHost/", Integer="4")
+# User Agent Fuzzer (10104) is informational only; in run 37274911928 it sent 1,775
+# requests and raised 666 notes, filling ZAP's memory until ZAP shut itself down.
+z("/JSON/ascan/action/disableScanners/", ids="10104")
 aid = z("/JSON/ascan/action/scan/", url=APP, recurse="true", inScopeOnly="false")["scan"]
 last = -1
 zap_crashed = False
