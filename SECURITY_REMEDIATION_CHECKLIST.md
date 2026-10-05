@@ -188,10 +188,18 @@ The first run of off-the-shelf scanners, so findings no longer depend on manual 
     - **Fix:** new `ProfileMonthIn` schema: exactly 12 months, exactly 48 + 48 strict, finite numbers each, 0 to 1,000,000, with bounded counts. The admin page shows the readable error (`apiErrorText`), and `ADMIN_MANUAL.md` §8 is updated.
     - **Verified:** 27 checks (6 valid paths including rename, 19 malformed variants → 422, stored profile and calculator unchanged). The 3 real dev-DB profiles pass, checked read-only (values 0.03–0.29). Role suite 160/160; scan-script dry run 57/57 + 13/13.
   - The active scan reached only ~30% of its rules in the 35-minute cap. The cap is now 110 minutes, about 520 of the 2,000 free minutes a month.
-- [ ] **ZAP rehearsal findings, to assess after the first full CI run.** None is High:
-  - CSP allows `'unsafe-inline'` for scripts and styles (Medium);
-  - CDN scripts have no Subresource Integrity attribute (Medium);
-  - HTML pages contain developer comments (Info).
+- [x] **Getting ZAP to finish a full scan (2026-10-05).** Three runs stopped partway, each for a scan-setup reason, not because of the app:
+  - DOM-XSS rule: its headless browser exhausted Docker's 64 MB shared memory. Now `--shm-size=2g`.
+  - A dropped connection to ZAP's API under load. ZAP API calls now retry.
+  - ZAP's Java memory reached 99% at 91% of the scan, and ZAP shut itself down. Now `-Xmx4g`. The informational "User Agent Fuzzer" rule is disabled: it alone sent 1,775 requests and raised 666 notes.
+- [x] **First complete full ZAP scan, run 37285323887 (2026-10-05): passed, 0 High.** About 88 minutes, ~858,000 attack requests; admin 57/57 and supplier 13/13 actions.
+  - **No SQL injection.** The SQLi alert from the earlier, interrupted runs didn't recur once profile validation was in place.
+  - **Medium, Subresource Integrity missing on the cdnjs scripts → fixed.** Chart.js 4.4.1 and DOMPurify 3.1.6 in `customer.html` and `admin.html` now carry `integrity="sha512-…"` and `crossorigin="anonymous"`. The hashes were computed from the files and match cdnjs's published values; cdnjs sends `Access-Control-Allow-Origin: *`. If cdnjs ever served a modified file, the browser would refuse to run it.
+  - **Medium, SRI missing on the Google Fonts stylesheet → accepted.** SRI isn't possible there: Google generates that CSS per browser. A stylesheet can't run scripts, and `font-src`/`style-src` in the CSP limit it to Google's domains. Self-hosting the font would remove it, if wanted.
+  - **Medium, CSP allows `'unsafe-inline'` for scripts and styles → open, planned as a separate task** (see the open items below). Inline scripts are currently mitigated by output escaping, DOMPurify and the DOM-node rendering from the July XSS fixes.
+  - **Low, "XSS weakness (persistent in JSON response)" ×14 → accepted by design.** ZAP stored `<script>` text and the JSON API returned it exactly as stored. Text is stored as entered and made safe when the page displays it (escaping and DOMPurify, from the July fixes). ZAP raised it with low confidence, since the response is `application/json`, not HTML. To be confirmed in a real browser by the planned attacker test suite.
+  - **Low, cross-domain JavaScript inclusion → accepted.** These are the same two cdnjs scripts, now SRI-pinned.
+  - **Info, comments in HTML/JS → accepted.** Developer explanations only (e.g. "minutes from midnight"); no credentials, internal hosts or hidden endpoints.
 - [x] **Windows-only: the local dev server can be knocked offline. Recorded, not fixed.** The cause is uvicorn on Windows with the default Proactor event loop: after one abruptly reset connection fails in `accept()` (WinError 64), it permanently stops accepting connections.
   - Reproduced during the ZAP rehearsal, where ESET's resets triggered it. A Selector-loop server survived 300 deliberately reset connections.
   - Affects only `start.bat` local development, which isn't reachable from the network.
@@ -208,6 +216,7 @@ These are deployment/production tasks, tracked in full in `AZURE_DEPLOYMENT_CHEC
 - [ ] **Disable API docs in production** — set `TARIFF_ENABLE_DOCS=0` so `/docs`, `/redoc`, `/openapi.json` don't expose the full route surface.
 - [x] ~~Restrict `admin.html` to CERA IPs~~: done in-app (Round 14); covers the admin API too, not just the page.
 - [ ] **Rotate secrets exposed by the static-file issue** (Round 13).
+- [ ] **Remove `'unsafe-inline'` from the CSP** (ZAP Medium, Round 16). Move inline `<script>` blocks, `onclick=`-style handlers and `style=` attributes into separate files or classes, then tighten `script-src` (and ideally `style-src`) to `'self'` plus cdnjs.
 - [ ] **Rate limiter is in-memory/single-process** — needs a shared store (e.g. Redis) only if ever scaled to multiple workers/instances.
 - [ ] **External IT certification** — this document is the security summary to hand over.
 - [~] **Round 6 follow-up** — live UI walkthrough confirming `ConfigImportIn` accepts every real "Publish" payload.
