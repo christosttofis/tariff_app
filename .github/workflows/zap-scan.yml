@@ -57,7 +57,10 @@ jobs:
 
       - name: ZAP log (for troubleshooting)
         if: failure()
-        run: docker logs zap 2>&1 | tail -n 80
+        run: |
+          docker inspect zap --format 'ZAP container: running={{.State.Running}} oom_killed={{.State.OOMKilled}} exit_code={{.State.ExitCode}}' || true
+          free -m || true
+          docker logs zap 2>&1 | tail -n 80
 
       - name: Pass/fail on High-risk alerts
         run: python .github/scripts/zap_gate.py zap-out

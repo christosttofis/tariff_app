@@ -39,9 +39,18 @@ calls = Counter()   # role -> total
 
 
 def z(path, **params):
-    r = zapi.get(ZAP + path, params={"apikey": KEY, **params}, timeout=300)
-    r.raise_for_status()
-    return r.json() if "/JSON/" in path else r.text
+    # Under heavy active-scan load ZAP's API can drop a single connection while
+    # ZAP itself carries on; retry for ~2.5 min before treating it as a crash.
+    for attempt in range(10):
+        try:
+            r = zapi.get(ZAP + path, params={"apikey": KEY, **params}, timeout=300)
+            r.raise_for_status()
+            return r.json() if "/JSON/" in path else r.text
+        except (requests.ConnectionError, requests.Timeout) as e:
+            if attempt == 9:
+                raise
+            print(f"  (ZAP API not responding: {type(e).__name__}; retrying in 15s)", flush=True)
+            time.sleep(15)
 
 
 def call(role, method, path, cookie=None, **kw):
