@@ -322,6 +322,13 @@ Every action in this section (add/overwrite, rename, delete) saves straight to t
 
 Parsing and saving happen in one step: the file is validated and, if valid, saved immediately. The status message underneath confirms how many time slots and months were covered. If you reuse the name of an existing profile, you'll be asked to confirm overwriting it — the existing profile's underlying record is updated in place, so tariffs already assigned to it stay correctly assigned.
 
+The server also checks every profile before saving it, because profiles drive every tariff's price in the public calculator. A single bad value would otherwise stop the calculator from showing any results to customers. It rejects the profile, with a message saying exactly what is wrong (for example `months › 2 › W › 5: Input should be a valid number`), unless it has:
+- exactly **12 months**;
+- exactly **48** working-day and **48** non-working-day values per month;
+- every value a real, non-negative number (no text, blanks, `Infinity` or negative values).
+
+If a profile is rejected, the previously saved version is left unchanged. Check the CSV for an empty, non-numeric or negative cell.
+
 ### Renaming a profile
 
 Click **✏ Rename** next to a profile in the **Saved profiles** list, enter the new name, and confirm. Saved immediately.

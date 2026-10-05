@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from email_validator import EmailNotValidError, validate_email
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
@@ -53,15 +53,34 @@ class SupplierIn(BaseModel):
     _validate_website = field_validator("website")(_check_url)
 
 
+# ── Consumption (load) profiles ──────────────────────────────────────────────
+# Profiles drive every tariff's cost in the public calculator, so one bad value
+# (text, NaN, a nested object) silently empties the customer's results. Shape
+# matches what admin.html builds from the EAC CSV: 12 months x 48 half-hourly
+# working-day (W) and non-working-day (NW) values. Real profiles hold small
+# non-negative factors (~0.03-0.3); the cap only rejects absurd values.
+# strict=True: numbers must be JSON numbers, not numeric-looking strings.
+_HH_VALUE = Field(ge=0, le=1_000_000, allow_inf_nan=False, strict=True)
+
+
+class ProfileMonthIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    W: list[Annotated[float, _HH_VALUE]] = Field(..., min_length=48, max_length=48)
+    NW: list[Annotated[float, _HH_VALUE]] = Field(..., min_length=48, max_length=48)
+    hasW: bool
+    hasNW: bool
+
+
 class ProfileIn(BaseModel):
     id: str | None = Field(None, max_length=100)
     name: str = Field(..., max_length=200)
     desc: str = Field("", max_length=2000)
-    months: list[Any] = []         # 12 × {W:[48 floats], NW:[48 floats], hasW, hasNW}
-    covW: int = 0
-    covNW: int = 0
-    rows: int = 0
-    colCount: int = 0
+    months: list[ProfileMonthIn] = Field(..., min_length=12, max_length=12)
+    covW: int = Field(0, ge=0, le=12)
+    covNW: int = Field(0, ge=0, le=12)
+    rows: int = Field(0, ge=0, le=1_000_000)
+    colCount: int = Field(0, ge=0, le=10_000)
 
 
 # ── Tariff pricing data ──────────────────────────────────────────────────────

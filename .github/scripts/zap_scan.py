@@ -133,7 +133,9 @@ for p in ("/api/admin/regulated", "/api/admin/notices", "/api/admin/sample-invoi
 profiles = js(A("GET", "/api/admin/profiles"), [])
 if profiles:
     A("PUT", f"/api/admin/profiles/{profiles[0]['id']}", json=profiles[0])
-A("POST", "/api/admin/profiles", json={"name": "ZAP profile", "desc": "scan", "months": []})
+if profiles:   # a valid new profile = a copy of an existing one (12 x 48+48 values)
+    A("POST", "/api/admin/profiles", json={**{k: v for k, v in profiles[0].items() if k != "id"},
+                                           "name": "ZAP profile", "desc": "scan"})
 suppliers = js(A("GET", "/api/admin/suppliers"), [])
 A("POST", "/api/admin/suppliers", json={"name": "ZAP Test Energy", "licence": "Z-1", "email": "zap@example.com"})
 A("PUT", "/api/admin/suppliers/ZAP Test Energy", json={"name": "ZAP Test Energy", "licence": "Z-2"})

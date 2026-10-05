@@ -2195,7 +2195,7 @@ async function parseAndAddProfile(){
       :_adminApiBase+'/api/admin/profiles';
     const resp=await fetch(url,{method:ex>=0?'PUT':'POST',headers:authHeaders(),body:JSON.stringify(profile)});
     if(resp.status===401){showLogin('Session expired.');return;}
-    if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(status,'err','Save failed: '+(e.detail||resp.status));return;}
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(status,'err','Save failed: '+apiErrorText(e.detail,resp.status));return;}
     const saved=await resp.json();
     if(ex>=0) profiles[ex]=saved; else profiles.push(saved);
     document.getElementById('prof-name').value='';
@@ -2220,7 +2220,7 @@ async function editProfileName(id){
   try{
     const resp=await fetch(_adminApiBase+'/api/admin/profiles/'+encodeURIComponent(id),{method:'PUT',headers:authHeaders(),body:JSON.stringify(body)});
     if(resp.status===401){showLogin('Session expired.');return;}
-    if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(st,'err','Save failed: '+(e.detail||resp.status));return;}
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(st,'err','Save failed: '+apiErrorText(e.detail,resp.status));return;}
     const saved=await resp.json();
     const idx=profiles.findIndex(x=>x.id===id);
     if(idx>=0) profiles[idx]=saved;

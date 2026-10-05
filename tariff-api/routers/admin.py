@@ -761,11 +761,16 @@ def list_profiles(db: Session = Depends(get_db), user: CurrentUser = Depends(req
     return [profile_to_dict(p) for p in db.query(models.Profile).all()]
 
 
+def _profile_months_json(body: ProfileIn) -> str:
+    # Same stored shape as before ({W, NW, hasW, hasNW} x 12), now validated by ProfileMonthIn.
+    return json.dumps([m.model_dump() for m in body.months])
+
+
 @router.post("/profiles", status_code=201, summary="Create a profile (admin only)")
 def create_profile(body: ProfileIn, db: Session = Depends(get_db), user: CurrentUser = Depends(require_admin)):
     pid = body.id or _uid()
     p = models.Profile(id=pid, name=body.name, desc=body.desc,
-                       months=json.dumps(body.months),
+                       months=_profile_months_json(body),
                        covW=body.covW, covNW=body.covNW, rows=body.rows, colCount=body.colCount)
     db.add(p)
     db.commit()
@@ -780,7 +785,7 @@ def update_profile(profile_id: str, body: ProfileIn, db: Session = Depends(get_d
         raise HTTPException(404, "Profile not found")
     p.name = body.name
     p.desc = body.desc
-    p.months = json.dumps(body.months)
+    p.months = _profile_months_json(body)
     p.covW = body.covW
     p.covNW = body.covNW
     p.rows = body.rows

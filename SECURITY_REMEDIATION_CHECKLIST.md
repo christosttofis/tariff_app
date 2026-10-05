@@ -181,6 +181,13 @@ The first run of off-the-shelf scanners, so findings no longer depend on manual 
   - `main.py`: the deliberate try/except/pass in rate-limit logging (B110);
   - `seed_demo_data.py`: the demo password (B105);
   - `scripts/verify_customer_calc.py`: `assert` statements (B101).
+- [x] **First full ZAP scan in CI (run 37010580557, 2026-10-02).** It was signed in as visitor, supplier and admin: 57/57 admin and 13/13 supplier actions, about 270,000 attack requests, sessions valid to the end.
+  - Two earlier attempts had to be fixed first. The first only reached public pages: the spider failed on the 404 site root, and the OpenAPI-only requests carried made-up IDs. That led to `zap_scan.py`, which drives realistic traffic and has a coverage guard.
+  - **1 High alert, "SQL Injection" on `PUT /api/admin/profiles/{id}` → false positive.** Profile values are `json.dumps`-ed and stored through SQLAlchemy's parameter binding; the only raw SQL in the app is the `SELECT 1` health check. ZAP was misled because the endpoint echoes back what it stored, so its `…1=1` / `…1=2` payloads came back as two different responses.
+  - **But it exposed a real gap, now fixed:** profile `months` was `list[Any]`, so an admin could store text, nested objects, negative or absurd values. Verified on a throwaway copy: **one text value made the public calculator return no tariffs at all**, silently. (Admin-only, office/VPN-restricted; the risk is a mistake, a UI bug or a compromised admin account.)
+    - **Fix:** new `ProfileMonthIn` schema: exactly 12 months, exactly 48 + 48 strict, finite numbers each, 0 to 1,000,000, with bounded counts. The admin page shows the readable error (`apiErrorText`), and `ADMIN_MANUAL.md` §8 is updated.
+    - **Verified:** 27 checks (6 valid paths including rename, 19 malformed variants → 422, stored profile and calculator unchanged). The 3 real dev-DB profiles pass, checked read-only (values 0.03–0.29). Role suite 160/160; scan-script dry run 57/57 + 13/13.
+  - The active scan reached only ~30% of its rules in the 35-minute cap. The cap is now 110 minutes, about 520 of the 2,000 free minutes a month.
 - [ ] **ZAP rehearsal findings, to assess after the first full CI run.** None is High:
   - CSP allows `'unsafe-inline'` for scripts and styles (Medium);
   - CDN scripts have no Subresource Integrity attribute (Medium);

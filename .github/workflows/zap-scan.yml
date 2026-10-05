@@ -16,7 +16,7 @@ jobs:
   zap:
     name: ZAP (visitor, supplier, admin)
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97   # v7.0.0
@@ -49,6 +49,8 @@ jobs:
             zap.sh -daemon -silent -host 127.0.0.1 -port 8090 -config api.key="$ZAP_KEY"
 
       - name: Use the app as visitor, supplier and admin through ZAP, then attack it
+        env:
+          ZAP_MAX_SCAN_MIN: "110"   # a full active scan of ~200 recorded requests; 35 min only reached ~30%
         run: python .github/scripts/zap_scan.py http://127.0.0.1:8002 http://127.0.0.1:8090 "$ZAP_KEY" zap-out
 
       - name: ZAP log (for troubleshooting)
