@@ -12,7 +12,7 @@ import models
 from client_ip import UNAVAILABLE_DETAIL, admin_network_allowed, client_ip_str
 from auth import (
     CurrentUser, check_password_reuse, clear_auth_cookie, create_pending_token, create_token,
-    decode_pending_token, get_current_user, record_password_change, resolve_supplier_name,
+    decode_pending_token, get_current_user, hash_password, record_password_change, resolve_supplier_name,
     set_auth_cookie, validate_password_strength, verify_password,
 )
 from config import TARIFF_BASE_URL
@@ -25,6 +25,10 @@ _BASE_URL = TARIFF_BASE_URL
 
 _MAX_ATTEMPTS = 3       # failed logins before lockout
 _LOCKOUT_MINUTES = 180  # how long the lockout lasts
+
+# Checked against for unknown emails, so a sign-in takes the same time whether or not
+# the account exists (otherwise the reply time reveals which emails are registered).
+_DUMMY_HASH = hash_password(secrets.token_urlsafe(16))
 
 
 def _log_login(db: Session, request: Request, *, email: str, user_id: int | None, success: bool, reason: str) -> None:
@@ -107,7 +111,7 @@ def login(body: LoginIn, request: Request, response: Response, db: Session = Dep
         user.locked_until = None
         db.commit()
 
-    if not user or not verify_password(body.password, user.password_hash):
+    if not verify_password(body.password, user.password_hash if user else _DUMMY_HASH) or not user:
         # Record failed attempt (only for existing accounts to avoid email enumeration)
         if user:
             user.failed_attempts = (user.failed_attempts or 0) + 1

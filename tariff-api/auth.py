@@ -138,6 +138,10 @@ def create_token(user: models.User, session_start: datetime | None = None) -> st
         # PyJWT only auto-converts the registered iat/exp/nbf claims from datetime —
         # this is a custom claim, so it must be encoded as a timestamp explicitly.
         "session_start": (session_start or now).timestamp(),
+        # Exact issue time for the password-change check below. PyJWT stores "iat" in
+        # whole seconds, which made the fresh token issued by a password change look
+        # older than the change itself (same second) and signed the user out.
+        "iat_precise": now.timestamp(),
         "exp": now + timedelta(hours=TOKEN_EXPIRE_HOURS),
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
@@ -246,7 +250,7 @@ def get_current_user(
 
     # Invalidate tokens issued before the most recent password change — closes the
     # window where an old (stolen or superseded) token stays valid after a reset.
-    iat = payload.get("iat")
+    iat = payload.get("iat_precise") or payload.get("iat")   # tokens issued before iat_precise existed
     if iat and user.password_changed_at:
         token_issued = datetime.fromtimestamp(iat, tz=timezone.utc)
         changed_at = datetime.fromisoformat(user.password_changed_at)
