@@ -157,16 +157,15 @@ app.add_middleware(
 # no code changes on the frontend side.
 app.add_middleware(GZipMiddleware, minimum_size=500)
 
-# Content-Security-Policy — permissive on script/style ('unsafe-inline') because the
-# frontend is ~hundreds of inline onclick="..." handlers plus inline <script> blocks;
-# blocking those without 'unsafe-inline' would require refactoring every handler to
-# addEventListener first (tracked separately). Still meaningfully restricts everything
-# else: no plugins/objects, no framing by other sites, no cross-origin form posts or
-# fetch/XHR, and scripts/styles/fonts only from this origin + the two CDN hosts actually
-# used (cdnjs for Chart.js/DOMPurify, fonts.googleapis.com/fonts.gstatic.com for Roboto).
+# Content-Security-Policy. Scripts may only come from this origin's own files and
+# cdnjs (Chart.js/DOMPurify): no inline <script> blocks or onclick="..." handlers, so
+# code an attacker manages to plant into a page is refused by the browser even if
+# escaping ever missed it. Also: no plugins/objects, no framing by other sites, no
+# cross-origin form posts or fetch/XHR, styles/fonts only from this origin + Google
+# Fonts. style-src still allows inline styles (style="..."), which can't run code.
 _CSP_POLICY = (
     "default-src 'self'; "
-    "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
+    "script-src 'self' https://cdnjs.cloudflare.com; "
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
     "font-src 'self' https://fonts.gstatic.com; "
     "img-src 'self' data:; "
@@ -176,12 +175,19 @@ _CSP_POLICY = (
     "form-action 'self'; "
     "frame-ancestors 'self'"
 )
+# TEMPORARY, while the remaining pages are converted page by page (see
+# SECURITY_REMEDIATION_CHECKLIST.md, open items): these still contain inline
+# scripts/handlers, so they get the old policy that allows them. Delete this
+# (and _CSP_LEGACY) once the set is empty.
+_CSP_LEGACY_PAGES = {"/customer.html", "/supplier.html", "/admin.html"}
+_CSP_LEGACY = _CSP_POLICY.replace("script-src 'self'", "script-src 'self' 'unsafe-inline'")
 
 
 @app.middleware("http")
 async def add_csp_header(request, call_next):
     response = await call_next(request)
-    response.headers["Content-Security-Policy"] = _CSP_POLICY
+    response.headers["Content-Security-Policy"] = (
+        _CSP_LEGACY if request.url.path in _CSP_LEGACY_PAGES else _CSP_POLICY)
     # Standard hardening headers alongside CSP: block MIME-sniffing away from
     # the declared Content-Type, avoid leaking the full referrer URL to other
     # origins, and disable browser features this app never uses.
@@ -401,6 +407,7 @@ _PUBLIC_FILES = {
     "supplier.html": "text/html; charset=utf-8",
     "admin.html": "text/html; charset=utf-8",
     "reset-password.html": "text/html; charset=utf-8",   # linked from invite/reset emails
+    "reset-password.js": "text/javascript; charset=utf-8",
     "Logo_Transparent.png": "image/png",
 }
 

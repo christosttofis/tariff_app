@@ -262,7 +262,17 @@ These are deployment/production tasks, tracked in full in `AZURE_DEPLOYMENT_CHEC
 - [ ] **Disable API docs in production** — set `TARIFF_ENABLE_DOCS=0` so `/docs`, `/redoc`, `/openapi.json` don't expose the full route surface.
 - [x] ~~Restrict `admin.html` to CERA IPs~~: done in-app (Round 14); covers the admin API too, not just the page.
 - [ ] **Rotate secrets exposed by the static-file issue** (Round 13).
-- [ ] **Remove `'unsafe-inline'` from the CSP** (ZAP Medium, Round 16). Move inline `<script>` blocks, `onclick=`-style handlers and `style=` attributes into separate files or classes, then tighten `script-src` (and ideally `style-src`) to `'self'` plus cdnjs.
+- [~] **Remove `'unsafe-inline'` from the CSP** (ZAP Medium, Round 16), page by page.
+  - **How:** each page's code moves to its own `.js` file, and inline handlers are replaced by listeners. The page then gets the strict `script-src 'self' https://cdnjs.cloudflare.com`; pages not yet converted keep the old policy through `_CSP_LEGACY_PAGES` in `main.py`.
+  - **Enforced by the attacker suite:**
+    - `test_9`: converted pages contain no inline code and are served with the strict policy;
+    - `test_10`: every converted page is clicked through in headless Chromium, with zero CSP violations or script errors allowed.
+  - **Done:**
+    - `reset-password.html` (2026-10-06). Verified in the browser: code planted into the page is refused, with a CSP violation recorded, while on a not-yet-converted page the same code ran.
+  - **Remaining:**
+    - `customer.html`, `supplier.html`, `admin.html`;
+    - then delete `_CSP_LEGACY`;
+    - `style-src 'unsafe-inline'` (inline styles can't run code), to decide afterwards.
 - [ ] **Rate limiter is in-memory/single-process** — needs a shared store (e.g. Redis) only if ever scaled to multiple workers/instances.
 - [ ] **External IT certification** — this document is the security summary to hand over.
 - [~] **Round 6 follow-up** — live UI walkthrough confirming `ConfigImportIn` accepts every real "Publish" payload.

@@ -4,10 +4,21 @@ Only the four pages and the logo are public. Source code, settings (.env),
 the database, uploaded documents and git history must never be downloadable,
 however the path is written.
 """
+import re
+from pathlib import Path
+
 import pytest
 
 PUBLIC = {"/customer.html": "text/html", "/supplier.html": "text/html", "/admin.html": "text/html",
-          "/reset-password.html": "text/html", "/Logo_Transparent.png": "image/png"}
+          "/reset-password.html": "text/html", "/reset-password.js": "text/javascript",
+          "/Logo_Transparent.png": "image/png"}
+
+# Pages whose code lives in a separate .js file and that are served with the strict CSP
+# (no inline scripts allowed). Add each page here as it is converted (Plan B).
+CONVERTED = ["reset-password"]
+ROOT = Path(__file__).resolve().parents[3]
+INLINE_HANDLER = re.compile(r"""\son[a-z]+\s*=\s*["'\\]""", re.I)      # onclick="…", also inside JS strings
+INLINE_SCRIPT = re.compile(r"<script(?![^>]*\bsrc=)[^>]*>", re.I)
 
 BLOCKED = [
     "/tariff-api/.env", "/.env", "/tariff-api/config.py", "/tariff-api/main.py", "/main.py",
@@ -49,6 +60,28 @@ def test_browser_protection_headers_are_sent(app, path):
         assert rule in csp, f"CSP missing {rule!r}"
     assert h.get("X-Content-Type-Options") == "nosniff"
     assert h.get("Referrer-Policy") == "strict-origin-when-cross-origin"
+
+
+@pytest.mark.parametrize("page", CONVERTED)
+def test_converted_pages_contain_no_inline_code(page):
+    html = (ROOT / f"{page}.html").read_text(encoding="utf-8")
+    js = (ROOT / f"{page}.js").read_text(encoding="utf-8")
+    assert not INLINE_SCRIPT.search(html), f"{page}.html has an inline <script>"
+    found = INLINE_HANDLER.findall(html) + INLINE_HANDLER.findall(js)
+    assert not found, f"{page}: inline event handlers {found[:5]}"
+    assert "javascript:" not in html.lower()
+
+
+@pytest.mark.parametrize("page", CONVERTED)
+def test_converted_pages_get_the_strict_policy(app, page):
+    csp = app.anon().get(f"/{page}.html").headers["Content-Security-Policy"]
+    script_src = next(d for d in csp.split(";") if d.strip().startswith("script-src"))
+    assert "'unsafe-inline'" not in script_src and "'unsafe-eval'" not in script_src
+
+
+def test_api_responses_get_the_strict_policy(app):
+    csp = app.anon().get("/api/public/config").headers["Content-Security-Policy"]
+    assert "'unsafe-inline' https://cdnjs" not in csp and "script-src 'self' https://cdnjs" in csp
 
 
 def test_session_cookie_is_protected(app):
