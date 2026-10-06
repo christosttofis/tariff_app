@@ -1819,6 +1819,21 @@ document.addEventListener('keydown', e => {
   const fn = _ACTIONS[el.dataset.action];
   if(fn) fn(el, e);
 });
+// Consumption boxes: plain non-negative kWh only. Number boxes otherwise accept
+// "-", "+" and "e" (as in 5e3), and a negative or huge entry just showed no results.
+// Those keys are ignored; anything pasted is cleaned up before the calculation runs.
+const _KWH_MAX = 5000000;   // the server's limit (schemas._KWH_FIELD)
+document.querySelectorAll('.kwh-input').forEach(box => {
+  box.max = _KWH_MAX;
+  box.addEventListener('keydown', e => { if(['-','+','e','E'].includes(e.key)) e.preventDefault(); });
+  box.addEventListener('input', () => {
+    if(box.value === '') return;
+    const v = box.valueAsNumber;
+    if(!(v >= 0)) box.value = '';
+    else if(v > _KWH_MAX) box.value = _KWH_MAX;
+    else if(/[eE+]/.test(box.value)) box.value = String(v);
+  });
+});
 // The CERA logo falls back to a text badge if the image can't load (it may already
 // have failed before this script ran).
 (function(){

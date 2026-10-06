@@ -119,6 +119,22 @@ def test_customer_settings_and_results(calc_app, page):
     _clean(page)
 
 
+@pytest.mark.parametrize("box, mode", [("#annual-kwh", "annual"), ("#monthly-kwh", "monthly")])
+def test_customer_consumption_box_takes_plain_amounts_only(calc_app, page, box, mode):
+    _open_customer(page, calc_app)
+    page.click(f"#btn-{mode}")
+    for typed, expected in (("-500", "500"), ("+5e3", "53"), ("1.5", "1.5"), ("5000", "5000")):
+        page.fill(box, "")
+        page.type(box, typed)                         # "-", "+" and "e" keys are ignored
+        assert page.input_value(box) == expected, f"typed {typed!r}"
+    for pasted, expected in (("-500", ""), ("1e9", "5000000"), ("5e3", "5000")):
+        page.fill(box, pasted)                        # pasted values are cleaned up
+        assert page.input_value(box) == expected, f"pasted {pasted!r}"
+    page.fill(box, "4000")
+    page.wait_for_selector(".rank-card", timeout=15000)
+    _clean(page)
+
+
 def test_customer_tariff_card_and_its_buttons(calc_app, page):
     _open_customer(page, calc_app)
     _results(page)
