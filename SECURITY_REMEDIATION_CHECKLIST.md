@@ -223,6 +223,34 @@ The first run of off-the-shelf scanners, so findings no longer depend on manual 
   - Production on Azure App Service runs Linux, where this code path doesn't exist.
 - Design note for the inspection: sign-out clears the browser cookie, but tokens are stateless JWTs. A copied token stays valid until it expires (1 hour sliding, 12-hour absolute cap). This is standard for JWT sessions; server-side revocation would need a token blocklist or version counter.
 
+## Round 17 — Attacker (abuse-case) test suite (2026-10-06)
+
+Generic scanners can't know this app's rules (e.g. "Acme must not touch Delta's tariffs"). So the earlier one-off attack scripts were turned into a permanent suite, and the missing scenarios were added: `tariff-api/tests/security/`, 128 pytest tests, about 2.5 minutes.
+
+- [x] **The suite.** Each test attempts one specific misuse over real HTTP against a throwaway server and checks that it is refused.
+  - **Setup:** fake demo data, a random signing key, email off; `.env` is not read (disabled in `_server.py`). Uploads go to a temp folder.
+  - **The 9 groups:**
+    1. role separation on every admin/supplier route (taken from the app's route list, so new routes are covered automatically), plus the office/VPN restriction, including a spoofed `X-Forwarded-For`;
+    2. supplier-to-supplier isolation, including extra fields in saves (mass assignment);
+    3. forged, altered, `alg: none`, expired, over-12-hour, half-finished (OTP pending) and deactivated sessions, and a claimed admin role in a validly signed supplier token;
+    4. password and OTP guessing, lockout, code reuse, resend cooldown, the request limit;
+    5. account discovery by reply content and timing;
+    6. reset links (reuse, guessing, expiry, superseded, deactivated account, weak and reused passwords);
+    7. stored XSS: payloads saved in every displayed free-text field (tariff name, document name, supplier details, messages, profiles, public reports, the login-activity email), then the customer, supplier and admin pages opened in headless Chromium. No markup is injected and no code runs. This closes ZAP's "XSS in JSON" Low.
+    8. fake or oversized PDFs and path tricks in file names; absurd prices, consumption and profiles; garbage bodies to every POST/PUT/PATCH route (no HTTP 500);
+    9. private files never served; CSP and hardening headers; cookie `HttpOnly`/`Secure`/`SameSite=Strict`.
+- [x] **CI.** A new `attacker-tests` job in `security-checks.yml` runs the suite on every push/PR and every Monday; any failure fails the run. pytest 9.1.1 is pinned in `requirements-dev.txt`, which pip-audit already checks. semgrep now excludes `tariff-api/tests`, because the tests deliberately forge tokens (`alg: none`, guessed keys) that would rightly be flagged in app code.
+- [x] **Finding 1 (bug, not a vulnerability): changing your own password signed you out, about 4 times in 5.**
+  - **Cause:** PyJWT stores `iat` in whole seconds, while `password_changed_at` has microseconds. The fresh token issued by the password change looked older than the change itself (same second) and was refused.
+  - **Fix:** tokens carry a precise `iat_precise`, used for that comparison (`auth.py`). Older tokens fall back to `iat`.
+  - **Verified:** other sessions are still ended by a password change, with no window; the test passed 5/5 repeats.
+- [x] **Finding 2 (Low): sign-in reply time revealed which emails are registered.**
+  - **Cause:** the bcrypt check ran only for existing accounts, so replies took about 0.33 s for a real email and 0.03 s for a made-up one. That allowed building a list of real supplier/admin emails to target; the 3-try lockout still protected the passwords.
+  - **Fix:** unknown emails are checked against a dummy bcrypt hash, so both take the same time (`routers/auth.py`).
+  - **Verified:** the timing test passed 5/5 repeats (threshold 80 ms).
+  - **Remaining by design:** admin emails used from outside the office/VPN get "unavailable" (404) instead of "invalid" (401). That is the Round 14 network restriction, which deliberately never checks admin passwords from outside. It does reveal that an address is an admin account, accepted in exchange for admins never being lockable from the internet.
+- [x] **Everything else passed on the existing code (126 of 128 tests before the two fixes).**
+
 ## Open items — must be handled before go-live
 
 These are deployment/production tasks, tracked in full in `AZURE_DEPLOYMENT_CHECKLIST.md` and project memory.
