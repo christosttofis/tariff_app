@@ -200,6 +200,23 @@ The first run of off-the-shelf scanners, so findings no longer depend on manual 
   - **Low, "XSS weakness (persistent in JSON response)" ×14 → accepted by design.** ZAP stored `<script>` text and the JSON API returned it exactly as stored. Text is stored as entered and made safe when the page displays it (escaping and DOMPurify, from the July fixes). ZAP raised it with low confidence, since the response is `application/json`, not HTML. To be confirmed in a real browser by the planned attacker test suite.
   - **Low, cross-domain JavaScript inclusion → accepted.** These are the same two cdnjs scripts, now SRI-pinned.
   - **Info, comments in HTML/JS → accepted.** Developer explanations only (e.g. "minutes from midnight"); no credentials, internal hosts or hidden endpoints.
+- [x] **Accepted false positive: "SQL Injection" (ZAP rule 40018) on `PUT /api/admin/profiles/{id}`.** The first scheduled scan (run 37330744487, 2026-10-05) failed on it, this time on the `desc` field. Investigated and confirmed not a vulnerability; recorded as an accepted exception in the scan's pass/fail step.
+  - **What ZAP did:** it saved the description once ending `… AND 1=1 -- ` and once ending `… OR 1=1 -- `. It saw two different replies and concluded the database had obeyed the injected condition.
+  - **Why it's false:**
+    1. **No SQL is built from text.** The profile is saved by assigning attributes on an SQLAlchemy ORM object (`routers/admin.py`, `update_profile`), which sends values as bound parameters; the text is stored as data, never executed. A search of the app found one hand-written SQL statement, the constant `SELECT 1` health check (`main.py`).
+    2. **The two replies differed for an unrelated reason.** The endpoint returns the whole saved profile: name, description and 12 months × 96 values. ZAP runs 4 attack threads at once, and other threads were rewriting the same profile's other fields between the two probes. ZAP only discounts the field it attacked, so the rest of the reply had changed.
+    3. **Not reproducible.** Same endpoint in runs 37010580557 and 37330744487; absent from the complete run 37285323887, which sent the same probes. A real injection would be found every time.
+    4. **Input validation.** Since `a9c09c7` every field of a profile is validated (`ProfileIn`/`ProfileMonthIn`): text lengths are capped, and month values must be finite numbers. Text fields are still accepted as entered, which is correct for a description.
+  - **Options considered:**
+    - Change the endpoint to stop echoing the saved profile. That would remove the trigger, but it changes working code for a scanner's sake, makes this endpoint inconsistent with every other save endpoint, and would not stop the same effect elsewhere.
+    - Scan one request at a time. That would avoid the parallel changes, but the weekly scan would take several hours.
+
+    Both were rejected in favour of a documented exception (decision of the tool owner, 2026-10-06).
+  - **How the exception is limited:**
+    - It's defined in `.github/scripts/zap_gate.py` (`ACCEPTED`) and matches only rule 40018, method `PUT`, path `/api/admin/profiles/{id}`, parameters `name`/`desc`.
+    - SQL injection on any other endpoint, method or parameter (including `months`), or any other High alert, still fails the run. This was verified against the real report and five altered copies (other parameter, endpoint, method, rule, and an extra instance elsewhere): all five failed as intended.
+    - It isn't hidden: every run's summary lists it as "High (accepted)" with this justification, and the full ZAP report still contains it.
+  - **Review:** re-assess if the profile endpoint changes or if raw SQL is ever introduced. Any new accepted exception needs its own entry here.
 - [x] **Windows-only: the local dev server can be knocked offline. Recorded, not fixed.** The cause is uvicorn on Windows with the default Proactor event loop: after one abruptly reset connection fails in `accept()` (WinError 64), it permanently stops accepting connections.
   - Reproduced during the ZAP rehearsal, where ESET's resets triggered it. A Selector-loop server survived 300 deliberately reset connections.
   - Affects only `start.bat` local development, which isn't reachable from the network.
