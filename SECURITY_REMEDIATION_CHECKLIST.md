@@ -250,6 +250,7 @@ Generic scanners can't know this app's rules (e.g. "Acme must not touch Delta's 
   - **Verified:** the timing test passed 5/5 repeats (threshold 80 ms).
   - **Remaining by design:** admin emails used from outside the office/VPN get "unavailable" (404) instead of "invalid" (401). That is the Round 14 network restriction, which deliberately never checks admin passwords from outside. It does reveal that an address is an admin account, accepted in exchange for admins never being lockable from the internet.
 - [x] **Everything else passed on the existing code (126 of 128 tests before the two fixes).**
+- [x] **Proven to catch regressions.** On a throwaway branch with the supplier ownership check deliberately removed, CI failed the supplier-isolation tests: Acme's edit of Delta's tariff succeeded (run 37430128284). The branch was deleted unmerged. On `master` all five jobs pass (run 37430104947, about 1.5 minutes for the suite on GitHub).
 
 ## Open items — must be handled before go-live
 
