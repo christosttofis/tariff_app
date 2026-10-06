@@ -16,6 +16,7 @@ MARK = "XSSPROBE"
 PAYLOAD = (f'{MARK}<img src=x onerror="window.__xss=1"><svg onload="window.__xss=1">'
            f'"\'><script>window.__xss=1</script>')
 INJECTED = 'img[src="x"], [onerror*="__xss"], [onload*="__xss"]'
+EVIL_ID = "x');window.__xss=1;('"
 
 
 @pytest.fixture(scope="module")
@@ -44,6 +45,21 @@ def planted(app, admin, acme):
     r = admin.post("/api/admin/profiles", json={**{k: v for k, v in prof.items() if k != "id"},
                                                 "name": PAYLOAD[:200], "desc": PAYLOAD})
     assert r.status_code == 201, r.text
+    assert admin.post("/api/admin/profiles", json={**prof, "id": EVIL_ID}).status_code == 422
+    r = app.anon().post("/api/public/report-tariff", json={"tariff_id": EVIL_ID, "category": "other", "note": "x",
+                                                          "reporter_email": "visitor@example.com"})
+    assert r.status_code == 422
+
+    # A supplier may choose its tariff's ID. One that breaks out of a JavaScript string in a
+    # click handler would run code for every visitor who opens the card.
+    # Layer 1: the API refuses such IDs. Layer 2: the pages stay safe even with one already
+    # stored (e.g. from before the rule), so plant it directly in the throwaway database.
+    assert acme.post("/api/supplier/tariffs", json={**body, "id": EVIL_ID}).status_code == 422
+    assert admin.post("/api/admin/tariffs", json={**body, "id": EVIL_ID}).status_code == 422
+    r = acme.post("/api/supplier/tariffs", json={**body, "name": f"{MARK} id test"})
+    assert r.status_code == 201
+    assert admin.patch(f"/api/admin/tariffs/{r.json()['id']}/status", json={"status": "approved"}).status_code == 200
+    app.sql("UPDATE tariffs SET id = ? WHERE id = ?", (EVIL_ID, r.json()["id"]))
 
     # Public visitor: a tariff report; anyone: a sign-in attempt (shown in Login activity).
     r = app.anon().post("/api/public/report-tariff", json={"tariff_id": tid, "category": "other",

@@ -252,6 +252,20 @@ Generic scanners can't know this app's rules (e.g. "Acme must not touch Delta's 
 - [x] **Everything else passed on the existing code (126 of 128 tests before the two fixes).**
 - [x] **Proven to catch regressions.** On a throwaway branch with the supplier ownership check deliberately removed, CI failed the supplier-isolation tests: Acme's edit of Delta's tariff succeeded (run 37430128284). The branch was deleted unmerged. On `master` all five jobs pass (run 37430104947, about 1.5 minutes for the suite on GitHub).
 
+## Round 18 — Stored XSS through a supplier-chosen tariff ID (2026-10-06)
+
+- [x] **Finding (Medium–High), found while converting `customer.html` (Plan B).**
+  - **Cause:** suppliers may choose their own tariff ID when submitting (`TariffIn.id`, previously any text up to 100 characters). The public page built each card's click handler as `onclick="toggleCard('${t.id}')"`, with the ID unescaped inside a JavaScript string.
+  - **Impact:** an ID such as `x');…;('` breaks out of the string. Once an admin approved the tariff, which shows the ID only incidentally, the code would run in the browser of every visitor who opened that card.
+  - **Requires:** a supplier account (or a stolen one) plus an admin approval.
+  - **Why it was missed:** the July XSS review and Round 17's planted-text tests covered names, descriptions and other text fields, not IDs, because IDs were assumed to be app-generated.
+  - **Proven:** with a new attacker test, the planted code ran on the unconverted page.
+- [x] **Fixed in two independent layers:**
+  1. **Server:** client-chosen IDs (`TariffIn.id`, `ProfileIn.id`, and the public report's `tariff_id`) must match `^[A-Za-z0-9_-]+$` (`schemas._ID_PATTERN`). A read-only check of the real database found all IDs already compliant: 11 tariffs, 3 profiles, 2 messages.
+  2. **Page:** `customer.html` no longer puts any value into code. The ID goes into an escaped `data-arg` attribute, and the strict CSP would refuse such code anyway.
+- [x] **Tests:** `test_7` checks that the API refuses such IDs (supplier, admin, profile, public report). It also plants one directly in the database, as if it predated the rule, and confirms that the customer, supplier and admin pages run nothing.
+- [ ] **Follow-up during the admin/supplier conversion:** `admin.html` still puts IDs into handlers (profiles, messages, schedules, reports), as does `supplier.html` (message acknowledge). Those IDs are server-generated or admin-chosen, and profile IDs are now validated, so this isn't exploitable today. The conversion removes the pattern entirely.
+
 ## Open items — must be handled before go-live
 
 These are deployment/production tasks, tracked in full in `AZURE_DEPLOYMENT_CHECKLIST.md` and project memory.
@@ -269,8 +283,12 @@ These are deployment/production tasks, tracked in full in `AZURE_DEPLOYMENT_CHEC
     - `test_10`: every converted page is clicked through in headless Chromium, with zero CSP violations or script errors allowed.
   - **Done:**
     - `reset-password.html` (2026-10-06). Verified in the browser: code planted into the page is refused, with a CSP violation recorded, while on a not-yet-converted page the same code ran.
+    - `customer.html` → `customer.js` (2026-10-06).
+      - All ~70 handlers, including those generated for cards, discounts and estimator options, now use `data-action` and a fixed action table. Hover colours moved to CSS.
+      - 5 click-through tests cover every control and modal. `verify_customer_calc.py` passes, and the full suite passes (144 tests).
+      - This also removed the Round 18 code path.
   - **Remaining:**
-    - `customer.html`, `supplier.html`, `admin.html`;
+    - `supplier.html`, `admin.html`;
     - then delete `_CSP_LEGACY`;
     - `style-src 'unsafe-inline'` (inline styles can't run code), to decide afterwards.
 - [ ] **Rate limiter is in-memory/single-process** — needs a shared store (e.g. Redis) only if ever scaled to multiple workers/instances.

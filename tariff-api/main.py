@@ -179,7 +179,7 @@ _CSP_POLICY = (
 # SECURITY_REMEDIATION_CHECKLIST.md, open items): these still contain inline
 # scripts/handlers, so they get the old policy that allows them. Delete this
 # (and _CSP_LEGACY) once the set is empty.
-_CSP_LEGACY_PAGES = {"/customer.html", "/supplier.html", "/admin.html"}
+_CSP_LEGACY_PAGES = {"/supplier.html", "/admin.html"}
 _CSP_LEGACY = _CSP_POLICY.replace("script-src 'self'", "script-src 'self' 'unsafe-inline'")
 
 
@@ -404,6 +404,7 @@ def report_tariff(body: TariffReportIn, request: Request, db: Session = Depends(
 _STATIC_ROOT = Path(__file__).parent.parent
 _PUBLIC_FILES = {
     "customer.html": "text/html; charset=utf-8",
+    "customer.js": "text/javascript; charset=utf-8",
     "supplier.html": "text/html; charset=utf-8",
     "admin.html": "text/html; charset=utf-8",
     "reset-password.html": "text/html; charset=utf-8",   # linked from invite/reset emails

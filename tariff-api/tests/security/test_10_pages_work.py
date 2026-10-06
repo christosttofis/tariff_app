@@ -47,6 +47,190 @@ def _clean(page):
     assert not page.errors, f"browser errors: {page.errors}"
 
 
+# ── customer.html (public calculator) ────────────────────────────────────────
+OVERLAYS = ["est-overlay", "meth-modal-overlay", "report-overlay", "notices-overlay", "reg-info-overlay",
+            "sample-invoice-overlay", "sup-contact-overlay", "vulnerable-overlay"]
+
+
+@pytest.fixture(scope="module")
+def calc_app(app, admin):
+    # Show the sample-invoice button on every card, so its handler is exercised too.
+    assert admin.put("/api/admin/sample-invoice", json={"enabled": True}).status_code == 200
+    return app
+
+
+def _open_customer(page, app):
+    page.goto(f"{app.url}/customer.html", wait_until="networkidle")
+    page.wait_for_selector("#app", state="visible")
+
+
+def _results(page, kwh="5000"):
+    page.fill("#annual-kwh", kwh)
+    page.wait_for_selector(".rank-card", timeout=15000)
+
+
+def _shown(page, overlay):
+    page.wait_for_selector(f"#{overlay}", state="visible", timeout=5000)
+
+
+def _hidden(page, overlay):
+    page.wait_for_selector(f"#{overlay}", state="hidden", timeout=5000)
+
+
+def test_customer_settings_and_results(calc_app, page):
+    _open_customer(page, calc_app)
+    page.click("#lang-btn-en")
+    assert "active" in page.get_attribute("#lang-btn-en", "class")
+    _results(page)
+    first = page.inner_text(".rank-card")
+    page.click("#tab-ci")                                   # commercial customer
+    assert "active" in page.get_attribute("#tab-ci", "class")
+    page.wait_for_timeout(800)
+    page.click("#tab-domestic")
+    page.wait_for_timeout(800)
+    page.select_option("#sel-pricing", "Fixed")             # pricing filter (change event)
+    page.wait_for_timeout(800)
+    assert all("Fixed" in c or "Σταθερ" in c for c in page.locator(".rank-card").all_inner_texts())
+    page.select_option("#sel-pricing", "All")
+    page.click("#tab-ci")
+    page.select_option("#sel-voltage", "MV")                # voltage (change event)
+    page.click("#le-gt") if page.is_visible("#le-gt") else None
+    page.click("#tab-domestic")
+    page.click("#offers-check")                             # checkbox (change event)
+    page.click("#offers-check")
+    page.click("#btn-monthly")                              # monthly mode + billing period
+    assert page.is_visible("#monthly-kwh")
+    page.fill("#monthly-kwh", "400")
+    page.click("#bp-btn-2")
+    assert "active" in page.get_attribute("#bp-btn-2", "class")
+    page.click("#bp-btn-1")
+    page.click("#btn-annual")
+    _results(page, "6000")
+    assert page.inner_text(".rank-card") != "" and first
+    # Typing in the consumption box collapses the connection card (focus event)...
+    assert page.get_attribute("#cc-head", "aria-expanded") == "false"
+    page.click("#cc-head")                                  # ...a click opens it again...
+    assert page.get_attribute("#cc-head", "aria-expanded") == "true"
+    page.focus("#cc-head")
+    page.keyboard.press("Enter")                            # ...and the keyboard works too
+    assert page.get_attribute("#cc-head", "aria-expanded") == "false"
+    page.click("#lang-btn-el")
+    assert "active" in page.get_attribute("#lang-btn-el", "class")
+    _clean(page)
+
+
+def test_customer_tariff_card_and_its_buttons(calc_app, page):
+    _open_customer(page, calc_app)
+    _results(page)
+    page.click(".rank-header")                              # open the first card
+    page.wait_for_selector(".rank-detail.open .mo-table")
+    assert page.locator(".rank-detail.open canvas").count() >= 1
+    box = page.locator(".rank-detail.open input[type=checkbox][data-change=toggleDiscount]")
+    if box.count():
+        box.first.click()                                   # discount toggle (change event)
+        page.wait_for_timeout(600)
+        assert page.locator(".rank-detail.open .mo-table").count()
+    page.click(".rank-detail.open [data-action=openSampleInvoice]")
+    _shown(page, "sample-invoice-overlay")
+    assert "€" in page.inner_text("#sample-invoice-body")
+    page.click("#sample-invoice-overlay [data-action=closeSampleInvoice]")
+    _hidden(page, "sample-invoice-overlay")
+    page.click(".rank-detail.open button[data-action=openSupContact]")
+    _shown(page, "sup-contact-overlay")
+    page.click("#sup-contact-overlay", position={"x": 5, "y": 5})   # click on the dimmed backdrop
+    _hidden(page, "sup-contact-overlay")
+    page.click(".rank-card .rank-sup-pill")                 # supplier pill inside the header...
+    _shown(page, "sup-contact-overlay")
+    page.click("#sup-contact-overlay [data-action=closeSupContact]")
+    assert page.locator(".rank-detail.open").count() == 1   # ...didn't also toggle the card
+    trigger = page.locator(".rank-detail.open .reg-info-trigger")
+    if trigger.count():
+        trigger.first.click()
+        _shown(page, "reg-info-overlay")
+        page.click("#reg-info-overlay [data-action=closeRegInfo]")
+        _hidden(page, "reg-info-overlay")
+    page.focus(".rank-header")
+    page.keyboard.press("Enter")                            # keyboard closes the card again
+    page.wait_for_timeout(300)
+    assert page.locator(".rank-detail.open").count() == 0
+    _clean(page)
+
+
+def test_customer_report_an_issue(calc_app, page):
+    before = calc_app.sql("SELECT COUNT(*) FROM tariff_reports")[0][0]
+    _open_customer(page, calc_app)
+    _results(page)
+    page.click(".rank-header")
+    page.click(".rank-detail.open [data-action=reportTariff]")
+    _shown(page, "report-overlay")
+    assert page.inner_text("#report-tariff-name")
+    page.fill("#report-note", "The price shown is out of date.")
+    page.fill("#report-email", "visitor@example.com")
+    page.click("#report-submit-btn")
+    page.wait_for_selector("#report-success", state="visible")
+    assert calc_app.sql("SELECT COUNT(*) FROM tariff_reports")[0][0] == before + 1
+    page.click("#report-overlay [data-action=closeReportIssue]")
+    _hidden(page, "report-overlay")
+    page.click("#footer-report-issue-btn")                  # general (not tariff-specific) report
+    _shown(page, "report-overlay")
+    page.click("#report-btn-cancel")
+    _hidden(page, "report-overlay")
+    _clean(page)
+
+
+def test_customer_estimator(calc_app, page):
+    _open_customer(page, calc_app)
+    page.click("#est-trigger-btn")
+    _shown(page, "est-overlay")
+    page.locator("#est-ac-group .est-radio").last.click()   # generated radio options
+    assert "active" in page.locator("#est-ac-group .est-radio").last.get_attribute("class")
+    page.click("#est-calc-btn")
+    page.wait_for_selector("#est-result-wrap", state="visible")
+    page.click("#est-meth-link")
+    _shown(page, "meth-modal-overlay")
+    page.click("#meth-modal-overlay [data-action=closeEstMeth]")
+    _hidden(page, "meth-modal-overlay")
+    page.click("#est-use-btn")
+    _hidden(page, "est-overlay")
+    assert page.input_value("#annual-kwh") not in ("", "0")
+    page.wait_for_selector(".rank-card", timeout=15000)
+    page.click("#est-trigger-btn")
+    page.click("#est-overlay", position={"x": 5, "y": 5})   # backdrop closes it
+    _hidden(page, "est-overlay")
+    _clean(page)
+
+
+def test_customer_notices_vulnerable_and_footer(calc_app, page):
+    _open_customer(page, calc_app)
+    page.click("#notices-open-btn")
+    _shown(page, "notices-overlay")
+    for tab in ("about", "legal", "assumptions"):
+        page.click(f"#ntab-{tab}")
+        assert "active" in page.get_attribute(f"#ntab-{tab}", "class")
+    page.click("#notices-overlay [data-action=closeNotices]")
+    _hidden(page, "notices-overlay")
+    # The row only shows when a vulnerable-customer tariff exists (none in the demo data).
+    page.evaluate("document.getElementById('vulnerable-row').style.display='block'")
+    page.click("#vulnerable-info-btn")
+    _shown(page, "vulnerable-overlay")
+    page.click("#vulnerable-overlay [data-action=closeVulnerableModal]")
+    _hidden(page, "vulnerable-overlay")
+    page.click("#a11y-toggle")
+    assert page.evaluate("document.documentElement.classList.contains('a11y-mode')")
+    page.click("#a11y-toggle")
+    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+    page.wait_for_selector("#back-to-top", state="visible")
+    page.click("#back-to-top")
+    # (Playwright's wait_for_function evaluates text as code, which the strict CSP rightly refuses.)
+    for _ in range(50):
+        if page.evaluate("window.scrollY") < 50:
+            break
+        page.wait_for_timeout(100)
+    assert page.evaluate("window.scrollY") < 50, "back-to-top didn't scroll up"
+    assert not any(page.is_visible(f"#{o}") for o in OVERLAYS)
+    _clean(page)
+
+
 # ── reset-password.html ──────────────────────────────────────────────────────
 def _reset_link(app, email=ACME):
     assert app.anon().post("/api/auth/forgot-password", json={"email": email}).status_code == 200

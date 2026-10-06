@@ -20,6 +20,12 @@ _URL_RE = re.compile(r"^https?://", re.IGNORECASE)
 # produce absurd output instead of a clean validation error.
 _KWH_FIELD = Field(default=0, ge=0, le=5_000_000, allow_inf_nan=False)
 
+# Client-chosen record IDs (tariffs, profiles): letters, digits, '-' and '_' only.
+# The pages put IDs into links, attributes and (on pages not yet converted to the
+# strict CSP) click handlers; a quote or bracket in a supplier-chosen ID broke out
+# of the customer page's handler and ran code (SECURITY_REMEDIATION_CHECKLIST.md, Round 18).
+_ID_PATTERN = r"^[A-Za-z0-9_-]+$"
+
 
 def _check_email(v: str) -> str:
     """Allows an empty string (field not filled in); validates format otherwise."""
@@ -73,7 +79,7 @@ class ProfileMonthIn(BaseModel):
 
 
 class ProfileIn(BaseModel):
-    id: str | None = Field(None, max_length=100)
+    id: str | None = Field(None, max_length=100, pattern=_ID_PATTERN)
     name: str = Field(..., max_length=200)
     desc: str = Field("", max_length=2000)
     months: list[ProfileMonthIn] = Field(..., min_length=12, max_length=12)
@@ -165,7 +171,7 @@ class DiscountIn(BaseModel):
 
 
 class TariffIn(BaseModel):
-    id: str | None = Field(None, max_length=100)
+    id: str | None = Field(None, max_length=100, pattern=_ID_PATTERN)
     name: str = Field(..., max_length=200)
     supplier: str = Field(..., max_length=200)
     contract: Literal["Domestic", "Commercial", "Industrial"]
@@ -281,7 +287,7 @@ class TariffReportIn(BaseModel):
     # None = a general site issue, not tied to any one tariff (customer.html's
     # footer "Report a general issue" link) — tariff/supplier are looked up
     # server-side below only when this is set.
-    tariff_id: str | None = Field(None, max_length=100)
+    tariff_id: str | None = Field(None, max_length=100, pattern=_ID_PATTERN)
     category: Literal[_REPORT_CATEGORIES] = "other"
     note: str = Field(..., max_length=2000)
     reporter_email: str = Field(..., max_length=254)
