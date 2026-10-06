@@ -8,7 +8,7 @@ that the browser blocked nothing (no CSP violations, no script errors).
 import pytest
 from playwright.sync_api import sync_playwright
 
-from conftest import ACME, PASSWORD
+from conftest import ACME, DELTA, PASSWORD, VOLT
 
 NEW = "Fresh-Passw0rd!"
 
@@ -44,7 +44,11 @@ def _clean(page):
     """Nothing blocked, nothing crashed."""
     violations = page.evaluate("window.__csp")
     assert not violations, f"blocked by CSP: {violations}"
-    assert not page.errors, f"browser errors: {page.errors}"
+    # The browser also logs every HTTP error status as a console error (e.g. the 401 from
+    # "am I signed in?" before signing in). Those are the server's normal answers; only
+    # script errors and other console errors count here.
+    errors = [e for e in page.errors if not e.startswith("Failed to load resource: the server responded with a status of")]
+    assert not errors, f"browser errors: {errors}"
 
 
 # ── customer.html (public calculator) ────────────────────────────────────────
@@ -244,6 +248,192 @@ def test_customer_notices_vulnerable_and_footer(calc_app, page):
         page.wait_for_timeout(100)
     assert page.evaluate("window.scrollY") < 50, "back-to-top didn't scroll up"
     assert not any(page.is_visible(f"#{o}") for o in OVERLAYS)
+    _clean(page)
+
+
+# ── supplier.html (supplier portal) ──────────────────────────────────────────
+def _visible(page, sel):
+    return page.is_visible(sel)
+
+
+def _sign_in(page, app, email=ACME, password=PASSWORD):
+    page.goto(f"{app.url}/supplier.html", wait_until="networkidle")
+    page.wait_for_selector("#login-overlay", state="visible")
+    page.fill("#login-email", email)
+    page.fill("#login-password", password)
+    page.press("#login-password", "Enter")                  # Enter submits
+    page.wait_for_selector("#app", state="visible", timeout=15000)
+
+
+def test_supplier_sign_in_forgot_and_sign_out(make_app, page):
+    app = make_app()
+    page.goto(f"{app.url}/supplier.html", wait_until="networkidle")
+    page.click("#login-overlay a[data-action=showForgotForm]")
+    page.wait_for_selector("#forgot-panel", state="visible")
+    page.fill("#forgot-email", ACME)
+    page.click("#forgot-btn")
+    for _ in range(50):
+        if app.sql("SELECT COUNT(*) FROM password_resets WHERE email = ?", (ACME,))[0][0]:
+            break
+        page.wait_for_timeout(100)
+    assert app.sql("SELECT COUNT(*) FROM password_resets WHERE email = ?", (ACME,))[0][0] == 1
+    page.click("#forgot-panel a[data-action=hideForgotForm]")
+    page.wait_for_selector("#login-email", state="visible")
+    assert page.evaluate("location.hash") == "", "href='#' link jumped"
+    page.fill("#login-email", ACME)
+    page.fill("#login-password", PASSWORD)
+    page.click("#login-btn")
+    page.wait_for_selector("#app", state="visible", timeout=15000)
+    page.click("[data-action=setLang][data-arg=en]:visible")
+    page.click("[data-action=doLogout]")
+    page.wait_for_selector("#login-overlay", state="visible")
+    _clean(page)
+
+
+def test_supplier_sign_in_with_a_code(make_app, page):
+    app = make_app()
+    admin = app.login("admin1@demo.local")
+    admin.patch(f"/api/admin/users/{app.user_id(VOLT)}/otp", json={"otp_enabled": True})
+    page.goto(f"{app.url}/supplier.html", wait_until="networkidle")
+    page.fill("#login-email", VOLT)
+    page.fill("#login-password", PASSWORD)
+    page.click("#login-btn")
+    page.wait_for_selector("#otp-panel", state="visible")
+    code = app.sql("SELECT code FROM otp_codes WHERE email = ? ORDER BY id DESC", (VOLT,))[0][0]
+    page.type("#otp-code", code[:3] + "ab" + code[3:])      # letters are stripped as you type
+    assert page.input_value("#otp-code") == code
+    page.press("#otp-code", "Enter")                         # Enter verifies
+    page.wait_for_selector("#app", state="visible", timeout=15000)
+    _clean(page)
+
+
+def test_supplier_tariff_form(make_app, page):
+    app = make_app()
+    page.on("dialog", lambda d: d.accept())
+    _sign_in(page, app)
+    rows_before = page.locator("#tariff-tbody tr").count()
+    page.click("[data-action=openForm]")
+    page.wait_for_selector("#form-overlay", state="visible")
+    page.fill("#edit-name", "Browser-test tariff")
+    page.select_option("#edit-contract", "Commercial")       # change events
+    page.select_option("#edit-voltage", "MV")
+    page.select_option("#edit-duration-type", "fixed")
+    assert _visible(page, "#duration-months-field")
+    page.select_option("#edit-duration-type", "indefinite")
+    page.select_option("#edit-fpa-source", "custom")
+    assert _visible(page, "#fpa-custom-field")
+    page.select_option("#edit-fpa-source", "global")
+    page.click("[data-action=addDiscount][data-arg=standing]")
+    page.click("[data-action=addDiscount][data-arg=energy]")
+    assert page.locator(".discount-row").count() == 2
+    page.locator("[data-action=removeDiscountRow]").first.click()
+    assert page.locator(".discount-row").count() == 1
+    page.locator("[data-action=removeDiscountRow]").first.click()
+    page.select_option("#edit-pricing", "Variable")
+    assert _visible(page, "#fields-variable")
+    n = page.locator("#tier-rows [data-action=removeTierRow]").count()
+    page.click("[data-action=addTierRow]")
+    assert page.locator("#tier-rows [data-action=removeTierRow]").count() == n + 1
+    page.locator("#tier-rows [data-action=removeTierRow]").last.click()
+    assert page.locator("#tier-rows [data-action=removeTierRow]").count() == n
+    page.select_option("#edit-pricing", "Fixed")
+    page.fill("#fix-rate", "0.17")
+    page.fill("#edit-standing", "3")
+    page.click("#submit-btn")
+    page.wait_for_selector("#form-overlay", state="hidden", timeout=15000)
+    assert app.sql("SELECT status FROM tariffs WHERE name = 'Browser-test tariff'") == [("pending",)]
+    page.wait_for_timeout(500)
+    assert page.locator("#tariff-tbody tr").count() == rows_before + 1
+    # Edit, then cancel; then delete (a never-published tariff is removed).
+    row = page.locator("#tariff-tbody tr", has_text="Browser-test tariff")
+    row.locator("[data-action=editTariff]").click()
+    page.wait_for_selector("#form-overlay", state="visible")
+    assert page.input_value("#edit-name") == "Browser-test tariff"
+    page.locator("#form-overlay [data-action=closeForm]").first.click()
+    page.wait_for_selector("#form-overlay", state="hidden")
+    row.locator("[data-action=deleteTariff]").click()
+    for _ in range(50):
+        if not app.sql("SELECT 1 FROM tariffs WHERE name = 'Browser-test tariff'"):
+            break
+        page.wait_for_timeout(100)
+    assert not app.sql("SELECT 1 FROM tariffs WHERE name = 'Browser-test tariff'")
+    _clean(page)
+
+
+def test_supplier_documents_and_messages(make_app, page, tmp_path):
+    app = make_app()
+    admin = app.login("admin1@demo.local")
+    admin.post("/api/admin/messages", json={"subject": "Browser test", "body": "Please acknowledge.",
+                                           "audience": "all", "target_suppliers": []})
+    _sign_in(page, app)
+    # Documents: open, upload, download, close.
+    page.locator("[data-action=openDocsModal]").first.click()
+    page.wait_for_selector("#docs-modal-overlay", state="visible")
+    pdf = tmp_path / "terms.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n% browser test\n%%EOF\n")
+    page.set_input_files("#docs-modal-file", str(pdf))
+    page.click("[data-action=uploadDocModal]")
+    page.wait_for_selector("#docs-modal-list [data-action=downloadDoc]", timeout=10000)
+    with page.expect_download() as dl:
+        page.locator("#docs-modal-list [data-action=downloadDoc]").first.click()
+    assert dl.value.suggested_filename == "terms.pdf"
+    page.click("#docs-modal-overlay", position={"x": 5, "y": 5})   # backdrop closes it
+    page.wait_for_selector("#docs-modal-overlay", state="hidden")
+    # Messages: open, acknowledge, show acknowledged, close.
+    page.click("#messages-btn")
+    page.wait_for_selector("#messages-overlay", state="visible")
+    page.locator("#messages-list [data-action=ackMessage]").first.click()
+    for _ in range(50):
+        if app.sql("SELECT acknowledged_at FROM message_reads")[0:1] and app.sql("SELECT acknowledged_at FROM message_reads")[0][0]:
+            break
+        page.wait_for_timeout(100)
+    assert app.sql("SELECT acknowledged_at FROM message_reads")[0][0]
+    page.locator("#messages-list [data-action=toggleAckedSection]").click()
+    assert _visible(page, "#acked-messages")
+    page.locator("#messages-overlay [data-action=closeMessagesModal]").click()
+    page.wait_for_selector("#messages-overlay", state="hidden")
+    _clean(page)
+
+
+def test_supplier_account_idle_and_expired_password(make_app, page):
+    app = make_app()
+    _sign_in(page, app)
+    page.click("[data-action=openAccountModal]")
+    page.wait_for_selector("#acct-overlay", state="visible")
+    page.fill("#acct-cur-pw", PASSWORD)
+    page.fill("#acct-new-pw", NEW)
+    page.fill("#acct-confirm-pw", NEW)
+    page.click("[data-action=doUpdatePassword]")
+    for _ in range(50):
+        if page.inner_text("#acct-pw-msg"):
+            break
+        page.wait_for_timeout(100)
+    app.login(ACME, NEW)
+    page.click("#acct-overlay", position={"x": 5, "y": 5})
+    page.wait_for_selector("#acct-overlay", state="hidden")
+    page.reload(wait_until="networkidle")
+    page.wait_for_selector("#app", state="visible", timeout=15000)   # still signed in after own change
+    page.evaluate("_showIdleWarning()")                     # the idle warning's button
+    page.wait_for_selector("#idle-warning-overlay", state="visible")
+    page.click("[data-action=dismissIdleWarning]")
+    page.wait_for_selector("#idle-warning-overlay", state="hidden")
+    _clean(page)
+
+
+def test_supplier_expired_password_must_be_changed_first(make_app, page):
+    app = make_app()
+    app.sql("UPDATE users SET must_change_password = 1 WHERE email = ?", (DELTA,))
+    page.goto(f"{app.url}/supplier.html", wait_until="networkidle")
+    page.fill("#login-email", DELTA)
+    page.fill("#login-password", PASSWORD)
+    page.click("#login-btn")
+    page.wait_for_selector("#pw-expired-overlay", state="visible", timeout=15000)
+    page.fill("#pwx-cur-pw", PASSWORD)
+    page.fill("#pwx-new-pw", NEW)
+    page.fill("#pwx-confirm-pw", NEW)
+    page.click("[data-action=doUpdatePasswordExpired]")
+    page.wait_for_selector("#pw-expired-overlay", state="hidden", timeout=15000)
+    assert app.sql("SELECT must_change_password FROM users WHERE email = ?", (DELTA,)) == [(0,)]
     _clean(page)
 
 

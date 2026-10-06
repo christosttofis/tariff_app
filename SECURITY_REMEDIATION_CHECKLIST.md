@@ -264,7 +264,7 @@ Generic scanners can't know this app's rules (e.g. "Acme must not touch Delta's 
   1. **Server:** client-chosen IDs (`TariffIn.id`, `ProfileIn.id`, and the public report's `tariff_id`) must match `^[A-Za-z0-9_-]+$` (`schemas._ID_PATTERN`). A read-only check of the real database found all IDs already compliant: 11 tariffs, 3 profiles, 2 messages.
   2. **Page:** `customer.html` no longer puts any value into code. The ID goes into an escaped `data-arg` attribute, and the strict CSP would refuse such code anyway.
 - [x] **Tests:** `test_7` checks that the API refuses such IDs (supplier, admin, profile, public report). It also plants one directly in the database, as if it predated the rule, and confirms that the customer, supplier and admin pages run nothing.
-- [ ] **Follow-up during the admin/supplier conversion:** `admin.html` still puts IDs into handlers (profiles, messages, schedules, reports), as does `supplier.html` (message acknowledge). Those IDs are server-generated or admin-chosen, and profile IDs are now validated, so this isn't exploitable today. The conversion removes the pattern entirely.
+- [ ] **Follow-up during the admin/supplier conversion:** `admin.html` still puts IDs into handlers (profiles, messages, schedules, reports), as did `supplier.html` (message acknowledge; removed by its conversion). Those IDs are server-generated or admin-chosen, and profile IDs are now validated, so this isn't exploitable today. The conversion removes the pattern entirely.
 
 ## Open items — must be handled before go-live
 
@@ -287,8 +287,16 @@ These are deployment/production tasks, tracked in full in `AZURE_DEPLOYMENT_CHEC
       - All ~70 handlers, including those generated for cards, discounts and estimator options, now use `data-action` and a fixed action table. Hover colours moved to CSS.
       - 5 click-through tests cover every control and modal. `verify_customer_calc.py` passes, and the full suite passes (144 tests).
       - This also removed the Round 18 code path.
+    - `supplier.html` → `supplier.js` (2026-10-06).
+      - Both script blocks are merged into `supplier.js`, and all ~47 handlers are replaced, including the message-acknowledge button, which put an ID into code.
+      - 7 click-through tests cover:
+        - sign-in, forgot-password, sign-in with an emailed code, sign-out;
+        - tariff form (all selects, discounts, tiers, submit, edit, delete);
+        - documents (upload, download) and messages (acknowledge);
+        - account password change, idle warning, expired-password gate.
+      - Full suite passes (155 tests).
   - **Remaining:**
-    - `supplier.html`, `admin.html`;
+    - `admin.html`;
     - then delete `_CSP_LEGACY`;
     - `style-src 'unsafe-inline'` (inline styles can't run code), to decide afterwards.
 - [ ] **Rate limiter is in-memory/single-process** — needs a shared store (e.g. Redis) only if ever scaled to multiple workers/instances.

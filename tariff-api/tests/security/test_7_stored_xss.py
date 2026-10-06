@@ -110,7 +110,12 @@ def test_public_calculator_shows_planted_text_safely(app, planted, browser):
 def test_supplier_portal_shows_planted_text_safely(app, planted, browser):
     acme = app.login(ACME)
     page = _open(browser, app, "supplier.html", acme)
-    page.wait_for_function(f"document.body.innerText.includes('{MARK}')", timeout=15000)
+    # (polled: Playwright's wait_for_function evaluates text as code, which the strict CSP refuses)
+    for _ in range(150):
+        if MARK in page.inner_text("body"):
+            break
+        page.wait_for_timeout(100)
+    assert MARK in page.inner_text("body"), "planted tariff not displayed - test would prove nothing"
     _assert_safe(page, "supplier tariff list")
     for step, js in (("messages", "openMessagesModal()"),
                      ("documents", f"openDocsModal('{planted}')"),
