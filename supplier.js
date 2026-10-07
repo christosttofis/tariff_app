@@ -64,7 +64,7 @@ const LANG = {
     LBL_SUPPORT_DOC:'Supporting document', LBL_OPTIONAL_SUFFIX:'(optional)',
     HINT_DOC:'Relevant published tariff documentation must be provided for verification. PDF only, max 10 MB.',
     TIER_LBL:'Tier', TIER_UP_TO:'up to', TIER_KWH:'kWh', TIER_RATE:'rate', TIER_RATE_UNIT:'€/kWh', TIER_FIXED:'fixed', TIER_FIXED_UNIT:'€/period',
-    ERR_TIER_NEEDED:'Variable tariff needs at least one tier.', ERR_NAME_REQUIRED:'Tariff name is required.',
+    ERR_TIER_NEEDED:'Variable tariff needs at least one tier.', ERR_NAME_REQUIRED:'Please provide the tariff name.',
     ERR_ONE_TIER:'Need at least one tier.',
     ERR_ENTER_EMAIL_PW:'Enter your email and password.',
     ERR_SESSION_EXPIRED:'Session expired — please sign in again.', ERR_SESSION_EXPIRED_SHORT:'Session expired.',
@@ -76,6 +76,13 @@ const LANG = {
     CONFIRM_ARCHIVE:'Remove "{name}" from the public comparison?\n\nIt has been published before, so it will be kept in your list as Archived (read-only) and can only be restored by CERA.',
     PH_DISC_CONDITIONS:'Conditions, e.g. direct debit', PH_DISC_PCT:'% off', PH_DISC_MONTHS:'Months (blank = permanent)',
     ERR_VALIDATION:'Please correct the following:',
+    ERR_FIELDS_SUMMARY:'Please correct the highlighted fields ({N}).',
+    ERR_F_REQUIRED:'Please enter a value.', ERR_F_MIN:'This cannot be less than {N}.',
+    ERR_F_ABOVE:'This must be more than {N}.', ERR_F_MAX:'This cannot be more than {N}.',
+    ERR_F_WHOLE:'Please enter a whole number.', ERR_F_TOO_LONG:'Too long: at most {N} characters.',
+    ERR_F_TIER_ORDER:'The limit of each tier must be higher than the one before it.',
+    ERR_F_TIER_OPEN:'Only the last tier may be left without a limit (∞).',
+    ERR_F_DISC_PCT:'Enter a percentage (more than 0, up to 100), or remove this discount.',
     ACCT_ERR_EMAIL_PW:'Please enter your current password to change your email.',
     CONFIRM_DISCARD:'You have unsaved changes to this tariff.\n\nDiscard them?',
     CONFIRM_DISCARD_SIGNOUT:'You have unsaved changes to a tariff.\n\nSign out and discard them?',
@@ -193,7 +200,7 @@ const LANG = {
     HINT_DOC:'Πρέπει να υποβληθεί σχετική δημοσιευμένη τεκμηρίωση για επαλήθευση. Μόνο PDF, έως 10 MB.',
     TIER_LBL:'Κλίμακα', TIER_UP_TO:'έως', TIER_KWH:'kWh', TIER_RATE:'χρέωση', TIER_RATE_UNIT:'€/kWh', TIER_FIXED:'πάγιο', TIER_FIXED_UNIT:'€/περίοδο',
     ERR_TIER_NEEDED:'Η κλιμακωτή διατίμηση χρειάζεται τουλάχιστον μία κλίμακα.',
-    ERR_NAME_REQUIRED:'Το όνομα διατίμησης είναι υποχρεωτικό.',
+    ERR_NAME_REQUIRED:'Παρακαλώ δώστε το όνομα της διατίμησης.',
     ERR_ONE_TIER:'Απαιτείται τουλάχιστον μία κλίμακα.',
     ERR_ENTER_EMAIL_PW:'Εισάγετε το email και τον κωδικό σας.',
     ERR_SESSION_EXPIRED:'Η συνεδρία έληξε — παρακαλώ συνδεθείτε ξανά.',
@@ -209,6 +216,13 @@ const LANG = {
     CONFIRM_ARCHIVE:'Αφαίρεση "{name}" από τη δημόσια σύγκριση;\n\nΈχει δημοσιευθεί στο παρελθόν, οπότε θα παραμείνει στη λίστα σας ως Αρχειοθετημένη (μόνο για ανάγνωση) και μπορεί να επαναφερθεί μόνο από τη ΡΑΕΚ.',
     PH_DISC_CONDITIONS:'Προϋποθέσεις, π.χ. πάγια εντολή', PH_DISC_PCT:'% έκπτωση', PH_DISC_MONTHS:'Μήνες (κενό = μόνιμη)',
     ERR_VALIDATION:'Παρακαλώ διορθώστε τα ακόλουθα:',
+    ERR_FIELDS_SUMMARY:'Παρακαλώ διορθώστε τα επισημασμένα πεδία ({N}).',
+    ERR_F_REQUIRED:'Παρακαλώ συμπληρώστε τιμή.', ERR_F_MIN:'Η τιμή δεν μπορεί να είναι μικρότερη από {N}.',
+    ERR_F_ABOVE:'Η τιμή πρέπει να είναι μεγαλύτερη από {N}.', ERR_F_MAX:'Η τιμή δεν μπορεί να είναι μεγαλύτερη από {N}.',
+    ERR_F_WHOLE:'Παρακαλώ εισάγετε ακέραιο αριθμό.', ERR_F_TOO_LONG:'Πολύ μεγάλο κείμενο: έως {N} χαρακτήρες.',
+    ERR_F_TIER_ORDER:'Το όριο κάθε κλίμακας πρέπει να είναι μεγαλύτερο από το προηγούμενο.',
+    ERR_F_TIER_OPEN:'Μόνο η τελευταία κλίμακα μπορεί να μείνει χωρίς όριο (∞).',
+    ERR_F_DISC_PCT:'Εισάγετε ποσοστό (πάνω από 0, έως 100) ή αφαιρέστε αυτή την έκπτωση.',
     CONFIRM_DISCARD:'Έχετε μη αποθηκευμένες αλλαγές σε αυτή τη διατίμηση.\n\nΝα απορριφθούν;',
     CONFIRM_DISCARD_SIGNOUT:'Έχετε μη αποθηκευμένες αλλαγές σε διατίμηση.\n\nΑποσύνδεση και απόρριψη των αλλαγών;',
     ACCT_ERR_EMAIL_PW:'Παρακαλώ εισάγετε τον υφιστάμενο κωδικό σας για να αλλάξετε το email.',
@@ -699,8 +713,8 @@ let _formUnsaved = false;
 }, true));
 document.addEventListener('click', e => {
   if(!e.isTrusted || !(e.target instanceof Element)) return;
-  const b = e.target.closest('#form-overlay button[onclick]');
-  if(b && /addDiscount|addTierRow|removeTierRow|\.remove\(\)/.test(b.getAttribute('onclick'))) _formUnsaved = true;
+  const b = e.target.closest('#form-overlay [data-action]');
+  if(b && /^(addDiscount|addTierRow|removeTierRow|removeDiscountRow)$/.test(b.dataset.action)) _formUnsaved = true;
 }, true);
 window.addEventListener('beforeunload', e => { if(_formUnsaved){ e.preventDefault(); e.returnValue = ''; } });
 
@@ -709,6 +723,7 @@ function openForm(id){
   document.getElementById('form-overlay').classList.remove('hidden');
   document.getElementById('form-status').textContent = '';
   document.getElementById('form-status').className   = 'status-msg';
+  _clearFieldErrors();
 
   if(id){
     const t = tariffs.find(x => x.id === id);
@@ -859,7 +874,178 @@ function collectForm(){
   };
 }
 
+// ── Field-level errors on the tariff form ─────────────────────────────────────
+// Each problem is shown next to its own field (red outline + message), not only
+// as one line by the submit button. The page checks first, using the server's
+// limits (schemas.TariffIn); anything the server still refuses is mapped back
+// to its field where possible (_showServerErrors).
+const _MAX_RATE = 5;        // €/kWh — config.TARIFF_MAX_ENERGY_RATE default
+const _MAX_MONTHLY = 1000;  // €/month — config.TARIFF_MAX_MONTHLY_CHARGE default
+const _RATE_FIELDS = {rate:'fix-rate', hiStart:'tou-hi-start', hiEnd:'tou-hi-end', hiPeakStart:'tou-hi-ps',
+  hiPeakEnd:'tou-hi-pe', loPeakStart:'tou-lo-ps', loPeakEnd:'tou-lo-pe', hiPeakRate:'tou-hi-pr',
+  hiOffRate:'tou-hi-or', loPeakRate:'tou-lo-pr', loOffRate:'tou-lo-or', mult:'var-mult', adder:'var-adder',
+  damFloor:'var-dam-floor', resetMonths:'var-reset-months'};
+const _BODY_FIELDS = {name:'edit-name', standing:'edit-standing', mdm:'edit-mdm', fpaCustom:'edit-fpa-custom',
+  durationMonths:'edit-duration-months', profileId:'edit-profile', loadEntitlement:'edit-le'};
+const _TIER_FIELDS = {upTo:'.tier-upto', rate:'.tier-rate', fixedCharge:'.tier-fixed'};
+const _DISC_FIELDS = {percentage:'.disc-pct', durationMonths:'.disc-months', conditions:'.disc-conditions'};
+
+function _tn(key, n){ return T(key).replace('{N}', n); }
+
+function _clearFieldErrors(){
+  document.querySelectorAll('#form-overlay .field-invalid').forEach(el => { el.classList.remove('field-invalid'); el.removeAttribute('aria-invalid'); });
+  document.querySelectorAll('#form-overlay .field-err-msg').forEach(el => el.remove());
+}
+// Mark one input (or the tier list) as wrong and put the message right under it.
+function _fieldError(el, msg){
+  if(!el || el.classList.contains('field-invalid')) return false;   // first problem per field wins
+  el.classList.add('field-invalid');
+  el.setAttribute('aria-invalid', 'true');
+  const m = document.createElement('div');
+  m.className = 'field-err-msg';
+  m.textContent = msg;
+  const host = el.closest('.field') || el.closest('.tier-row, .discount-row');
+  if(host && host.classList.contains('field')) host.appendChild(m);
+  else (host || el).insertAdjacentElement('afterend', m);
+  el._errMsg = m;
+  return true;
+}
+// Typing in a highlighted field clears its highlight.
+['input','change'].forEach(evt => document.addEventListener(evt, e => {
+  const el = e.target;
+  if(!(el instanceof Element) || !el.classList.contains('field-invalid')) return;
+  el.classList.remove('field-invalid'); el.removeAttribute('aria-invalid');
+  if(el._errMsg){ el._errMsg.remove(); el._errMsg = null; }
+}));
+
+// Check one number box. opts: required, min, above (exclusive min), max, whole.
+function _checkNumber(el, opts){
+  const raw = (el.value || '').trim();
+  if(raw === ''){ return opts.required ? _fieldError(el, T('ERR_F_REQUIRED')) : false; }
+  const v = Number(raw);
+  if(!Number.isFinite(v)) return _fieldError(el, T('ERR_F_REQUIRED'));
+  if(opts.whole && !Number.isInteger(v)) return _fieldError(el, T('ERR_F_WHOLE'));
+  if(opts.above != null && !(v > opts.above)) return _fieldError(el, _tn('ERR_F_ABOVE', opts.above));
+  if(opts.min != null && v < opts.min) return _fieldError(el, _tn('ERR_F_MIN', opts.min));
+  if(opts.max != null && v > opts.max) return _fieldError(el, _tn('ERR_F_MAX', opts.max));
+  return false;
+}
+
+// Returns the number of problems found (0 = OK to send).
+function _validateTariffForm(){
+  _clearFieldErrors();
+  const $ = id => document.getElementById(id);
+  const RATE = {required:true, min:0, max:_MAX_RATE};
+  const MONTHLY = {required:true, min:0, max:_MAX_MONTHLY};
+  if(!sv('edit-name')) _fieldError($('edit-name'), T('ERR_NAME_REQUIRED'));
+  else if(sv('edit-name').length > 200) _fieldError($('edit-name'), _tn('ERR_F_TOO_LONG', 200));
+  if(sv('edit-duration-type') === 'fixed') _checkNumber($('edit-duration-months'), {required:true, whole:true, min:1, max:120});
+  _checkNumber($('edit-standing'), MONTHLY);
+  _checkNumber($('edit-mdm'), MONTHLY);
+  if(sv('edit-fpa-source') === 'custom') _checkNumber($('edit-fpa-custom'), {required:true, min:-_MAX_RATE, max:_MAX_RATE});
+
+  const pricing = sv('edit-pricing');
+  if(pricing === 'Fixed') _checkNumber($('fix-rate'), RATE);
+  if(pricing === 'ToU'){
+    ['tou-hi-start','tou-hi-end'].forEach(id => _checkNumber($(id), {required:true, whole:true, min:0, max:12}));
+    ['tou-hi-ps','tou-hi-pe','tou-lo-ps','tou-lo-pe'].forEach(id => _checkNumber($(id), {required:true, min:0, max:24}));
+    ['tou-hi-pr','tou-hi-or','tou-lo-pr','tou-lo-or'].forEach(id => _checkNumber($(id), RATE));
+  }
+  if(pricing === 'Dynamic'){
+    _checkNumber($('var-mult'), {required:true, above:0, max:10});
+    _checkNumber($('var-adder'), {required:true, min:-_MAX_RATE, max:_MAX_RATE});
+    _checkNumber($('var-dam-floor'), {min:0, max:_MAX_RATE});
+  }
+  if(pricing === 'Variable'){
+    const rows = [...document.querySelectorAll('#tier-rows .tier-row')];
+    if(!rows.length) _fieldError($('tier-rows'), T('ERR_TIER_NEEDED'));
+    let prev = 0;
+    rows.forEach((row, i) => {
+      const upTo = row.querySelector('.tier-upto');
+      const last = i === rows.length - 1;
+      if(upTo.value.trim() === '' && !last) _fieldError(upTo, T('ERR_F_TIER_OPEN'));
+      else if(!_checkNumber(upTo, {above:0, max:10000000}) && upTo.value.trim() !== ''){
+        if(+upTo.value <= prev) _fieldError(upTo, T('ERR_F_TIER_ORDER'));
+        prev = +upTo.value;
+      }
+      _checkNumber(row.querySelector('.tier-rate'), RATE);
+      _checkNumber(row.querySelector('.tier-fixed'), {min:0, max:_MAX_MONTHLY});
+    });
+  }
+  document.querySelectorAll('#form-overlay .discount-row').forEach(row => {
+    const pct = row.querySelector('.disc-pct');
+    const v = Number(pct.value);
+    if(pct.value.trim() === '' || !(v > 0) || v > 100) _fieldError(pct, T('ERR_F_DISC_PCT'));
+    _checkNumber(row.querySelector('.disc-months'), {whole:true, min:1, max:120});
+  });
+  return _showErrorSummary();
+}
+
+function _showErrorSummary(extra){
+  const bad = document.querySelectorAll('#form-overlay .field-invalid');
+  if(!bad.length && !extra) return 0;
+  const parts = [];
+  if(bad.length) parts.push(_tn('ERR_FIELDS_SUMMARY', bad.length));
+  if(extra) parts.push(extra);
+  setFormStatus('err', parts.join(' '));
+  if(bad.length){ bad[0].scrollIntoView({block:'center', behavior:'smooth'}); bad[0].focus({preventScroll:true}); }
+  return bad.length || 1;
+}
+
+// Server-side message ("Input should be greater than or equal to 0") → the page's wording.
+function _friendlyMsg(type, ctx, msg){
+  msg = String(msg || '').replace(/^Value error, /, '');
+  const n = ctx && (ctx.ge ?? ctx.gt ?? ctx.le ?? ctx.lt ?? ctx.max_length);
+  if(type === 'missing') return T('ERR_F_REQUIRED');
+  if(type === 'greater_than_equal') return _tn('ERR_F_MIN', n);
+  if(type === 'greater_than') return _tn('ERR_F_ABOVE', n);
+  if(type === 'less_than_equal') return _tn('ERR_F_MAX', n);
+  if(type === 'string_too_long') return _tn('ERR_F_TOO_LONG', n);
+  let m;
+  if((m = msg.match(/greater than or equal to (-?\d+(?:\.\d+)?)/))) return _tn('ERR_F_MIN', m[1]);
+  if((m = msg.match(/greater than (-?\d+(?:\.\d+)?)/))) return _tn('ERR_F_ABOVE', m[1]);
+  if((m = msg.match(/less than or equal to (-?\d+(?:\.\d+)?)/))) return _tn('ERR_F_MAX', m[1]);
+  if(/strictly increasing/.test(msg)) return T('ERR_F_TIER_ORDER');
+  if(/no upper limit/.test(msg)) return T('ERR_F_TIER_OPEN');
+  return msg;
+}
+// Map a 422 from the server onto the form's fields; anything unplaceable stays in the summary.
+function _showServerErrors(detail){
+  if(!Array.isArray(detail)) return false;
+  _clearFieldErrors();
+  const discRows = [...document.querySelectorAll('#form-overlay .discount-row')];
+  const tierRows = [...document.querySelectorAll('#tier-rows .tier-row')];
+  const unplaced = [];
+  detail.forEach(d => {
+    const loc = (d.loc || []).filter(x => x !== 'body');
+    let el = null;
+    if(loc.length === 1 && _BODY_FIELDS[loc[0]]) el = document.getElementById(_BODY_FIELDS[loc[0]]);
+    else if(loc[0] === 'discounts' && discRows[loc[1]] && _DISC_FIELDS[loc[2]]) el = discRows[loc[1]].querySelector(_DISC_FIELDS[loc[2]]);
+    if(el){ _fieldError(el, _friendlyMsg(d.type, d.ctx, d.msg)); return; }
+    // The rates check reports "invalid <pricing> rates — path: message; path: message".
+    const text = String(d.msg || '');
+    const dash = text.indexOf(' — ');
+    if(loc.length === 0 && dash > 0 && /rates/.test(text)){
+      text.slice(dash + 3).split('; ').forEach(part => {
+        const i = part.indexOf(': ');
+        const path = (i > 0 ? part.slice(0, i) : '').split('.');
+        const msg = i > 0 ? part.slice(i + 2) : part;
+        let rel = null;
+        if(path.length === 1 && _RATE_FIELDS[path[0]]) rel = document.getElementById(_RATE_FIELDS[path[0]]);
+        else if(path[0] === 'tiers' && tierRows[path[1]] && _TIER_FIELDS[path[2]]) rel = tierRows[path[1]].querySelector(_TIER_FIELDS[path[2]]);
+        else if(path[0] === 'tiers' || /tier/.test(msg)) rel = tierRows[tierRows.length - 1] ? tierRows[tierRows.length - 1].querySelector('.tier-upto') : null;
+        if(rel) _fieldError(rel, _friendlyMsg(null, null, msg)); else unplaced.push(part);
+      });
+      return;
+    }
+    unplaced.push((loc.length ? loc.join(' › ') + ': ' : '') + _friendlyMsg(d.type, d.ctx, d.msg));
+  });
+  _showErrorSummary(unplaced.join('; '));
+  return true;
+}
+
 async function submitForm(){
+  if(_validateTariffForm()) return;
   const body = collectForm();
   if(!body) return;
 
@@ -874,7 +1060,10 @@ async function submitForm(){
     const resp   = await fetch(url, {method, headers: authHeaders(), body: JSON.stringify(body)});
     if(resp.status === 401){ _localSignOut(T('ERR_SESSION_EXPIRED_SHORT')); return; }
     const data   = await resp.json().catch(()=>({}));
-    if(!resp.ok){ setFormStatus('err', apiErrorText(data.detail, 'Error: HTTP ' + resp.status)); return; }
+    if(!resp.ok){
+      if(!(resp.status === 422 && _showServerErrors(data.detail))) setFormStatus('err', apiErrorText(data.detail, 'Error: HTTP ' + resp.status));
+      return;
+    }
 
     if(isEdit){
       const idx = tariffs.findIndex(t => t.id === data.id);

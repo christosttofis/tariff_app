@@ -389,6 +389,75 @@ def test_supplier_number_boxes_take_plain_numbers(make_app, page):
     _clean(page)
 
 
+def _field_msg(page, sel):
+    """The error shown for a field: it must be outlined, with its message right next to it."""
+    el = page.locator(sel).first
+    assert "field-invalid" in (el.get_attribute("class") or ""), f"{sel} not highlighted"
+    return el.evaluate("e => e._errMsg ? e._errMsg.textContent : ''")
+
+
+def test_supplier_form_highlights_each_wrong_field(make_app, page):
+    app = make_app()
+    _sign_in(page, app)
+    page.click("[data-action=setLang][data-arg=en]:visible")
+    page.click("[data-action=openForm]")
+    page.wait_for_selector("#form-overlay", state="visible")
+    page.fill("#edit-name", "")
+    page.fill("#edit-mdm", "")
+    page.fill("#edit-standing", "1500")
+    page.click("[data-action=addDiscount][data-arg=energy]")       # a discount with no percentage
+    before = app.sql("SELECT COUNT(*) FROM tariffs")[0][0]
+    page.click("#submit-btn")
+    assert _field_msg(page, "#edit-name") == "Please provide the tariff name."
+    assert _field_msg(page, "#edit-mdm") == "Please enter a value."
+    assert _field_msg(page, "#edit-standing") == "This cannot be more than 1000."
+    assert "remove this discount" in _field_msg(page, ".discount-row .disc-pct")
+    assert "highlighted fields (4)" in page.inner_text("#form-status")
+    assert app.sql("SELECT COUNT(*) FROM tariffs")[0][0] == before, "submitted despite errors"
+    page.type("#edit-name", "Fixed later")                          # typing clears that field's error
+    assert "field-invalid" not in (page.get_attribute("#edit-name", "class") or "")
+    assert page.locator("#edit-name ~ .field-err-msg").count() == 0
+    # Tiers: an open limit before the last tier, and limits out of order.
+    page.select_option("#edit-pricing", "Variable")
+    page.locator("[data-action=removeDiscountRow]").click()
+    page.click("[data-action=addTierRow]")
+    page.click("[data-action=addTierRow]")
+    rows = page.locator("#tier-rows .tier-row")
+    rows.nth(0).locator(".tier-upto").fill("")
+    rows.nth(0).locator(".tier-rate").fill("0.2")
+    rows.nth(1).locator(".tier-upto").fill("500")
+    rows.nth(1).locator(".tier-rate").fill("0.2")
+    rows.nth(2).locator(".tier-upto").fill("")
+    rows.nth(2).locator(".tier-rate").fill("")
+    page.click("#submit-btn")
+    assert "Only the last tier" in _field_msg(page, "#tier-rows .tier-row >> nth=0 >> .tier-upto")
+    assert _field_msg(page, "#tier-rows .tier-row >> nth=2 >> .tier-rate") == "Please enter a value."
+    rows.nth(0).locator(".tier-upto").fill("1000")
+    rows.nth(2).locator(".tier-rate").fill("0.25")
+    page.click("#submit-btn")
+    assert "higher than the one before" in _field_msg(page, "#tier-rows .tier-row >> nth=1 >> .tier-upto")
+    _clean(page)
+
+
+def test_supplier_form_places_server_errors_on_the_field(make_app, page):
+    # The server's limit can be set lower than the page's built-in one; its refusal
+    # must still land on the right field.
+    app = make_app({"TARIFF_MAX_ENERGY_RATE": "1"})
+    _sign_in(page, app)
+    page.click("[data-action=setLang][data-arg=en]:visible")
+    page.click("[data-action=openForm]")
+    page.fill("#edit-name", "Server check")
+    page.fill("#fix-rate", "2")
+    page.click("#submit-btn")
+    page.wait_for_selector("#fix-rate.field-invalid", timeout=10000)
+    assert _field_msg(page, "#fix-rate") == "This cannot be more than 1."
+    assert "highlighted fields (1)" in page.inner_text("#form-status")
+    page.fill("#fix-rate", "0.5")
+    page.click("#submit-btn")
+    page.wait_for_selector("#form-overlay", state="hidden", timeout=10000)
+    _clean(page)
+
+
 def test_supplier_documents_and_messages(make_app, page, tmp_path):
     app = make_app()
     admin = app.login("admin1@demo.local")
