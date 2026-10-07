@@ -360,6 +360,35 @@ def test_supplier_tariff_form(make_app, page):
     _clean(page)
 
 
+def test_supplier_number_boxes_take_plain_numbers(make_app, page):
+    app = make_app()
+    _sign_in(page, app)
+    page.click("[data-action=openForm]")
+    page.wait_for_selector("#form-overlay", state="visible")
+    page.click("[data-action=addDiscount][data-arg=energy]")
+    pct, months = ".discount-row .disc-pct", ".discount-row .disc-months"
+
+    def typed(sel, text):
+        page.fill(sel, "")
+        page.type(sel, text)
+        return page.input_value(sel)
+
+    assert typed(pct, "1e5") == "15"                  # "e" ignored (discount %)
+    assert typed(months, "-12") == "12"               # "-" ignored (months can't be negative)
+    assert typed(months, "+6") == "6"
+    page.select_option("#edit-duration-type", "fixed")
+    assert typed("#edit-duration-months", "2e4") == "24"
+    page.select_option("#edit-fpa-source", "custom")
+    assert typed("#edit-fpa-custom", "-0.02") == "-0.02"   # a negative fuel adjustment is valid
+    page.select_option("#edit-pricing", "Dynamic")
+    assert typed("#var-adder", "-0.01") == "-0.01"         # so is a negative Dynamic adder
+    page.fill(pct, "5e1")                             # pasted: cleaned up
+    assert page.input_value(pct) == "50"
+    page.fill(months, "-3")
+    assert page.input_value(months) == ""
+    _clean(page)
+
+
 def test_supplier_documents_and_messages(make_app, page, tmp_path):
     app = make_app()
     admin = app.login("admin1@demo.local")

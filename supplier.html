@@ -339,7 +339,7 @@ tr:hover td{background:var(--bg3)}
         </div>
         <div class="field" id="fpa-custom-field" style="display:none">
           <label data-t="LBL_FPA_CUSTOM_RATE">Custom FPA rate (€/kWh)</label>
-          <input type="number" id="edit-fpa-custom" value="0.0000" step="0.0001" min="0">
+          <input type="number" id="edit-fpa-custom" value="0.0000" step="0.0001" min="-5"><!-- may be negative (schemas.TariffIn.fpaCustom) -->
         </div>
       </div>
 
@@ -424,7 +424,7 @@ tr:hover td{background:var(--bg3)}
         <div class="form-section" data-t="SEC_DAM">DAM pricing factors</div>
         <div class="g3">
           <div class="field"><label data-t="LBL_MULT">Multiplier (×)</label><input type="number" id="var-mult" value="1.15" step="0.01" min="1"><p class="hint" data-t="HINT_MULT">e.g. 1.15 = +15%</p></div>
-          <div class="field"><label data-t="LBL_ADDER">Adder (€/kWh)</label><input type="number" id="var-adder" value="0.020" step="0.001" min="0"><p class="hint" data-t="HINT_ADDER">Supplier margin / network</p></div>
+          <div class="field"><label data-t="LBL_ADDER">Adder (€/kWh)</label><input type="number" id="var-adder" value="0.020" step="0.001" min="-5"><p class="hint" data-t="HINT_ADDER">Supplier margin / network</p></div>
           <div class="field"><label><span data-t="LBL_DAM_FLOOR">Min DAM price (€/kWh)</span> <span style="color:var(--text3);font-weight:400" data-t="LBL_OPTIONAL">optional</span></label><input type="number" id="var-dam-floor" value="" step="0.0001" min="0" placeholder="None"><p class="hint" data-t="HINT_DAM_FLOOR">Floor price. Leave blank for none.</p></div>
         </div>
         <p class="hint" data-t="HINT_DAM_FORMULA">Effective rate = (MAX(DAM, min) × multiplier) + adder</p>

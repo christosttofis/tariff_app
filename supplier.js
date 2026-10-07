@@ -1410,6 +1410,22 @@ document.addEventListener('click', e => {
   const fn = _ACTIONS[el.dataset.action];
   if(fn) fn(el, e);
 });
+// Number boxes: browsers let you type "e" (as in 5e3), "+" and "-" into them. Those
+// keys are ignored, except "-" in the few boxes where a negative value is valid (their
+// min is below 0: custom FPA, Dynamic adder). Anything pasted is cleaned up the same way.
+const _negAllowed = box => box.min === '' || +box.min < 0;
+document.addEventListener('keydown', e => {
+  const box = e.target;
+  if(!(box instanceof HTMLInputElement) || box.type !== 'number') return;
+  if(['e','E','+'].includes(e.key) || (e.key === '-' && !_negAllowed(box))) e.preventDefault();
+});
+document.addEventListener('input', e => {
+  const box = e.target;
+  if(!(box instanceof HTMLInputElement) || box.type !== 'number' || box.value === '') return;
+  const v = box.valueAsNumber;
+  if(!Number.isFinite(v) || (v < 0 && !_negAllowed(box))) box.value = '';
+  else if(/[eE+]/.test(box.value)) box.value = String(v);
+});
 document.addEventListener('keydown', e => {
   if(e.key !== 'Enter') return;
   const el = e.target.closest && e.target.closest('[data-enter]');
