@@ -67,12 +67,14 @@ def test_admin_works_inside_the_office_network(office_app):
     admin = office_app.login(ADMIN, headers=INSIDE)
     assert admin.get("/api/admin/config", headers=INSIDE).status_code == 200
     assert office_app.anon().get("/admin.html", headers=INSIDE).status_code == 200
+    assert office_app.anon().get("/admin.js", headers=INSIDE).status_code == 200
 
 
 @pytest.mark.parametrize("where", [OUTSIDE, SPOOFED, {}], ids=["outside", "spoofed-header", "no-proxy-header"])
 def test_admin_is_unavailable_outside_the_office_network(office_app, where):
     anon = office_app.anon()
     assert anon.get("/admin.html", headers=where).status_code == 404
+    assert anon.get("/admin.js", headers=where).status_code == 404, "admin code readable from outside"
     r = anon.post("/api/auth/login", json={"email": ADMIN, "password": PASSWORD}, headers=where)
     assert r.status_code == 404, "admin password must not even be checked from outside"
     # A session started inside stops working as soon as it is used from outside.

@@ -10,12 +10,12 @@ from pathlib import Path
 import pytest
 
 PUBLIC = {"/customer.html": "text/html", "/supplier.html": "text/html", "/admin.html": "text/html",
-          "/reset-password.html": "text/html", "/reset-password.js": "text/javascript", "/customer.js": "text/javascript", "/supplier.js": "text/javascript",
+          "/reset-password.html": "text/html", "/reset-password.js": "text/javascript", "/customer.js": "text/javascript", "/supplier.js": "text/javascript", "/admin.js": "text/javascript",
           "/Logo_Transparent.png": "image/png"}
 
 # Pages whose code lives in a separate .js file and that are served with the strict CSP
 # (no inline scripts allowed). Add each page here as it is converted (Plan B).
-CONVERTED = ["reset-password", "customer", "supplier"]
+CONVERTED = ["reset-password", "customer", "supplier", "admin"]
 ROOT = Path(__file__).resolve().parents[3]
 INLINE_HANDLER = re.compile(r"""\son[a-z]+\s*=\s*["'\\]""", re.I)      # onclick="…", also inside JS strings
 INLINE_SCRIPT = re.compile(r"<script(?![^>]*\bsrc=)[^>]*>", re.I)

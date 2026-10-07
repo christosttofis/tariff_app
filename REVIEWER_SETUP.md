@@ -108,7 +108,7 @@ Two GitHub Actions workflows scan the project on GitHub's own throwaway Linux ma
 |---|---|---|---|
 | `.github/workflows/security-checks.yml` | every push/PR to `master`, Mondays 06:00 UTC, manual | pip-audit (libraries), bandit (Python code), semgrep (code patterns: `p/python`, `p/owasp-top-ten`, `p/javascript`; the test folder is excluded), gitleaks (full git history), and the **attacker tests** (`tariff-api/tests/security`, below) | any known library vulnerability, any secret, high-severity bandit, ERROR-severity semgrep, any failing attacker test |
 
-**Attacker tests** (`tariff-api/tests/security/`, pytest + Playwright, about 130 tests and about 3 minutes):
+**Attacker tests** (`tariff-api/tests/security/`, pytest + Playwright, about 170 tests and about 5 minutes):
 
 - These are abuse cases written for this app. Each one attempts a specific misuse over real HTTP and checks that it is refused.
 - They run against throwaway servers (`_server.py`) with fake demo data, a random signing key and email off. `.env` is never read and the real database is never touched.
@@ -121,7 +121,8 @@ Two GitHub Actions workflows scan the project on GitHub's own throwaway Linux ma
   6. reset links: reuse, guessing, expiry, weak or reused passwords;
   7. stored XSS: code-like text planted in every displayed field, then every page opened in headless Chromium;
   8. bad uploads, absurd values, and malformed input to every endpoint (must never cause a 500);
-  9. private files never served; security headers and cookie flags.
+  9. private files never served; security headers and cookie flags; every page free of inline code and served with the strict CSP;
+  10–11. every page clicked through in headless Chromium under the strict CSP (customer, reset-password, supplier, admin), with zero blocked code or script errors allowed.
 - To run them locally, from `tariff-api/`: `.venv\Scripts\python.exe -m pytest tests/security` (after installing `requirements-dev.txt` and `playwright install chromium`).
 | `.github/workflows/zap-scan.yml` | Mondays 06:30 UTC, manual | OWASP ZAP against a copy started with `.github/scripts/ci_server.py` and fake demo data. `.github/scripts/zap_scan.py` first uses the app through ZAP as a visitor, the demo supplier and the demo admin (real IDs, real sessions; covers every API endpoint except sign-out, change-password and change-email). It then adds the OpenAPI description and a spider, and runs a passive and an active scan of everything recorded. It fails if the signed-in areas weren't actually exercised. | any High-risk alert (`.github/scripts/zap_gate.py`), except investigated false positives listed in its `ACCEPTED` table; each is narrowly matched, still shown in the summary, and justified in `SECURITY_REMEDIATION_CHECKLIST.md` Round 16 |
 

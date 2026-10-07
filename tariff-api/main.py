@@ -175,19 +175,12 @@ _CSP_POLICY = (
     "form-action 'self'; "
     "frame-ancestors 'self'"
 )
-# TEMPORARY, while the remaining pages are converted page by page (see
-# SECURITY_REMEDIATION_CHECKLIST.md, open items): these still contain inline
-# scripts/handlers, so they get the old policy that allows them. Delete this
-# (and _CSP_LEGACY) once the set is empty.
-_CSP_LEGACY_PAGES = {"/admin.html"}
-_CSP_LEGACY = _CSP_POLICY.replace("script-src 'self'", "script-src 'self' 'unsafe-inline'")
 
 
 @app.middleware("http")
 async def add_csp_header(request, call_next):
     response = await call_next(request)
-    response.headers["Content-Security-Policy"] = (
-        _CSP_LEGACY if request.url.path in _CSP_LEGACY_PAGES else _CSP_POLICY)
+    response.headers["Content-Security-Policy"] = _CSP_POLICY
     # Standard hardening headers alongside CSP: block MIME-sniffing away from
     # the declared Content-Type, avoid leaking the full referrer URL to other
     # origins, and disable browser features this app never uses.
@@ -408,6 +401,7 @@ _PUBLIC_FILES = {
     "supplier.html": "text/html; charset=utf-8",
     "supplier.js": "text/javascript; charset=utf-8",
     "admin.html": "text/html; charset=utf-8",
+    "admin.js": "text/javascript; charset=utf-8",
     "reset-password.html": "text/html; charset=utf-8",   # linked from invite/reset emails
     "reset-password.js": "text/javascript; charset=utf-8",
     "Logo_Transparent.png": "image/png",
@@ -418,9 +412,10 @@ def _static_route(name: str, media_type: str):
     path = _STATIC_ROOT / name
 
     def serve(request: Request):
-        # The admin panel is only served inside the CERA office/VPN networks;
-        # outside, a plain "Website unavailable" (same as the admin API).
-        if name == "admin.html" and not admin_network_allowed(request):
+        # The admin panel (page and code) is only served inside the CERA
+        # office/VPN networks; outside, a plain "Website unavailable" (same as
+        # the admin API).
+        if name in ("admin.html", "admin.js") and not admin_network_allowed(request):
             return HTMLResponse(UNAVAILABLE_HTML, status_code=404)
         return FileResponse(path, media_type=media_type)
     serve.__name__ = "static_" + name.replace(".", "_").replace("-", "_")

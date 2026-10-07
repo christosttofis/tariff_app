@@ -264,7 +264,7 @@ Generic scanners can't know this app's rules (e.g. "Acme must not touch Delta's 
   1. **Server:** client-chosen IDs (`TariffIn.id`, `ProfileIn.id`, and the public report's `tariff_id`) must match `^[A-Za-z0-9_-]+$` (`schemas._ID_PATTERN`). A read-only check of the real database found all IDs already compliant: 11 tariffs, 3 profiles, 2 messages.
   2. **Page:** `customer.html` no longer puts any value into code. The ID goes into an escaped `data-arg` attribute, and the strict CSP would refuse such code anyway.
 - [x] **Tests:** `test_7` checks that the API refuses such IDs (supplier, admin, profile, public report). It also plants one directly in the database, as if it predated the rule, and confirms that the customer, supplier and admin pages run nothing.
-- [ ] **Follow-up during the admin/supplier conversion:** `admin.html` still puts IDs into handlers (profiles, messages, schedules, reports), as did `supplier.html` (message acknowledge; removed by its conversion). Those IDs are server-generated or admin-chosen, and profile IDs are now validated, so this isn't exploitable today. The conversion removes the pattern entirely.
+- [x] **Follow-up, closed 2026-10-07:** `admin.html` (profiles, messages, schedules, reports, tariffs) and `supplier.html` (message acknowledge) used to put IDs into handlers. Both conversions removed the pattern: IDs are now escaped `data-arg` attributes, and no page contains inline code (`test_9`).
 
 ## Open items — must be handled before go-live
 
@@ -276,8 +276,8 @@ These are deployment/production tasks, tracked in full in `AZURE_DEPLOYMENT_CHEC
 - [ ] **Disable API docs in production** — set `TARIFF_ENABLE_DOCS=0` so `/docs`, `/redoc`, `/openapi.json` don't expose the full route surface.
 - [x] ~~Restrict `admin.html` to CERA IPs~~: done in-app (Round 14); covers the admin API too, not just the page.
 - [ ] **Rotate secrets exposed by the static-file issue** (Round 13).
-- [~] **Remove `'unsafe-inline'` from the CSP** (ZAP Medium, Round 16), page by page.
-  - **How:** each page's code moves to its own `.js` file, and inline handlers are replaced by listeners. The page then gets the strict `script-src 'self' https://cdnjs.cloudflare.com`; pages not yet converted keep the old policy through `_CSP_LEGACY_PAGES` in `main.py`.
+- [x] **Removed `'unsafe-inline'` from the CSP `script-src`** (ZAP Medium, Round 16), page by page; done 2026-10-07. One strict policy now applies to every page and response.
+  - **How:** each page's code moves to its own `.js` file, and inline handlers are replaced by listeners. The page then gets the strict `script-src 'self' https://cdnjs.cloudflare.com`; while converting, pages not yet done kept the old policy through a temporary `_CSP_LEGACY_PAGES` set in `main.py`, now deleted.
   - **Enforced by the attacker suite:**
     - `test_9`: converted pages contain no inline code and are served with the strict policy;
     - `test_10`: every converted page is clicked through in headless Chromium, with zero CSP violations or script errors allowed.
@@ -295,10 +295,22 @@ These are deployment/production tasks, tracked in full in `AZURE_DEPLOYMENT_CHEC
         - documents (upload, download) and messages (acknowledge);
         - account password change, idle warning, expired-password gate.
       - Full suite passes (155 tests).
-  - **Remaining:**
-    - `admin.html`;
-    - then delete `_CSP_LEGACY`;
-    - `style-src 'unsafe-inline'` (inline styles can't run code), to decide afterwards.
+    - `admin.html` → `admin.js` (2026-10-07).
+      - Both script blocks are merged, and all 196 handlers are replaced (162 click, 23 change, 6 input, 2 Enter-key, 3 drag-and-drop).
+      - Two places that found buttons by their `onclick` text were updated: the sidebar highlight, and the tariff editor's unsaved-changes check.
+      - IDs no longer go into code (this closes the Round 18 follow-up).
+      - `admin.js` is served only inside the office/VPN, like `admin.html` (tested from outside, with a spoofed header, and with no proxy header).
+      - 9 click-through tests (`test_11`) cover every one of the 13 sections and their main actions:
+        - review, approve, suspend, restore; editor with discounts and tiers; documents;
+        - suppliers, including the regulated toggle; users (invite, unlock, OTP, deactivate, reinvite, delete);
+        - profiles; messages and schedules;
+        - DAM upload by picker and by drag-and-drop; regulated charges and history; audit; notices formatting; reports; changelog export;
+        - account, idle warning, expired-password gate, sign-in with a code.
+      - Full suite passes (170 tests).
+      - Two existing admin bugs were found by these tests and fixed:
+        1. **"Regulated supplier" could never be changed:** confirming the change did nothing, because the code read the checkbox after the browser had already flipped it (since `b2e9d3b`).
+        2. Some refusals (e.g. an invalid email when inviting a user) showed **"[object Object]"** instead of the reason. Now they're readable (`apiErrorText`).
+  - **Not done (decision pending):** `style-src 'unsafe-inline'`. Inline styles can't run code, so ZAP's style-src item is Medium only by rule; removing it would mean moving ~770 `style="…"` attributes into CSS classes.
 - [ ] **Rate limiter is in-memory/single-process** — needs a shared store (e.g. Redis) only if ever scaled to multiple workers/instances.
 - [ ] **External IT certification** — this document is the security summary to hand over.
 - [~] **Round 6 follow-up** — live UI walkthrough confirming `ConfigImportIn` accepts every real "Publish" payload.
