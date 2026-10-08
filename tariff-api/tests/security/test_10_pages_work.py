@@ -311,7 +311,6 @@ def test_supplier_tariff_form(make_app, page):
     app = make_app()
     page.on("dialog", lambda d: d.accept())
     _sign_in(page, app)
-    rows_before = page.locator("#tariff-tbody tr").count()
     page.click("[data-action=openForm]")
     page.wait_for_selector("#form-overlay", state="visible")
     page.fill("#edit-name", "Browser-test tariff")
@@ -343,7 +342,7 @@ def test_supplier_tariff_form(make_app, page):
     page.wait_for_selector("#form-overlay", state="hidden", timeout=15000)
     assert app.sql("SELECT status FROM tariffs WHERE name = 'Browser-test tariff'") == [("pending",)]
     page.wait_for_timeout(500)
-    assert page.locator("#tariff-tbody tr").count() == rows_before + 1
+    page.wait_for_selector("#tariff-tbody tr:has-text('Browser-test tariff')", timeout=10000)   # the new tariff is listed
     # Edit, then cancel; then delete (a never-published tariff is removed).
     row = page.locator("#tariff-tbody tr", has_text="Browser-test tariff")
     row.locator("[data-action=editTariff]").click()
