@@ -438,6 +438,8 @@ There is no Publish step. Every section of the admin panel saves itself when you
 
 A green "Saved ✓" (or the updated list) confirms the change reached the server. If you see "Save failed", nothing was changed. Fix the problem shown and save again.
 
+**Mistakes in the tariff editor are highlighted field by field.** If a value is missing or out of range, Save doesn't send anything. Each problem field gets a red outline and a message underneath, e.g. "Please provide the tariff name." or "This cannot be more than 1000.". The status line says how many fields need correcting. Typing in a field clears its highlight. The supplier portal's tariff form works the same way. Number boxes accept only plain numbers: `e`, `+` and `-` are ignored, except in the boxes where a negative value is valid (custom FPA, the Dynamic adder, the regulated FPA rates).
+
 **Unsaved-changes warnings.** If you edit a form and haven't clicked its Save button yet:
 
 - Its menu item shows a yellow **●**. Your edits stay in the form, but they are **not live** until you save.

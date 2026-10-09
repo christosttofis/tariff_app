@@ -308,6 +308,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .idle-warning-box p{font-size:13px;color:var(--text2);margin-bottom:18px}
 .idle-warning-count{font-size:28px;font-weight:700;color:var(--red);font-family:var(--mono);margin-bottom:18px}
 .idle-warning-box .btn-login{width:100%}
+.field-invalid{border-color:var(--red)!important;box-shadow:0 0 0 2px rgba(166,64,58,.15);background:#fff7f6!important}
+.field-err-msg{color:var(--red);font-size:11.5px;line-height:1.4;margin-top:4px}
+.tier-row + .field-err-msg,#tier-rows + .field-err-msg{margin:-2px 0 6px 4px}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" integrity="sha512-ZwR1/gSZM3ai6vCdI+LVF1zSq/5HznD3ZSTk7kajkaj4D292NLuduDCO1c/NT8Id+jE58KYLKT7hXnbtryGmMg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js" integrity="sha512-jB0TkTBeQC9ZSkBqDhdmfTv1qdfbWpGE72yJ/01Srq6hEzZIz2xkz1e57p9ai7IeHMwEG7HpzG6NdptChif5Pg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -856,19 +859,19 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
       <div class="g3">
         <div class="field">
           <label data-t="LBL_LV_FPA">LV — FPA (€/kWh)</label>
-          <input type="number" id="reg-fpa-lv" value="0.0000" step="0.0001" min="0" data-input="updateRegPreview">
+          <input type="number" id="reg-fpa-lv" value="0.0000" step="0.0001" min="-5" data-input="updateRegPreview">
           <p class="hint">Applied to LV tariffs using global FPA</p>
           <p class="hint reg-ts reg-ts-fpa" style="display:none;color:var(--text3)"></p>
         </div>
         <div class="field">
           <label data-t="LBL_MV_FPA">MV — FPA (€/kWh)</label>
-          <input type="number" id="reg-fpa-mv" value="0.0000" step="0.0001" min="0" data-input="updateRegPreview">
+          <input type="number" id="reg-fpa-mv" value="0.0000" step="0.0001" min="-5" data-input="updateRegPreview">
           <p class="hint">Applied to MV tariffs using global FPA</p>
           <p class="hint reg-ts reg-ts-fpa" style="display:none;color:var(--text3)"></p>
         </div>
         <div class="field">
           <label data-t="LBL_HV_FPA">HV — FPA (€/kWh)</label>
-          <input type="number" id="reg-fpa-hv" value="0.0000" step="0.0001" min="0" data-input="updateRegPreview">
+          <input type="number" id="reg-fpa-hv" value="0.0000" step="0.0001" min="-5" data-input="updateRegPreview">
           <p class="hint">Applied to HV tariffs using global FPA</p>
           <p class="hint reg-ts reg-ts-fpa" style="display:none;color:var(--text3)"></p>
         </div>
@@ -1320,7 +1323,7 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
     </div>
     <div class="field" id="fpa-custom-field" style="display:none">
       <label>Custom FPA rate (€/kWh)</label>
-      <input type="number" id="edit-fpa-custom" value="0.0000" step="0.0001" min="0">
+      <input type="number" id="edit-fpa-custom" value="0.0000" step="0.0001" min="-5">
     </div>
   </div>
   <p class="hint" id="fpa-hint" style="margin-bottom:8px">This tariff will use the global FPA rate from the Regulated tab (currently <span id="fpa-global-preview">€0.0000</span>/kWh).</p>
@@ -1391,7 +1394,7 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
     <div class="modal-section">DAM pricing factors</div>
     <div class="g3">
       <div class="field"><label>Multiplier (×)</label><input type="number" id="var-mult" value="1.15" step="0.01" min="1"><p class="hint">e.g. 1.15 = +15%</p></div>
-      <div class="field"><label>Adder (€/kWh)</label><input type="number" id="var-adder" value="0.020" step="0.001" min="0"><p class="hint">Supplier margin / network</p></div>
+      <div class="field"><label>Adder (€/kWh)</label><input type="number" id="var-adder" value="0.020" step="0.001" min="-5"><p class="hint">Supplier margin / network</p></div>
       <div class="field">
         <label>Minimum DAM price (€/kWh) <span style="color:var(--text3);font-weight:400">— optional</span></label>
         <input type="number" id="var-dam-floor" value="" step="0.0001" min="0" placeholder="None">

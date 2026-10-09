@@ -150,6 +150,101 @@ def test_admin_tariff_editor_and_documents(make_app, page):
     _clean(page)
 
 
+def _field_msg(page, sel):
+    el = page.locator(sel).first
+    assert "field-invalid" in (el.get_attribute("class") or ""), f"{sel} not highlighted"
+    return el.evaluate("e => e._errMsg ? e._errMsg.textContent : ''")
+
+
+def _typed(page, sel, text):
+    page.locator(sel).first.fill("")
+    page.locator(sel).first.type(text)
+    return page.locator(sel).first.input_value()
+
+
+def test_admin_number_boxes_take_plain_numbers(make_app, page):
+    app = make_app()
+    _sign_in(page, app)
+    _pane(page, "regulated")
+    assert _typed(page, "#reg-lv", "-0.02") == "0.02"                 # network charge can't be negative
+    assert _typed(page, "#reg-fpa-lv", "-0.02") == "-0.02"            # a negative fuel adjustment is valid
+    assert _typed(page, "#reg-pso", "1e3") == "13"
+    _pane(page, "tariffs")
+    page.click("[data-action=openEditorNew]")
+    page.click("[data-action=addDiscount][data-arg=energy]")
+    pct = "#energy-discounts .discount-row input >> nth=1"
+    months = "#energy-discounts .discount-row input >> nth=2"
+    assert _typed(page, pct, "1e5") == "15"
+    assert _typed(page, months, "-12") == "12"
+    page.select_option("#edit-pricing", "Dynamic")
+    assert _typed(page, "#var-adder", "-0.01") == "-0.01"
+    page.locator(pct).fill("5e1")                                     # pasted: cleaned up
+    assert page.locator(pct).input_value() == "50"
+    _clean(page)
+
+
+def test_admin_editor_highlights_each_wrong_field(make_app, page):
+    app = make_app()
+    _sign_in(page, app)
+    _pane(page, "tariffs")
+    page.click("[data-action=openEditorNew]")
+    page.wait_for_selector("#editor-overlay", state="visible")
+    page.fill("#edit-name", "")
+    page.fill("#edit-mdm", "")
+    page.fill("#edit-standing", "1500")
+    page.click("[data-action=addDiscount][data-arg=standing]")
+    page.locator("#standing-discounts .discount-row input >> nth=1").fill("")
+    before = app.sql("SELECT COUNT(*) FROM tariffs")[0][0]
+    page.click("[data-action=saveTariff]")
+    assert _field_msg(page, "#edit-name") == "Please provide the tariff name."
+    assert _field_msg(page, "#edit-mdm") == "Please enter a value."
+    assert _field_msg(page, "#edit-standing") == "This cannot be more than 1000."
+    assert "remove this discount" in _field_msg(page, "#standing-discounts .discount-row input >> nth=1")
+    assert "highlighted fields (4)" in page.inner_text("#editor-status")
+    assert app.sql("SELECT COUNT(*) FROM tariffs")[0][0] == before, "saved despite errors"
+    page.type("#edit-name", "Fixed later")
+    assert "field-invalid" not in (page.get_attribute("#edit-name", "class") or "")
+    page.locator("[data-action=removeDiscountRow]").click()
+    # Tiers: a missing limit before the last tier, limits out of order
+    page.select_option("#edit-pricing", "Variable")
+    page.click("[data-action=addTierRow]")
+    page.click("[data-action=addTierRow]")
+    rows = page.locator("#tier-rows .tier-row")
+    for i, (up, rate) in enumerate((("1000", "0.2"), ("", "0.2"), ("", "0.25"))):
+        rows.nth(i).locator(".tier-upto").fill(up)
+        rows.nth(i).locator(".tier-rate").fill(rate)
+    page.fill("#edit-mdm", "0")
+    page.fill("#edit-standing", "5")
+    page.click("[data-action=saveTariff]")
+    assert "Only the last tier" in _field_msg(page, "#tier-rows .tier-row >> nth=1 >> .tier-upto")
+    rows.nth(1).locator(".tier-upto").fill("500")
+    page.click("[data-action=saveTariff]")
+    assert "higher than the one before" in _field_msg(page, "#tier-rows .tier-row >> nth=1 >> .tier-upto")
+    # In Greek
+    page.click("[data-action=setLang][data-arg=el]")
+    page.fill("#edit-name", "")
+    page.click("[data-action=saveTariff]")
+    assert _field_msg(page, "#edit-name") == "Παρακαλώ δώστε το όνομα της διατίμησης."
+    _clean(page)
+
+
+def test_admin_editor_places_server_errors_on_the_field(make_app, page):
+    app = make_app({"TARIFF_MAX_ENERGY_RATE": "1"})
+    _sign_in(page, app)
+    _pane(page, "tariffs")
+    page.click("[data-action=openEditorNew]")
+    page.fill("#edit-name", "Server check")
+    page.fill("#fix-rate", "2")
+    page.click("[data-action=saveTariff]")
+    page.wait_for_selector("#fix-rate.field-invalid", timeout=10000)
+    assert _field_msg(page, "#fix-rate") == "This cannot be more than 1."
+    page.fill("#fix-rate", "0.5")
+    page.click("[data-action=saveTariff]")
+    page.wait_for_selector("#editor-overlay", state="hidden", timeout=10000)
+    assert app.sql("SELECT 1 FROM tariffs WHERE name = 'Server check'")
+    _clean(page)
+
+
 def test_admin_suppliers_and_users(make_app, page):
     app = make_app()
     app.sql("UPDATE users SET failed_attempts = 3, locked_until = '2999-01-01T00:00:00+00:00' WHERE email = ?", (VOLT,))

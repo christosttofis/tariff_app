@@ -2,6 +2,15 @@ function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,
 /* ── Language system ── */
 const LANG = {
   en: {
+    ERR_FIELDS_SUMMARY:'Please correct the highlighted fields ({N}).',
+    ERR_F_REQUIRED:'Please enter a value.', ERR_F_MIN:'This cannot be less than {N}.',
+    ERR_F_ABOVE:'This must be more than {N}.', ERR_F_MAX:'This cannot be more than {N}.',
+    ERR_F_WHOLE:'Please enter a whole number.', ERR_F_TOO_LONG:'Too long: at most {N} characters.',
+    ERR_F_NAME:'Please provide the tariff name.', ERR_F_SUPPLIER:'Please choose the supplier.',
+    ERR_F_TIER_ORDER:'The limit of each tier must be higher than the one before it.',
+    ERR_F_TIER_OPEN:'Only the last tier may be left without a limit (∞).',
+    ERR_F_TIER_NEEDED:'A Variable tariff needs at least one tier.',
+    ERR_F_DISC_PCT:'Enter a percentage (more than 0, up to 100), or remove this discount.',
     PAGE_TITLE:'CERA Admin',
     // Login
     LOGIN_TITLE:'CERA Admin', LOGIN_SUB:'Sign in to continue',
@@ -184,6 +193,15 @@ const LANG = {
     ADOCS_TITLE_PREFIX:'Documents — ',
   },
   el: {
+    ERR_FIELDS_SUMMARY:'Παρακαλώ διορθώστε τα επισημασμένα πεδία ({N}).',
+    ERR_F_REQUIRED:'Παρακαλώ συμπληρώστε τιμή.', ERR_F_MIN:'Η τιμή δεν μπορεί να είναι μικρότερη από {N}.',
+    ERR_F_ABOVE:'Η τιμή πρέπει να είναι μεγαλύτερη από {N}.', ERR_F_MAX:'Η τιμή δεν μπορεί να είναι μεγαλύτερη από {N}.',
+    ERR_F_WHOLE:'Παρακαλώ εισάγετε ακέραιο αριθμό.', ERR_F_TOO_LONG:'Πολύ μεγάλο κείμενο: έως {N} χαρακτήρες.',
+    ERR_F_NAME:'Παρακαλώ δώστε το όνομα της διατίμησης.', ERR_F_SUPPLIER:'Παρακαλώ επιλέξτε προμηθευτή.',
+    ERR_F_TIER_ORDER:'Το όριο κάθε κλίμακας πρέπει να είναι μεγαλύτερο από το προηγούμενο.',
+    ERR_F_TIER_OPEN:'Μόνο η τελευταία κλίμακα μπορεί να μείνει χωρίς όριο (∞).',
+    ERR_F_TIER_NEEDED:'Η κλιμακωτή διατίμηση χρειάζεται τουλάχιστον μία κλίμακα.',
+    ERR_F_DISC_PCT:'Εισάγετε ποσοστό (πάνω από 0, έως 100) ή αφαιρέστε αυτή την έκπτωση.',
     PAGE_TITLE:'ΡΑΕΚ Admin',
     // Login
     LOGIN_TITLE:'ΡΑΕΚ Admin', LOGIN_SUB:'Εισέλθετε για να συνεχίσετε',
@@ -1515,6 +1533,7 @@ function onEditSupplierChange(){
 }
 function openEditor(id){
   markClean('tariff'); // fields are reloaded below
+  _clearFieldErrors();
   const t=id!=null?tariffs.find(x=>x.id===id):null;
   document.getElementById('edit-id').value=id??'';
   document.getElementById('editor-title').textContent=t?T('MODAL_EDIT_TARIFF'):T('MODAL_ADD_TARIFF');
@@ -1811,7 +1830,179 @@ function updatePricingFields(){
   document.getElementById('fields-dynamic').style.display=p==='Dynamic'?'':'none';
   document.getElementById('fields-variable').style.display=p==='Variable'?'':'none';
 }
+
+// ── Field-level errors in the tariff editor ───────────────────────────────────
+// Each problem is shown next to its own field (red outline + message), not only
+// in the status line. The page checks first, using the server's limits
+// (schemas.TariffIn); anything the server still refuses is mapped back to its
+// field where possible. Same approach as supplier.js.
+const _MAX_RATE = 5;        // €/kWh — config.TARIFF_MAX_ENERGY_RATE default
+const _MAX_MONTHLY = 1000;  // €/month — config.TARIFF_MAX_MONTHLY_CHARGE default
+const _RATE_FIELDS = {rate:'fix-rate', hiStart:'tou-hi-start', hiEnd:'tou-hi-end', hiPeakStart:'tou-hi-ps',
+  hiPeakEnd:'tou-hi-pe', loPeakStart:'tou-lo-ps', loPeakEnd:'tou-lo-pe', hiPeakRate:'tou-hi-pr',
+  hiOffRate:'tou-hi-or', loPeakRate:'tou-lo-pr', loOffRate:'tou-lo-or', mult:'var-mult', adder:'var-adder',
+  damFloor:'var-dam-floor', resetMonths:'var-reset-months'};
+const _BODY_FIELDS = {name:'edit-name', supplier:'edit-supplier', standing:'edit-standing', mdm:'edit-mdm',
+  fpaCustom:'edit-fpa-custom', durationMonths:'edit-duration-months', profileId:'edit-profile',
+  loadEntitlement:'edit-le', mdmInvoiceMonths:'edit-mdm-invoice-months'};
+const _TIER_FIELDS = {upTo:'.tier-upto', rate:'.tier-rate', fixedCharge:'.tier-fixed'};
+const _DISC_INPUT = {conditions:0, percentage:1, durationMonths:2};   // order of a discount row's inputs
+
+function _tn(key, n){ return T(key).replace('{N}', n); }
+function _discountRows(){
+  // Same order as getDiscounts(): standing rows, then energy rows.
+  return ['standing','energy'].flatMap(t => [...document.querySelectorAll('#'+t+'-discounts .discount-row')]);
+}
+function _clearFieldErrors(){
+  document.querySelectorAll('#editor-overlay .field-invalid').forEach(el => { el.classList.remove('field-invalid'); el.removeAttribute('aria-invalid'); });
+  document.querySelectorAll('#editor-overlay .field-err-msg').forEach(el => el.remove());
+}
+// Mark one input (or the tier list) as wrong and put the message right under it.
+function _fieldError(el, msg){
+  if(!el || el.classList.contains('field-invalid')) return false;   // first problem per field wins
+  el.classList.add('field-invalid');
+  el.setAttribute('aria-invalid', 'true');
+  const m = document.createElement('div');
+  m.className = 'field-err-msg';
+  m.textContent = msg;
+  const host = el.closest('.field') || el.closest('.tier-row');
+  if(host && host.classList.contains('field')) host.appendChild(m);
+  else (host || el).insertAdjacentElement('afterend', m);
+  el._errMsg = m;
+  return true;
+}
+// Typing in a highlighted field clears its highlight.
+['input','change'].forEach(evt => document.addEventListener(evt, e => {
+  const el = e.target;
+  if(!(el instanceof Element) || !el.classList.contains('field-invalid')) return;
+  el.classList.remove('field-invalid'); el.removeAttribute('aria-invalid');
+  if(el._errMsg){ el._errMsg.remove(); el._errMsg = null; }
+}));
+// Check one number box. opts: required, min, above (exclusive min), max, whole.
+function _checkNumber(el, opts){
+  const raw = (el.value || '').trim();
+  if(raw === ''){ return opts.required ? _fieldError(el, T('ERR_F_REQUIRED')) : false; }
+  const v = Number(raw);
+  if(!Number.isFinite(v)) return _fieldError(el, T('ERR_F_REQUIRED'));
+  if(opts.whole && !Number.isInteger(v)) return _fieldError(el, T('ERR_F_WHOLE'));
+  if(opts.above != null && !(v > opts.above)) return _fieldError(el, _tn('ERR_F_ABOVE', opts.above));
+  if(opts.min != null && v < opts.min) return _fieldError(el, _tn('ERR_F_MIN', opts.min));
+  if(opts.max != null && v > opts.max) return _fieldError(el, _tn('ERR_F_MAX', opts.max));
+  return false;
+}
+// Returns the number of problems found (0 = OK to save).
+function _validateTariffForm(){
+  _clearFieldErrors();
+  const $ = id => document.getElementById(id);
+  const RATE = {required:true, min:0, max:_MAX_RATE};
+  const MONTHLY = {required:true, min:0, max:_MAX_MONTHLY};
+  if(!sv('edit-name')) _fieldError($('edit-name'), T('ERR_F_NAME'));
+  else if(sv('edit-name').length > 200) _fieldError($('edit-name'), _tn('ERR_F_TOO_LONG', 200));
+  if(!sv('edit-supplier')) _fieldError($('edit-supplier'), T('ERR_F_SUPPLIER'));
+  if(sv('edit-duration-type') === 'fixed') _checkNumber($('edit-duration-months'), {required:true, whole:true, min:1, max:120});
+  _checkNumber($('edit-standing'), MONTHLY);
+  _checkNumber($('edit-mdm'), MONTHLY);
+  if(sv('edit-fpa-source') === 'custom') _checkNumber($('edit-fpa-custom'), {required:true, min:-_MAX_RATE, max:_MAX_RATE});
+  const pricing = sv('edit-pricing');
+  if(pricing === 'Fixed') _checkNumber($('fix-rate'), RATE);
+  if(pricing === 'ToU'){
+    ['tou-hi-start','tou-hi-end'].forEach(id => _checkNumber($(id), {required:true, whole:true, min:0, max:12}));
+    ['tou-hi-ps','tou-hi-pe','tou-lo-ps','tou-lo-pe'].forEach(id => _checkNumber($(id), {required:true, min:0, max:24}));
+    ['tou-hi-pr','tou-hi-or','tou-lo-pr','tou-lo-or'].forEach(id => _checkNumber($(id), RATE));
+  }
+  if(pricing === 'Dynamic'){
+    _checkNumber($('var-mult'), {required:true, above:0, max:10});
+    _checkNumber($('var-adder'), {required:true, min:-_MAX_RATE, max:_MAX_RATE});
+    _checkNumber($('var-dam-floor'), {min:0, max:_MAX_RATE});
+  }
+  if(pricing === 'Variable'){
+    const rows = [...document.querySelectorAll('#tier-rows .tier-row')];
+    if(!rows.length) _fieldError($('tier-rows'), T('ERR_F_TIER_NEEDED'));
+    let prev = 0;
+    rows.forEach((row, i) => {
+      const upTo = row.querySelector('.tier-upto');
+      if(i < rows.length - 1){                     // the last tier is always "no limit" (getTiers)
+        if(upTo.value.trim() === '') _fieldError(upTo, T('ERR_F_TIER_OPEN'));
+        else if(!_checkNumber(upTo, {above:0, max:10000000})){
+          if(+upTo.value <= prev) _fieldError(upTo, T('ERR_F_TIER_ORDER'));
+          prev = +upTo.value;
+        }
+      }
+      _checkNumber(row.querySelector('.tier-rate'), RATE);
+      _checkNumber(row.querySelector('.tier-fixed'), {min:0, max:_MAX_MONTHLY});
+    });
+  }
+  _discountRows().forEach(row => {
+    const inputs = row.querySelectorAll('input');
+    const pct = inputs[_DISC_INPUT.percentage], v = Number(pct.value);
+    if(pct.value.trim() === '' || !(v > 0) || v > 100) _fieldError(pct, T('ERR_F_DISC_PCT'));
+    _checkNumber(inputs[_DISC_INPUT.durationMonths], {whole:true, min:1, max:120});
+  });
+  return _showErrorSummary();
+}
+function _showErrorSummary(extra){
+  const bad = document.querySelectorAll('#editor-overlay .field-invalid');
+  if(!bad.length && !extra) return 0;
+  const parts = [];
+  if(bad.length) parts.push(_tn('ERR_FIELDS_SUMMARY', bad.length));
+  if(extra) parts.push(extra);
+  showStatus(document.getElementById('editor-status'), 'err', parts.join(' '));
+  if(bad.length){ bad[0].scrollIntoView({block:'center', behavior:'smooth'}); bad[0].focus({preventScroll:true}); }
+  return bad.length || 1;
+}
+// Server-side message ("Input should be greater than or equal to 0") → the page's wording.
+function _friendlyMsg(type, ctx, msg){
+  msg = String(msg || '').replace(/^Value error, /, '');
+  const n = ctx && (ctx.ge ?? ctx.gt ?? ctx.le ?? ctx.lt ?? ctx.max_length);
+  if(type === 'missing') return T('ERR_F_REQUIRED');
+  if(type === 'greater_than_equal') return _tn('ERR_F_MIN', n);
+  if(type === 'greater_than') return _tn('ERR_F_ABOVE', n);
+  if(type === 'less_than_equal') return _tn('ERR_F_MAX', n);
+  if(type === 'string_too_long') return _tn('ERR_F_TOO_LONG', n);
+  let m;
+  if((m = msg.match(/greater than or equal to (-?\d+(?:\.\d+)?)/))) return _tn('ERR_F_MIN', m[1]);
+  if((m = msg.match(/greater than (-?\d+(?:\.\d+)?)/))) return _tn('ERR_F_ABOVE', m[1]);
+  if((m = msg.match(/less than or equal to (-?\d+(?:\.\d+)?)/))) return _tn('ERR_F_MAX', m[1]);
+  if(/strictly increasing/.test(msg)) return T('ERR_F_TIER_ORDER');
+  if(/no upper limit/.test(msg)) return T('ERR_F_TIER_OPEN');
+  return msg;
+}
+// Map a 422 from the server onto the editor's fields; anything unplaceable stays in the summary.
+function _showServerErrors(detail){
+  if(!Array.isArray(detail)) return false;
+  _clearFieldErrors();
+  const discRows = _discountRows();
+  const tierRows = [...document.querySelectorAll('#tier-rows .tier-row')];
+  const unplaced = [];
+  detail.forEach(d => {
+    const loc = (d.loc || []).filter(x => x !== 'body');
+    let el = null;
+    if(loc.length === 1 && _BODY_FIELDS[loc[0]]) el = document.getElementById(_BODY_FIELDS[loc[0]]);
+    else if(loc[0] === 'discounts' && discRows[loc[1]] && _DISC_INPUT[loc[2]] != null) el = discRows[loc[1]].querySelectorAll('input')[_DISC_INPUT[loc[2]]];
+    if(el){ _fieldError(el, _friendlyMsg(d.type, d.ctx, d.msg)); return; }
+    // The rates check reports "invalid <pricing> rates — path: message; path: message".
+    const text = String(d.msg || '');
+    const dash = text.indexOf(' — ');
+    if(loc.length === 0 && dash > 0 && /rates/.test(text)){
+      text.slice(dash + 3).split('; ').forEach(part => {
+        const i = part.indexOf(': ');
+        const path = (i > 0 ? part.slice(0, i) : '').split('.');
+        const msg = i > 0 ? part.slice(i + 2) : part;
+        let rel = null;
+        if(path.length === 1 && _RATE_FIELDS[path[0]]) rel = document.getElementById(_RATE_FIELDS[path[0]]);
+        else if(path[0] === 'tiers' && tierRows[path[1]] && _TIER_FIELDS[path[2]]) rel = tierRows[path[1]].querySelector(_TIER_FIELDS[path[2]]);
+        if(rel) _fieldError(rel, _friendlyMsg(null, null, msg)); else unplaced.push(part);
+      });
+      return;
+    }
+    unplaced.push((loc.length ? loc.join(' › ') + ': ' : '') + _friendlyMsg(d.type, d.ctx, d.msg));
+  });
+  _showErrorSummary(unplaced.join('; '));
+  return true;
+}
+
 async function saveTariff(){
+  if(_validateTariffForm()) return;
   const name=sv('edit-name'),supplier=sv('edit-supplier');
   if(!name||!supplier){showStatus(document.getElementById('editor-status'),'err','Name and supplier required.');return;}
   const pricing=sv('edit-pricing');
@@ -1872,7 +2063,11 @@ async function saveTariff(){
       :_adminApiBase+'/api/admin/tariffs';
     const resp=await fetch(url,{method:editId?'PUT':'POST',headers:authHeaders(),body:JSON.stringify(tariff)});
     if(resp.status===401){showLogin('Session expired.');return;}
-    if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(editorStatus,'err','Save failed: '+apiErrorText(e.detail,resp.status));return;}
+    if(!resp.ok){
+      const e=await resp.json().catch(()=>({}));
+      if(!(resp.status===422&&_showServerErrors(e.detail))) showStatus(editorStatus,'err','Save failed: '+apiErrorText(e.detail,resp.status));
+      return;
+    }
     const saved=await resp.json();
     if(editId){
       const i=tariffs.findIndex(t=>t.id===editId);
@@ -4468,6 +4663,23 @@ document.addEventListener('click', e => {
   if(el.tagName === 'A') e.preventDefault();        // href="#" links must not jump to the top
   const fn = _ACTIONS[el.dataset.action];
   if(fn) fn(el, e);
+});
+// Number boxes: browsers let you type "e" (as in 5e3), "+" and "-" into them. Those
+// keys are ignored, except "-" in the boxes where a negative value is valid (their
+// min is below 0: custom FPA, Dynamic adder, regulated FPA). Anything pasted is
+// cleaned up the same way.
+const _negAllowed = box => box.min === '' || +box.min < 0;
+document.addEventListener('keydown', e => {
+  const box = e.target;
+  if(!(box instanceof HTMLInputElement) || box.type !== 'number') return;
+  if(['e','E','+'].includes(e.key) || (e.key === '-' && !_negAllowed(box))) e.preventDefault();
+});
+document.addEventListener('input', e => {
+  const box = e.target;
+  if(!(box instanceof HTMLInputElement) || box.type !== 'number' || box.value === '') return;
+  const v = box.valueAsNumber;
+  if(!Number.isFinite(v) || (v < 0 && !_negAllowed(box))) box.value = '';
+  else if(/[eE+]/.test(box.value)) box.value = String(v);
 });
 document.addEventListener('keydown', e => {
   if(e.key !== 'Enter') return;
