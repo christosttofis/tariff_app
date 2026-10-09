@@ -332,6 +332,10 @@ These are deployment/production tasks, tracked in full in `AZURE_DEPLOYMENT_CHEC
       - Two existing admin bugs were found by these tests and fixed:
         1. **"Regulated supplier" could never be changed:** confirming the change did nothing, because the code read the checkbox after the browser had already flipped it (since `b2e9d3b`).
         2. Some refusals (e.g. an invalid email when inviting a user) showed **"[object Object]"** instead of the reason. Now they're readable (`apiErrorText`).
+  - **Confirmed by ZAP (run 37889993604, 2026-10-09; full scan, about 623,000 attack requests):**
+    - the "CSP: script-src unsafe-inline" Medium is gone, and so is the "cross-domain JavaScript" Low;
+    - 0 High;
+    - remaining: style-src (below), SRI on Google Fonts (accepted, Round 16), XSS-in-JSON Low (accepted, now also proven safe in the browser by `test_7`), and Info notes.
   - **Not done (decision pending):** `style-src 'unsafe-inline'`. Inline styles can't run code, so ZAP's style-src item is Medium only by rule; removing it would mean moving ~770 `style="…"` attributes into CSS classes.
 - [ ] **Rate limiter is in-memory/single-process** — needs a shared store (e.g. Redis) only if ever scaled to multiple workers/instances.
 - [ ] **External IT certification** — this document is the security summary to hand over.
