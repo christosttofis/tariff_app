@@ -353,10 +353,9 @@ def annual_cost_no_discount(tariff: dict, window: list[tuple[int, int]], **kwarg
     kwargs = dict(kwargs)
     kwargs["discount_overrides"] = {tariff["id"]: override}
     kwargs["offers_enabled"] = True
-    bd = monthly_breakdown(tariff, window, **kwargs)
-    if not bd or all(v is None for v in bd):
-        return None
-    return sum(v["total"] for v in bd)
+    # Same summation as the discounted total, so "no discount" gives exactly
+    # the same figure (Python's sum() rounds differently from a += loop).
+    return annual_cost_for_tariff(tariff, window, **kwargs)
 
 
 def offer_summary(tariff: dict, months: list[dict | None], discount_overrides: dict | None, offers_enabled: bool) -> dict | None:

@@ -102,7 +102,8 @@ def _tariff_result(t: dict, window, profiles_by_id: dict, profile_names: dict, s
     mdm = mdm_for_tariff(t, supplier_regulated, regulated_rates)
     reg_bd = regulated_breakdown(t["voltage"], annual_kwh, mdm, t.get("mdmInvoiceMonths"), supplier_regulated, regulated_rates)
 
-    has_discounts = bool(t.get("discounts"))
+    # Full (undiscounted) price only when offers are shown and the tariff has any.
+    has_discounts = bool(t.get("discounts")) and body.offersEnabled
     full_base = annual_cost_no_discount(t, window, **kwargs) if has_discounts else None
 
     months = monthly_breakdown(t, window, **kwargs)

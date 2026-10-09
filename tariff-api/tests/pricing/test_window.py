@@ -162,3 +162,16 @@ def test_tou_peak_window_may_wrap_over_midnight():
     # 22:00 to midnight (end 0) = 2 hours.
     late = _run(_tou_rates(loPeakStart=22, loPeakEnd=0, loPeakRate=1, loOffRate=0), profile_months=flat)
     assert sum(m["peakKwh"] for m in late) == pytest.approx(5000 * 4 / 48)
+
+
+def test_no_discount_total_is_exactly_the_same_when_no_discount_applies():
+    # With offers switched off, the "full price" must equal the shown price
+    # exactly, or the page shows a struck-through price equal to the real one.
+    from pricing.engine import annual_cost_for_tariff, annual_cost_no_discount
+    t = dict(_dyn(), discounts=[{"type": "energy", "percentage": 50, "durationMonths": 3}])
+    daily = [[{"dateStr": f"2026-{m + 1:02d}-01", "slots": [0.1 + 0.0137 * s for s in range(48)]}] for m in range(12)]
+    kw = dict(is_monthly=False, monthly_kwh_flat=0, annual_kwh=7777, profile_months=PROFILE,
+              regulated_rates={"fpaLV": 0.0351, "fpaMV": 0, "fpaHV": 0}, discount_overrides=None,
+              dam_monthly=[0.17] * 12, dam_daily_data=daily)
+    t["fpaSource"] = "global"; t["voltage"] = "LV"; t["standing"] = 4.37
+    assert annual_cost_for_tariff(t, WINDOW, offers_enabled=False, **kw) == annual_cost_no_discount(t, WINDOW, offers_enabled=True, **kw)

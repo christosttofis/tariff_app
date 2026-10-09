@@ -1266,6 +1266,9 @@ async function applyFilters(){
   if(inputMode==='monthly') html+=`<div style="font-size:12px;color:var(--text2);font-family:var(--mono);background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2);border-radius:2px;padding:10px 14px;margin-bottom:4px;line-height:1.6">${T('NUDGE_ANNUAL')}</div>`;
   html+=`<div class="ranked-list${introCls}">`;  scored.forEach(({t,r},rank)=>{
     const {base,reg,fullBase,months:moBd,moKwh,regBd,fpaRate}=r;
+    // Discounted only if it actually saves at least half a cent (guards against
+    // floating-point noise between the two totals).
+    const hasDisc=fullBase!=null&&fullBase-base>=0.005;
     const isOpen=openCards.has(t.id);
     const showFpa=fpaRate>0;
     const fpaRateStr=`€${fpaRate.toFixed(4)}/kWh`;
@@ -1353,14 +1356,14 @@ async function applyFilters(){
               ?`<span style="font-size:11px;padding:2px 7px;border-radius:2px;background:rgba(239,68,68,.1);color:#9f1239;font-family:var(--mono);font-weight:500">⏱ ${T('LBL_MIN_MONTHS',{N:t.durationMonths})}</span>`
               :`<span style="font-size:11px;padding:2px 7px;border-radius:2px;background:var(--bg3);color:var(--text3);font-family:var(--mono)">${T('LBL_NO_MIN')}</span>`}
           </div>
-          ${fullBase&&fullBase>base?`<div style="font-size:11px;color:var(--green);font-family:var(--mono);margin-top:auto;padding-top:6px;line-height:1.5">*${T('LBL_INCL_DISC')}</div>`:''}
+          ${hasDisc?`<div style="font-size:11px;color:var(--green);font-family:var(--mono);margin-top:auto;padding-top:6px;line-height:1.5">*${T('LBL_INCL_DISC')}</div>`:''}
           ${r.offer?`<div style="font-size:11px;color:#92400e;font-family:var(--mono);padding-top:3px;line-height:1.5">⚠ ${T('LBL_OFFER_ENDS',{N:r.offer.months,X:r.offer.afterMonthlyAvg.toFixed(2)})}</div>`:''}
         </div>
         <div class="rank-cost-col">
           ${inputMode==='monthly'
-            ? `<div class="rank-annual-val" style="${fullBase&&fullBase>base?'color:var(--green)':''}">${fullBase&&fullBase>base?`<span style="font-size:13px;font-weight:400;color:var(--text3);text-decoration:line-through;margin-right:5px">€${periodCost(fullBase).toFixed(2)}</span>`:''}€${periodCost(base).toFixed(2)}${fullBase&&fullBase>base?'<sup style="font-size:11px">*</sup>':''}<span class="rank-annual-lbl" style="font-size:12px;margin-left:3px">${periodCostLabel()}</span><span class="rank-toggle ${isOpen?'open':''}">▼</span></div>
+            ? `<div class="rank-annual-val" style="${hasDisc?'color:var(--green)':''}">${hasDisc?`<span style="font-size:13px;font-weight:400;color:var(--text3);text-decoration:line-through;margin-right:5px">€${periodCost(fullBase).toFixed(2)}</span>`:''}€${periodCost(base).toFixed(2)}${hasDisc?'<sup style="font-size:11px">*</sup>':''}<span class="rank-annual-lbl" style="font-size:12px;margin-left:3px">${periodCostLabel()}</span><span class="rank-toggle ${isOpen?'open':''}">▼</span></div>
           <div style="font-size:13px;font-weight:500;font-family:var(--mono);color:var(--text3);text-align:right;margin-top:4px">≈ €${base.toFixed(0)}<span class="rank-annual-lbl" style="font-size:11px;margin-left:3px">${T('LBL_SUP_YEAR')}</span></div>`
-            : `<div class="rank-annual-val" style="${fullBase&&fullBase>base?'color:var(--green)':''}">${fullBase&&fullBase>base?`<span style="font-size:13px;font-weight:400;color:var(--text3);text-decoration:line-through;margin-right:5px">€${fullBase.toFixed(0)}</span>`:''}€${base.toFixed(0)}${fullBase&&fullBase>base?'<sup style="font-size:11px">*</sup>':''}<span class="rank-annual-lbl" style="font-size:12px;margin-left:3px">${T('LBL_SUP_YEAR')}</span><span class="rank-toggle ${isOpen?'open':''}">▼</span></div>
+            : `<div class="rank-annual-val" style="${hasDisc?'color:var(--green)':''}">${hasDisc?`<span style="font-size:13px;font-weight:400;color:var(--text3);text-decoration:line-through;margin-right:5px">€${fullBase.toFixed(0)}</span>`:''}€${base.toFixed(0)}${hasDisc?'<sup style="font-size:11px">*</sup>':''}<span class="rank-annual-lbl" style="font-size:12px;margin-left:3px">${T('LBL_SUP_YEAR')}</span><span class="rank-toggle ${isOpen?'open':''}">▼</span></div>
           <div style="font-size:13px;font-weight:500;font-family:var(--mono);color:var(--text3);text-align:right;margin-top:4px">€${(base/12).toFixed(2)}<span class="rank-annual-lbl" style="font-size:11px;margin-left:3px">${T('LBL_SUP_MONTH')}</span></div>`}
           ${reg>0?`<div style="font-size:11px;color:#1d4ed8;font-family:var(--mono);margin-top:3px;text-align:right">${T('LBL_INCL_ADDITIONAL',{X:'€'+(inputMode==='monthly'?periodCost(reg):reg).toFixed(0)})} / ${T('LBL_WITHOUT_VAT')}</div>`:''}
         </div>
