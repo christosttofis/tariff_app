@@ -935,7 +935,7 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
   <div class="pane" id="pane-audit">
     <div class="page-head">
       <h1 data-t="PANE_AUDIT_TITLE">Audit calculator</h1>
-      <p data-t="PANE_AUDIT_DESC">Step-by-step cost breakdown for any tariff. Fixed/ToU/Dynamic: half-hourly for selected month. Variable: full-year billing period breakdown.</p>
+      <p data-t="PANE_AUDIT_DESC">Step-by-step cost breakdown for any tariff, using the same rules as the customer page: the first 12 months after switching (from next month), with discounts. Fixed/ToU/Dynamic: half-hourly for the selected month. Variable: all billing periods. Each run is checked against the customer page.</p>
     </div>
 
     <div class="card">
@@ -953,14 +953,8 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
         </div>
         <div class="field">
           <label data-t="LBL_MONTH">Month</label>
-          <select id="audit-month">
-            <option value="0" data-t="MONTH_0">January</option><option value="1" data-t="MONTH_1">February</option>
-            <option value="2" data-t="MONTH_2">March</option><option value="3" data-t="MONTH_3">April</option>
-            <option value="4" data-t="MONTH_4">May</option><option value="5" data-t="MONTH_5">June</option>
-            <option value="6" data-t="MONTH_6">July</option><option value="7" data-t="MONTH_7">August</option>
-            <option value="8" data-t="MONTH_8">September</option><option value="9" data-t="MONTH_9">October</option>
-            <option value="10" data-t="MONTH_10">November</option><option value="11" data-t="MONTH_11">December</option>
-          </select>
+          <!-- Filled by auditPopulateMonths(): the 12 months after switching -->
+          <select id="audit-month"></select>
         </div>
       </div>
       <div id="audit-tariff-info" style="margin-top:10px;font-size:12px;font-family:var(--mono);color:var(--text2);background:var(--bg);border:1px solid var(--border);border-radius:2px;padding:10px 12px;display:none"></div>
@@ -980,7 +974,7 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
         <p style="font-size:12px;color:var(--text2);margin-bottom:10px">
           All 48 half-hour slots for the selected month.
           <strong>WD</strong> = working day contribution, <strong>NWD</strong> = non-working day contribution.
-          DAM prices in €/kWh. Effective price = MAX(DAM, floor) if floor set.
+          DAM prices in €/kWh. Effective price = MAX(DAM, floor) if floor set. <strong>DAM source</strong>: actual price for that date, or the same date in an earlier year, or the month's slot / month average.
         </p>
         <div style="overflow-x:auto">
           <button id="audit-download-btn" class="btn btn-primary" style="display:none;margin-bottom:10px">

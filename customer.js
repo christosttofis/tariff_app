@@ -35,13 +35,14 @@ const LANG = {
     LBL_ANNUAL_KWH: "Annual consumption",
     UNIT_KWH_YEAR: "kWh / year",
     HINT_ANNUAL: "As per CERA's Power supply rules - Chapter 7.1.7 (a) all power suppliers are obliged to send to each consumer, at least once a year, their total consumption for the previous year, and the expected consumption for the current year.",
-    RESULTS_SUB_ANNUAL: "cheapest supplier cost first · annual · profile-distributed · {YEAR} calendar",
-    RESULTS_SUB_MONTHLY: "cheapest bill first · {KWH} kWh per bill · {YEAR} calendar",
+    RESULTS_SUB_ANNUAL: "cheapest supplier cost first · first 12 months after switching ({PERIOD}) · profile-distributed",
+    RESULTS_SUB_MONTHLY: "cheapest bill first · {KWH} kWh per bill · first 12 months after switching ({PERIOD})",
     LAST_UPDATED: "Updated {DT}",
     LBL_STANDING: "/mo standing",
     LBL_NO_MIN: "No minimum period",
     LBL_MIN_MONTHS: "{N}-month-contract",
     LBL_INCL_DISC: "Price incl. promotional discounts. Expand to review conditions.",
+    LBL_OFFER_ENDS: "Includes a {N}-month offer. After it ends: about €{X} / month (supplier charges).",
     LBL_SUP_YEAR: "/ year",
     LBL_SUP_MONTH: "/ month",
     LBL_SUP_2MO: "/ 2 months",
@@ -265,13 +266,14 @@ const LANG = {
     LBL_ANNUAL_KWH: "Ετήσια κατανάλωση",
     UNIT_KWH_YEAR: "kWh / έτος",
     HINT_ANNUAL: "Βάσει των Κανόνων Προμηθειας Ηλεκτρισμού Άρθρο 7.1.7 (α) της ΡΑΕΚ, όλοι οι προμηθευτές υποχρεούνται να ενημερώνουν τους πελάτες τους κατ' ελάχιστο μια φορά τον χρόνο, για την συνολική τους κατανάλωση κατά το προηγούμενο έτος καθώς επίσης και την εκτίμιση κατανάλωσης για το τρέχον έτος.",
-    RESULTS_SUB_ANNUAL: "Φθηνότερος προμηθευτής πρώτα · Ετήσια · Κατανομή-προφίλ · {YEAR}",
-    RESULTS_SUB_MONTHLY: "Φθηνότερος λογαριασμός πρώτα · {KWH} kWh ανά λογαριασμό · {YEAR}",
+    RESULTS_SUB_ANNUAL: "Φθηνότερος προμηθευτής πρώτα · Πρώτοι 12 μήνες μετά την αλλαγή ({PERIOD}) · Κατανομή-προφίλ",
+    RESULTS_SUB_MONTHLY: "Φθηνότερος λογαριασμός πρώτα · {KWH} kWh ανά λογαριασμό · Πρώτοι 12 μήνες μετά την αλλαγή ({PERIOD})",
     LAST_UPDATED: "Ενημερώθηκε {DT}",
     LBL_STANDING: "/μήνα πάγιο",
     LBL_NO_MIN: "Αορίστου χρόνου",
     LBL_MIN_MONTHS: "{N} μήνες συμβόλαιο",
     LBL_INCL_DISC: "Τιμή με εκπτώσεις. Αναπτύξτε για λεπτομέρειες.",
+    LBL_OFFER_ENDS: "Περιλαμβάνει προσφορά {N} μηνών. Μετά τη λήξη της: περίπου €{X} / μήνα (χρεώσεις προμηθευτή).",
     LBL_SUP_YEAR: "/έτος",
     LBL_SUP_MONTH: "/μήνα",
     LBL_SUP_2MO: "/ 2 μήνες",
@@ -1130,6 +1132,19 @@ function renderPage(){
 }
 
 let _calcReqId=0;
+// The 12 months the server priced ([{year, month 1-12}], first month after
+// switching first) — every per-month array in a /calculate result is in
+// this order, not January-December.
+let _calcWindow=null;
+function windowMonthLabels(){
+  if(!_calcWindow||_calcWindow.length!==12) return getMonths();
+  return _calcWindow.map(w=>getMonths()[w.month-1]+" '"+String(w.year).slice(-2));
+}
+function windowPeriodLabel(){
+  if(!_calcWindow||!_calcWindow.length) return '';
+  const f=_calcWindow[0],l=_calcWindow[_calcWindow.length-1];
+  return `${getMonths()[f.month-1]} ${f.year} – ${getMonths()[l.month-1]} ${l.year}`;
+}
 async function fetchCalculate(payload){
   const resp=await fetch('/api/public/calculate',{
     method:'POST', headers:{'Content-Type':'application/json'},
@@ -1211,6 +1226,7 @@ async function applyFilters(){
   }).filter(Boolean);
   scored.forEach(({t,r})=>{ window._lastCalcResults[t.id]=r; });
   window._hasSlotDam=!!data.hasSlotDam;
+  _calcWindow=data.window||null;
   const noDam=(data.noDamTariffs||[]).map(x=>cfg.tariffs.find(y=>y.id===x.id)||x);
 
   if(!scored.length&&!noDam.length){
@@ -1237,7 +1253,7 @@ async function applyFilters(){
   html+=`<div class="card" id="tariffs-card"><div class="results-header">
     <div>
       <div class="results-title">${T(scored.length===1?'TARIFFS_AVAILABLE_ONE':'TARIFFS_AVAILABLE',{N:scored.length})}</div>
-      <div class="results-sub">${inputMode==='monthly'?T('RESULTS_SUB_MONTHLY',{KWH:rawMonthlyKwhInput,YEAR:new Date().getFullYear()}):T('RESULTS_SUB_ANNUAL',{YEAR:new Date().getFullYear()})}</div>
+      <div class="results-sub">${inputMode==='monthly'?T('RESULTS_SUB_MONTHLY',{KWH:rawMonthlyKwhInput,PERIOD:windowPeriodLabel()}):T('RESULTS_SUB_ANNUAL',{PERIOD:windowPeriodLabel()})}</div>
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       <span class="fbadge">${T('TAG_'+voltage)}</span>
@@ -1261,7 +1277,7 @@ async function applyFilters(){
 
     const hasEnergyDisc=r.discounts&&r.discounts.some(d=>d.type==='energy');
     const hasStandingDisc=r.discounts&&r.discounts.some(d=>d.type==='standing');
-    const moRows=getMonths().map((m,i)=>{
+    const moRows=windowMonthLabels().map((m,i)=>{
       const bd=moBd[i];
       return `<tr>
         <td>${m}</td>
@@ -1338,6 +1354,7 @@ async function applyFilters(){
               :`<span style="font-size:11px;padding:2px 7px;border-radius:2px;background:var(--bg3);color:var(--text3);font-family:var(--mono)">${T('LBL_NO_MIN')}</span>`}
           </div>
           ${fullBase&&fullBase>base?`<div style="font-size:11px;color:var(--green);font-family:var(--mono);margin-top:auto;padding-top:6px;line-height:1.5">*${T('LBL_INCL_DISC')}</div>`:''}
+          ${r.offer?`<div style="font-size:11px;color:#92400e;font-family:var(--mono);padding-top:3px;line-height:1.5">⚠ ${T('LBL_OFFER_ENDS',{N:r.offer.months,X:r.offer.afterMonthlyAvg.toFixed(2)})}</div>`:''}
         </div>
         <div class="rank-cost-col">
           ${inputMode==='monthly'
@@ -1443,7 +1460,7 @@ async function applyFilters(){
     const _cmpC=document.getElementById('cmp-chart');
     if(_cmpC){ chartRegistry['cmp']=new Chart(_cmpC,{
       type:'line',
-      data:{labels:getMonths(),datasets:scored.map(({t,r},idx)=>({
+      data:{labels:windowMonthLabels(),datasets:scored.map(({t,r},idx)=>({
         label:t.name,
         data:r.months.map(v=>v!=null?+v.total.toFixed(2):null),
         borderColor:PALETTE[idx%PALETTE.length],
@@ -1478,7 +1495,7 @@ function drawCardChart(t){
   const color={Fixed:'#1a3a5e',ToU:'#2f6f8f',Dynamic:'#b06c2c',Variable:'#5b7a52'}[t.pricing]||'#1a3a5e';
   chartRegistry[t.id]=new Chart(canvas,{
     type:'bar',
-    data:{labels:getMonths(),datasets:[{
+    data:{labels:windowMonthLabels(),datasets:[{
       label:T('CHART_MONTHLY_COST'),
       data:r.months.map(v=>v!=null?+v.total.toFixed(2):null),
       backgroundColor:color+'2e',borderColor:color,borderWidth:1.5,borderRadius:5,

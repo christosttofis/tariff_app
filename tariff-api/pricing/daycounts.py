@@ -1,60 +1,67 @@
-"""Cyprus public holidays and working/non-working day counts.
+"""Cyprus public holidays, working/non-working day counts, and the
+12-month calculation window.
 
-Direct port of easterDate/getCyprusHolidays/getDayCounts in customer.html
-(~lines 1303-1328).
+Originally a port of easterDate/getCyprusHolidays/getDayCounts in the old
+client-side customer.html code.
 """
 
+import calendar
 from datetime import date, timedelta
+from functools import lru_cache
 
-DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
 
 def easter_date(year: int) -> date:
-    a = year % 19
-    b = year // 100
-    c = year % 100
-    d = b // 4
-    e = b % 4
-    f = (b + 8) // 25
-    g = (b - f + 1) // 3
-    h = (19 * a + b - d - g + 15) % 30
-    i = c // 4
-    k = c % 4
-    l = (32 + 2 * e + 2 * i - h - k) % 7
-    m = (a + 11 * h + 22 * l) // 451
-    month = (h + l - 7 * m + 114) // 31
-    day = ((h + l - 7 * m + 114) % 31) + 1
-    return date(year, month, day)
+    """Orthodox Easter Sunday (Meeus' Julian algorithm, converted to the
+    Gregorian calendar; the +13-day offset is valid for 1900-2099).
+
+    The original JS port used the Western (Gregorian) algorithm, which gives
+    the wrong date in most years (e.g. 2026-04-05 instead of 2026-04-12)."""
+    a = year % 4
+    b = year % 7
+    c = year % 19
+    d = (19 * c + 15) % 30
+    e = (2 * a + 4 * b - d + 34) % 7
+    month = (d + e + 114) // 31
+    day = ((d + e + 114) % 31) + 1
+    return date(year, month, day) + timedelta(days=13)
 
 
-def get_cyprus_holidays(year: int) -> set[str]:
+@lru_cache(maxsize=16)
+def get_cyprus_holidays(year: int) -> frozenset[str]:
     fixed = [(1, 1), (1, 6), (3, 25), (4, 1), (5, 1), (8, 15), (10, 1), (10, 28), (12, 25), (12, 26)]
     holidays = {f"{year}{mo:02d}{d:02d}" for mo, d in fixed}
     e = easter_date(year)
-    for offset in (-48, -2, 1, 49):
+    # Green Monday, Good Friday, Easter Monday, Kataklysmos (Whit Monday,
+    # Easter + 50 — Easter + 49 is Pentecost Sunday, already a weekend day).
+    for offset in (-48, -2, 1, 50):
         dt = e + timedelta(days=offset)
         holidays.add(f"{dt.year}{dt.month:02d}{dt.day:02d}")
-    return holidays
-
-
-def _js_day_of_week(d: date) -> int:
-    """JS Date.getDay(): Sunday=0 .. Saturday=6, vs Python's Monday=0..Sunday=6."""
-    return (d.weekday() + 1) % 7
+    return frozenset(holidays)
 
 
 def get_day_counts(year: int) -> list[dict]:
-    holidays = get_cyprus_holidays(year)
-    is_leap = year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+    """Working/non-working day counts for January-December of `year`."""
+    return get_window_day_counts([(year, mi) for mi in range(12)])
+
+
+def calc_window(today: date) -> list[tuple[int, int]]:
+    """The 12 months every cost estimate covers: (year, month index 0-11)
+    pairs, starting with the month after `today` — i.e. the customer's first
+    year after switching, so time-limited offers land on the right months."""
+    start = today.year * 12 + today.month   # today.month is 1-based -> next month
+    return [(k // 12, k % 12) for k in range(start, start + 12)]
+
+
+def is_non_working(d: date) -> bool:
+    return d.weekday() >= 5 or d.strftime("%Y%m%d") in get_cyprus_holidays(d.year)
+
+
+def get_window_day_counts(window: list[tuple[int, int]]) -> list[dict]:
+    """Working/non-working day counts for each (year, month index) of a window."""
     result = []
-    for mi in range(12):
-        dim = 29 if (mi == 1 and is_leap) else DAYS_IN_MONTH[mi]
-        working = non_working = 0
-        for d in range(1, dim + 1):
-            dow = _js_day_of_week(date(year, mi + 1, d))
-            key = f"{year}{mi + 1:02d}{d:02d}"
-            if dow == 0 or dow == 6 or key in holidays:
-                non_working += 1
-            else:
-                working += 1
-        result.append({"working": working, "nonWorking": non_working})
+    for year, mi in window:
+        dim = calendar.monthrange(year, mi + 1)[1]
+        non_working = sum(is_non_working(date(year, mi + 1, d)) for d in range(1, dim + 1))
+        result.append({"working": dim - non_working, "nonWorking": non_working})
     return result

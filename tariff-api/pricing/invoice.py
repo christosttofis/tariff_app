@@ -1,37 +1,26 @@
-"""Sample-invoice generation — direct port of getSampleInvoicePeriod/
-buildSampleInvoiceData in customer.html (~lines 1470-1563).
+"""Sample-invoice generation. Originally a port of the old client-side
+getSampleInvoicePeriod/buildSampleInvoiceData JS.
 
-Reuses an already-computed monthlyBreakdown()/monthlyKwhDisplay() result —
+Reuses an already-computed monthly_breakdown()/monthly_kwh_display() result —
 this module does not run its own cost calculation.
 """
 
-from datetime import date, timedelta
+import calendar
+from datetime import date
 
 from .regulated import get_tariff_fpa, mdm_for_tariff, regulated_breakdown
 
 
-
-def get_sample_invoice_period(tariff: dict, input_mode: str, billing_period: int, today: date | None = None) -> dict:
+def get_sample_invoice_period(tariff: dict, input_mode: str, billing_period: int, window: list[tuple[int, int]]) -> dict:
+    """The customer's first bill after switching: the first 1 or 2 months of
+    the calculation window (the customer's own billing cycle in Monthly mode,
+    the tariff's invoicing cadence in Annual mode)."""
     n = billing_period if input_mode == "monthly" else (tariff.get("mdmInvoiceMonths") or 2)
-    now = today or date.today()
-    cur_m, cur_y = now.month - 1, now.year
-    month_indices = []
-    month_dates = []
-    for i in range(n, 0, -1):
-        mi, y = cur_m - i, cur_y
-        while mi < 0:
-            mi += 12
-            y -= 1
-        month_indices.append(mi)
-        month_dates.append((mi, y))
-    first_mi, first_y = month_dates[0]
-    last_mi, last_y = month_dates[-1]
+    first_y, first_mi = window[0]
+    last_y, last_mi = window[n - 1]
     start_date = date(first_y, first_mi + 1, 1)
-    if last_mi == 11:
-        end_date = date(last_y + 1, 1, 1) - timedelta(days=1)
-    else:
-        end_date = date(last_y, last_mi + 2, 1) - timedelta(days=1)
-    return {"monthIndices": month_indices, "startDate": start_date.isoformat(), "endDate": end_date.isoformat()}
+    end_date = date(last_y, last_mi + 1, calendar.monthrange(last_y, last_mi + 1)[1])
+    return {"monthIndices": list(range(n)), "startDate": start_date.isoformat(), "endDate": end_date.isoformat()}
 
 
 def build_sample_invoice_data(
@@ -43,11 +32,11 @@ def build_sample_invoice_data(
     supplier_regulated: bool,
     input_mode: str,
     billing_period: int,
-    today: date | None = None,
+    window: list[tuple[int, int]],
 ) -> dict | None:
     if not mo_bd or all(v is None for v in mo_bd):
         return None
-    period = get_sample_invoice_period(tariff, input_mode, billing_period, today)
+    period = get_sample_invoice_period(tariff, input_mode, billing_period, window)
     month_indices = period["monthIndices"]
     if any(mo_bd[mi] is None for mi in month_indices):
         return None

@@ -12,16 +12,17 @@ pricing/ package as pure, independently-testable functions.
 import json
 import logging
 import math
-from datetime import datetime, timezone
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 import models
 from database import get_db
-from pricing.daycounts import get_day_counts
+from pricing.daycounts import calc_window
 from pricing.display import format_tier_summary
-from pricing.engine import annual_cost_for_tariff, annual_cost_no_discount, monthly_breakdown, monthly_kwh_display
+from pricing.engine import annual_cost_for_tariff, annual_cost_no_discount, monthly_breakdown, monthly_kwh_display, offer_summary
 from pricing.filters import filter_matching_tariffs
 from pricing.invoice import build_sample_invoice_data
 from pricing.regulated import get_regulated_rates, get_tariff_fpa, mdm_for_tariff, regulated_breakdown
@@ -31,6 +32,16 @@ from serializers import tariff_to_dict
 router = APIRouter(prefix="/api/public", tags=["public-calculate"])
 
 logger = logging.getLogger(__name__)
+
+CYPRUS_TZ = ZoneInfo("Europe/Nicosia")
+
+
+def _today_in_cyprus() -> date:
+    return datetime.now(CYPRUS_TZ).date()
+
+
+def _window_json(window: list[tuple[int, int]]) -> list[dict]:
+    return [{"year": y, "month": mi + 1} for y, mi in window]
 
 
 def _load_context(db: Session):
@@ -72,7 +83,7 @@ def _calc_kwargs(t: dict, profiles_by_id: dict, regulated_rates: dict, *, is_mon
     }
 
 
-def _tariff_result(t: dict, dc, profiles_by_id: dict, profile_names: dict, suppliers_regulated: dict, regulated_rates: dict, *,
+def _tariff_result(t: dict, window, profiles_by_id: dict, profile_names: dict, suppliers_regulated: dict, regulated_rates: dict, *,
                    body: PublicCalculateIn, is_monthly, monthly_kwh_flat, annual_kwh, dam_monthly, dam_by_slot, dam_daily_data) -> dict | None:
     """One tariff's comparison entry, or None if it can't be priced (e.g. a Dynamic tariff with no DAM data)."""
     kwargs = _calc_kwargs(
@@ -81,7 +92,7 @@ def _tariff_result(t: dict, dc, profiles_by_id: dict, profile_names: dict, suppl
         discount_overrides=body.discountOverrides, offers_enabled=body.offersEnabled,
         dam_monthly=dam_monthly, dam_by_slot=dam_by_slot, dam_daily_data=dam_daily_data,
     )
-    base = annual_cost_for_tariff(t, dc, **kwargs)
+    base = annual_cost_for_tariff(t, window, **kwargs)
     if base is None:
         return None
     if not math.isfinite(base):
@@ -92,11 +103,11 @@ def _tariff_result(t: dict, dc, profiles_by_id: dict, profile_names: dict, suppl
     reg_bd = regulated_breakdown(t["voltage"], annual_kwh, mdm, t.get("mdmInvoiceMonths"), supplier_regulated, regulated_rates)
 
     has_discounts = bool(t.get("discounts"))
-    full_base = annual_cost_no_discount(t, dc, **kwargs) if has_discounts else None
+    full_base = annual_cost_no_discount(t, window, **kwargs) if has_discounts else None
 
-    months = monthly_breakdown(t, dc, **kwargs)
+    months = monthly_breakdown(t, window, **kwargs)
     mo_kwh = monthly_kwh_display(
-        t, dc, is_monthly=is_monthly, monthly_kwh_flat=monthly_kwh_flat, annual_kwh=annual_kwh,
+        t, window, is_monthly=is_monthly, monthly_kwh_flat=monthly_kwh_flat, annual_kwh=annual_kwh,
         profile_months=kwargs["profile_months"],
     )
 
@@ -114,6 +125,7 @@ def _tariff_result(t: dict, dc, profiles_by_id: dict, profile_names: dict, suppl
         # per-tariff pricing result.
         "discounts": t.get("discounts") or [],
         "profileName": profile_names.get(t.get("profileId")),
+        "offer": offer_summary(t, months, body.discountOverrides, body.offersEnabled),
     }
     if t.get("pricing") == "Variable":
         entry["tierSummary"] = format_tier_summary(t)
@@ -140,10 +152,9 @@ def calculate(body: PublicCalculateIn, db: Session = Depends(get_db)):
     monthly_kwh_flat = body.monthlyKwh / body.billingPeriod if body.billingPeriod else 0
     annual_kwh = (monthly_kwh_flat * 12) if is_monthly else body.annualKwh
 
+    window = calc_window(_today_in_cyprus())
     if annual_kwh <= 0:
-        return {"results": [], "noDamTariffs": []}
-
-    dc = get_day_counts(datetime.now(timezone.utc).year)
+        return {"results": [], "noDamTariffs": [], "window": _window_json(window)}
 
     matched = filter_matching_tariffs(tariffs, voltage, contracts, body.pricingFilter, load_entitlement, body.vulnerableEligible)
 
@@ -156,7 +167,7 @@ def calculate(body: PublicCalculateIn, db: Session = Depends(get_db)):
         # is the safety net for anything already stored or missed there.)
         try:
             entry = _tariff_result(
-                t, dc, profiles_by_id, profile_names, suppliers_regulated, regulated_rates,
+                t, window, profiles_by_id, profile_names, suppliers_regulated, regulated_rates,
                 body=body, is_monthly=is_monthly, monthly_kwh_flat=monthly_kwh_flat, annual_kwh=annual_kwh,
                 dam_monthly=dam_monthly, dam_by_slot=dam_by_slot, dam_daily_data=dam_daily_data,
             )
@@ -170,7 +181,7 @@ def calculate(body: PublicCalculateIn, db: Session = Depends(get_db)):
         results.append(entry)
 
     results.sort(key=lambda r: r["base"])
-    return {"results": results, "noDamTariffs": no_dam, "hasSlotDam": has_slot_dam}
+    return {"results": results, "noDamTariffs": no_dam, "hasSlotDam": has_slot_dam, "window": _window_json(window)}
 
 
 @router.post("/sample-invoice", summary="Compute the on-demand sample-invoice modal data for one tariff")
@@ -186,19 +197,19 @@ def sample_invoice(body: PublicSampleInvoiceIn, db: Session = Depends(get_db)):
     if annual_kwh <= 0:
         return None
 
-    dc = get_day_counts(datetime.now(timezone.utc).year)
+    window = calc_window(_today_in_cyprus())
     kwargs = _calc_kwargs(
         t, profiles_by_id, regulated_rates,
         is_monthly=is_monthly, monthly_kwh_flat=monthly_kwh_flat, annual_kwh=annual_kwh,
         discount_overrides=body.discountOverrides, offers_enabled=body.offersEnabled,
         dam_monthly=dam_monthly, dam_by_slot=dam_by_slot, dam_daily_data=dam_daily_data,
     )
-    months = monthly_breakdown(t, dc, **kwargs)
+    months = monthly_breakdown(t, window, **kwargs)
     mo_kwh = monthly_kwh_display(
-        t, dc, is_monthly=is_monthly, monthly_kwh_flat=monthly_kwh_flat, annual_kwh=annual_kwh,
+        t, window, is_monthly=is_monthly, monthly_kwh_flat=monthly_kwh_flat, annual_kwh=annual_kwh,
         profile_months=kwargs["profile_months"],
     )
     supplier_regulated = suppliers_regulated.get(t["supplier"], False)
     return build_sample_invoice_data(
-        t, months, mo_kwh, annual_kwh, regulated_rates, supplier_regulated, body.inputMode, body.billingPeriod,
+        t, months, mo_kwh, annual_kwh, regulated_rates, supplier_regulated, body.inputMode, body.billingPeriod, window,
     )

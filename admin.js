@@ -124,7 +124,7 @@ const LANG = {
     LBL_REF_KWH:'Reference annual consumption (kWh)', LBL_VOLTAGE_LVL:'Voltage level',
     // Audit pane
     PANE_AUDIT_TITLE:'Audit calculator',
-    PANE_AUDIT_DESC:'Step-by-step cost breakdown for any tariff. Fixed/ToU/Dynamic: half-hourly for selected month. Variable: full-year billing period breakdown.',
+    PANE_AUDIT_DESC:'Step-by-step cost breakdown for any tariff, using the same rules as the customer page: the first 12 months after switching (from next month), with discounts. Fixed/ToU/Dynamic: half-hourly for the selected month. Variable: all billing periods. Each run is checked against the customer page.',
     CARD_INPUTS:'Inputs', LBL_TARIFF_SEL:'Tariff', LBL_ANNUAL_KWH:'Annual consumption (kWh)', LBL_MONTH:'Month',
     BTN_RUN_AUDIT:'▶ Run audit', CARD_MONTH_SUMMARY:'Month summary',
     MONTH_0:'January', MONTH_1:'February', MONTH_2:'March', MONTH_3:'April',
@@ -325,7 +325,7 @@ const LANG = {
     LBL_REF_KWH:'Κατανάλωση αναφοράς (kWh/έτος)', LBL_VOLTAGE_LVL:'Επίπεδο τάσης',
     // Audit pane
     PANE_AUDIT_TITLE:'Ελεγχος υπολογισμού διατιμήσεων',
-    PANE_AUDIT_DESC:'Αναλυτική κατανομή κόστους για οποιοδήποτε διατίμηση.',
+    PANE_AUDIT_DESC:'Αναλυτική κατανομή κόστους για οποιαδήποτε διατίμηση, με τους ίδιους κανόνες όπως η σελίδα πελατών: οι πρώτοι 12 μήνες μετά την αλλαγή (από τον επόμενο μήνα), με εκπτώσεις. Κάθε υπολογισμός ελέγχεται έναντι της σελίδας πελατών.',
     CARD_INPUTS:'Δεδομένα εισόδου', LBL_TARIFF_SEL:'Διατίμηση', LBL_ANNUAL_KWH:'Ετήσια κατανάλωση (kWh)', LBL_MONTH:'Μήνας',
     BTN_RUN_AUDIT:'▶ Εκτέλεση ελέγχου', CARD_MONTH_SUMMARY:'Σύνοψη μήνα',
     MONTH_0:'Ιανουάριος', MONTH_1:'Φεβρουάριος', MONTH_2:'Μάρτιος', MONTH_3:'Απρίλιος',
@@ -3120,22 +3120,9 @@ function statTile(label,val,unit){
   </div>`;
 }
 
-// Cyprus holidays helper for DAM viewer (simplified — uses stored year)
+// Cyprus holidays helper for DAM viewer (uses the stored DAM year)
 function getCyprusHolidays2026(){
-  const year=parseInt(document.getElementById('dam-year')?.value)||2026;
-  // reuse existing easterDate logic
-  function ed(y){
-    const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25);
-    const g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7;
-    const m=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*m+114)/31)-1,dy=((h+l-7*m+114)%31)+1;
-    return new Date(y,mo,dy);
-  }
-  const fixed=[[1,1],[1,6],[3,25],[4,1],[5,1],[8,15],[10,1],[10,28],[12,25],[12,26]]
-    .map(([mo,d])=>`${year}${String(mo).padStart(2,'0')}${String(d).padStart(2,'0')}`);
-  const e=ed(year);
-  const add=(dt,n)=>{const r=new Date(dt);r.setDate(r.getDate()+n);return r;};
-  const fmt=dt=>`${dt.getFullYear()}${String(dt.getMonth()+1).padStart(2,'0')}${String(dt.getDate()).padStart(2,'0')}`;
-  return new Set([...fixed,fmt(add(e,-48)),fmt(add(e,-2)),fmt(add(e,1)),fmt(add(e,49))]);
+  return getCyprusHolidaysAdmin(parseInt(document.getElementById('dam-year')?.value)||2026);
 }
 function exportDAM(type){
   if(!damRowCount){alert('No DAM data loaded.');return;}
@@ -3536,6 +3523,7 @@ function auditPopulateTariffs(){
     sel.appendChild(o);
   });
   if(cur) sel.value=cur;
+  auditPopulateMonths();
 }
 
 function auditTariffChanged(){
@@ -3574,18 +3562,26 @@ function auditTariffChanged(){
 }
 
 function getCyprusHolidaysAdmin(year){
+  // Orthodox Easter (Meeus' Julian algorithm + 13 days, valid 1900-2099) —
+  // same as tariff-api/pricing/daycounts.py easter_date().
   function ed(y){
-    const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25);
-    const g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7;
-    const mm=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*mm+114)/31)-1,dy=((h+l-7*mm+114)%31)+1;
-    return new Date(y,mo,dy);
+    const a=y%4,b=y%7,c=y%19,d=(19*c+15)%30,e=(2*a+4*b-d+34)%7;
+    const mo=Math.floor((d+e+114)/31)-1,dy=((d+e+114)%31)+1;
+    return new Date(y,mo,dy+13);
   }
   const fixed=[[1,1],[1,6],[3,25],[4,1],[5,1],[8,15],[10,1],[10,28],[12,25],[12,26]]
     .map(([mo,d])=>`${year}${String(mo).padStart(2,'0')}${String(d).padStart(2,'0')}`);
   const e=ed(year);
   const add=(dt,n)=>{const r=new Date(dt);r.setDate(r.getDate()+n);return r;};
   const fmt=dt=>`${dt.getFullYear()}${String(dt.getMonth()+1).padStart(2,'0')}${String(dt.getDate()).padStart(2,'0')}`;
-  return new Set([...fixed,fmt(add(e,-48)),fmt(add(e,-2)),fmt(add(e,1)),fmt(add(e,49))]);
+  // Green Monday, Good Friday, Easter Monday, Kataklysmos (Whit Monday)
+  return new Set([...fixed,fmt(add(e,-48)),fmt(add(e,-2)),fmt(add(e,1)),fmt(add(e,50))]);
+}
+
+function isNonWorkingAdmin(year,mi,d){
+  const dow=new Date(year,mi,d).getDay();
+  const key=`${year}${String(mi+1).padStart(2,'0')}${String(d).padStart(2,'0')}`;
+  return dow===0||dow===6||getCyprusHolidaysAdmin(year).has(key);
 }
 
 function getDayCountsAdmin(year){
@@ -3603,6 +3599,118 @@ function getDayCountsAdmin(year){
   });
 }
 
+// ── Audit calculator: same rules as the server engine (tariff-api/pricing/) ──
+// The audit is a deliberately independent re-implementation, so it can check
+// the server's numbers; auditCrossCheck() compares the two after every run.
+
+// 12-month window: the 12 months starting the month after today (Cyprus
+// time) — must match daycounts.py calc_window().
+function auditWindow(){
+  const [y,m]=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Nicosia',year:'numeric',month:'2-digit',day:'2-digit'})
+    .format(new Date()).split('-').map(Number);
+  const start=y*12+m;   // m is 1-based -> next month
+  return Array.from({length:12},(_,k)=>({year:Math.floor((start+k)/12),mi:(start+k)%12}));
+}
+function auditMonthLabel(w,short){
+  const name=short?T('MONTH_'+w.mi).slice(0,3):T('MONTH_'+w.mi);
+  return short?`${name} '${String(w.year).slice(-2)}`:`${name} ${w.year}`;
+}
+function auditWindowLabel(win){ return `${auditMonthLabel(win[0])} – ${auditMonthLabel(win[11])}`; }
+function auditPopulateMonths(){
+  const sel=document.getElementById('audit-month');
+  if(!sel) return;
+  const cur=sel.value;
+  sel.innerHTML='';
+  auditWindow().forEach((w,pos)=>{
+    const o=document.createElement('option');
+    o.value=pos; o.textContent=`${pos+1}. ${auditMonthLabel(w)}`;
+    sel.appendChild(o);
+  });
+  if(cur&&sel.querySelector(`option[value="${cur}"]`)) sel.value=cur;
+}
+// Day counts per window month (each month uses its own year's calendar).
+function auditWindowDayCounts(win){
+  const byYear={};
+  return win.map(w=>(byYear[w.year]=byYear[w.year]||getDayCountsAdmin(w.year))[w.mi]);
+}
+function auditMonthHHFF(pm,dcm){
+  if(!pm) return 0;
+  let t=0;
+  for(let s=0;s<48;s++) t+=((pm.W||[])[s]||0)*dcm.working+((pm.NW||[])[s]||0)*dcm.nonWorking;
+  return t;
+}
+function auditAnnualHHFF(prof,win,dc){
+  return win.reduce((a,w,pos)=>a+auditMonthHHFF(prof.months[w.mi],dc[pos]),0);
+}
+// Month kWh (Annual mode) — engine.py m_kwh_for_month()
+function auditMonthKwh(prof,win,dc,annualHHFF,annualKwh,pos){
+  if(!prof||annualHHFF<=0) return annualKwh/12;
+  return annualKwh*auditMonthHHFF(prof.months[win[pos].mi],dc[pos])/annualHHFF;
+}
+// Discounts as the customer page applies them by default (all offers on):
+// monthNo 1 = first month after switching — discounts.py get_discount_factors()
+function auditDiscountFactors(tar,monthNo){
+  let e=0,st=0;
+  (tar.discounts||[]).forEach(d=>{
+    if(d.durationMonths&&monthNo>d.durationMonths) return;
+    if(d.type==='energy') e+=parseFloat(d.percentage)||0;
+    else if(d.type==='standing') st+=parseFloat(d.percentage)||0;
+  });
+  return {energyFactor:Math.max(0,1-e/100),standingFactor:Math.max(0,1-st/100)};
+}
+// DAM price for one date+slot: actual price, then same date 1 and 2 years
+// earlier, then month slot average, then month average — engine.py
+// DAM_LOOKBACK_YEARS. Returns {price, source} or null.
+function auditDamPrice(year,mi,d,s){
+  const days=(damDailyData&&damDailyData[mi])||[];
+  for(let back=0;back<=2;back++){
+    const ds=`${year-back}-${String(mi+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const day=days.find(x=>x.dateStr===ds);
+    if(day&&day.slots&&day.slots[s]!=null) return {price:day.slots[s],source:back?`${year-back}`:'actual'};
+  }
+  const sa=damBySlot&&damBySlot[mi]?damBySlot[mi][s]:null;
+  if(sa!=null) return {price:sa,source:'slot avg'};
+  if(damMonthly[mi]!=null) return {price:damMonthly[mi],source:'month avg'};
+  return null;
+}
+// Compare the audit figure with what the customer page shows for the same
+// tariff (POST /api/public/calculate, Annual mode, all offers on). pos = window
+// month index, or null to compare the 12-month total.
+async function auditCrossCheck(tar,annualKwh,pos,auditValue){
+  const el=document.getElementById('audit-crosscheck');
+  if(!el) return;
+  el.textContent='Checking against the customer page…';
+  el.style.color='var(--text3)';
+  const body={inputMode:'annual',annualKwh,pricingFilter:tar.pricing,vulnerableEligible:true,offersEnabled:true,
+    customerType:tar.contract==='Domestic'?'domestic':'ci',voltage:tar.voltage,
+    loadEntitlement:tar.loadEntitlement==='gt70'?'gt70':'lt70'};
+  try{
+    const resp=await fetch(_adminApiBase+'/api/public/calculate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    const data=await resp.json();
+    const r=(data.results||[]).find(x=>x.id===tar.id);
+    if(!r){
+      const noDam=(data.noDamTariffs||[]).some(x=>x.id===tar.id);
+      el.textContent=noDam?'Customer page: excluded (no DAM price for some months).'
+        :`Not shown on the customer page (status: ${tar.status||'unknown'}), so there is nothing to compare.`;
+      return;
+    }
+    const server=pos==null?r.base:(r.months[pos]?r.months[pos].total:null);
+    if(server==null){el.textContent='Customer page has no figure for this month.';return;}
+    const diff=auditValue-server;
+    const ok=Math.abs(diff)<0.005;
+    el.style.color=ok?'var(--green)':'#b45309';
+    el.textContent=(ok?'✓ Matches the customer page':'⚠ Differs from the customer page')+
+      ` — customer page €${server.toFixed(4)}, audit €${auditValue.toFixed(4)}`+(ok?'':` (difference €${diff.toFixed(4)}).`+
+      ' If you changed regulated charges or DAM data without saving, the customer page still uses the saved values.');
+  }catch(e){
+    el.textContent='Could not reach the customer-page calculation ('+e.message+').';
+  }
+}
+function auditCrossCheckBox(){
+  return `<div id="audit-crosscheck" style="margin-top:10px;font-size:12px;font-family:var(--mono);padding:8px 10px;border:1px solid var(--border);border-radius:2px;background:var(--bg)"></div>`;
+}
+
 function applyTiersAdmin(tiers, kwh){
   if(!tiers||!tiers.length||isNaN(kwh)||kwh<=0) return 0;
   let cost=0,prev=0;
@@ -3618,44 +3726,28 @@ function applyTiersAdmin(tiers, kwh){
   return cost;
 }
 
-function runAuditVariable(tar, annualKwh, year){
-  const dc=getDayCountsAdmin(year);
+function runAuditVariable(tar, annualKwh, win){
+  const dc=auditWindowDayCounts(win);
   const r=tar.rates;
   const tiers=r.tiers||[];
   const reset=r.resetMonths||1;
   const reg=getRegulated();
   const fpaRate=tar.fpaSource==='custom'?tar.fpaCustom:tar.fpaSource==='none'?0:
     (tar.voltage==='LV'?reg.fpaLV:tar.voltage==='MV'?reg.fpaMV:reg.fpaHV);
-  const isLeap=year%4===0&&(year%100!==0||year%400===0);
-  const dims=[31,isLeap?29:28,31,30,31,30,31,31,30,31,30,31];
-  const MONTHS_FULL=['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const MONTHS_SHORT_L=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const windowLabel=auditWindowLabel(win);
 
-  // kWh per month — profile distributed if available, else flat
+  // kWh per window month — profile distributed if available, else flat
   const prof=profiles.find(p=>p.id===tar.profileId);
-  let annualHHFF=0;
-  if(prof){
-    for(let m=0;m<12;m++){
-      const pm=prof.months[m];if(!pm)continue;
-      for(let s=0;s<48;s++) annualHHFF+=(pm.W[s]||0)*dc[m].working+(pm.NW[s]||0)*dc[m].nonWorking;
-    }
-  }
-  function mKwh(m){
-    if(prof&&annualHHFF>0){
-      const pm=prof.months[m];if(!pm)return annualKwh/12;
-      let mHHFF=0;
-      for(let s=0;s<48;s++) mHHFF+=(pm.W[s]||0)*dc[m].working+(pm.NW[s]||0)*dc[m].nonWorking;
-      return annualKwh*(mHHFF/annualHHFF);
-    }
-    return annualKwh/12;
-  }
+  const annualHHFF=prof?auditAnnualHHFF(prof,win,dc):0;
+  const mKwh=pos=>auditMonthKwh(prof,win,dc,annualHHFF,annualKwh,pos);
 
   const resetLabel={1:'Monthly',2:'Bimonthly',3:'Quarterly',6:'Semi-annual',12:'Annual'}[reset]||reset+'mo';
 
   // Build one row per billing period
   const periods=[];
-  let totKwh=0,totEnergy=0,totFixed=0,totFpa=0,totStanding=0;
+  let totKwh=0,totEnergy=0,totFixed=0,totFpa=0,totStanding=0,totAfterDisc=0;
 
+  // Billing periods start with the first month after switching.
   for(let ps=0;ps<12;ps+=reset){
     const pe=Math.min(ps+reset,12);
     const periodLen=pe-ps;
@@ -3677,6 +3769,13 @@ function runAuditVariable(tar, annualKwh, year){
     const fpaCost=periodKwh*fpaRate;
     const standingCost=tar.standing*periodLen;
     const periodTotal=energyCost+fixedCost+fpaCost+standingCost;
+    // Discounts per month, as the customer page applies them: energy+FPA by
+    // the energy factor, standing + tier fixed charges by the standing factor.
+    let afterDisc=0;
+    for(let pos=ps;pos<pe;pos++){
+      const df=auditDiscountFactors(tar,pos+1);
+      afterDisc+=(energyCost+fpaCost)/periodLen*df.energyFactor+((parseFloat(tar.standing)||0)+fixedCost/periodLen)*df.standingFactor;
+    }
 
     // Tier breakdown detail
     const tierDetail=[];
@@ -3697,19 +3796,19 @@ function runAuditVariable(tar, annualKwh, year){
       if(tier.upTo==null||periodKwh<=cap) break;
     }
 
-    const monthNames=Array.from({length:periodLen},(_,i)=>MONTHS_SHORT_L[ps+i]).join('+');
-    periods.push({ps,pe,periodLen,monthNames,periodKwh,energyCost,fixedCost,fpaCost,standingCost,periodTotal,tierDetail});
-    totKwh+=periodKwh; totEnergy+=energyCost; totFixed+=fixedCost; totFpa+=fpaCost; totStanding+=standingCost;
+    const monthNames=Array.from({length:periodLen},(_,i)=>auditMonthLabel(win[ps+i],true)).join(' + ');
+    periods.push({ps,pe,periodLen,monthNames,periodKwh,energyCost,fixedCost,fpaCost,standingCost,periodTotal,afterDisc,tierDetail});
+    totKwh+=periodKwh; totEnergy+=energyCost; totFixed+=fixedCost; totFpa+=fpaCost; totStanding+=standingCost; totAfterDisc+=afterDisc;
   }
 
   const annualTotal=totEnergy+totFixed+totFpa+totStanding;
   const summaryTitle=document.getElementById('audit-summary-card').querySelector('.card-title');
-  if(summaryTitle) summaryTitle.textContent='Annual summary';
+  if(summaryTitle) summaryTitle.textContent='12-month summary';
 
   document.getElementById('audit-summary').innerHTML=`
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px">
       ${[
-        ['Year',year],
+        ['Period',windowLabel],
         ['Reset period',resetLabel],
         ['Billing periods',Math.ceil(12/reset)],
         ['Annual kWh',totKwh.toFixed(2)],
@@ -3718,19 +3817,20 @@ function runAuditVariable(tar, annualKwh, year){
         ['Tier fixed charges','€'+totFixed.toFixed(2)],
         ['FPA cost','€'+totFpa.toFixed(2)],
         ['Standing (12mo)','€'+totStanding.toFixed(2)],
-        ['Annual total','€'+annualTotal.toFixed(2)],
+        ['Total before discounts','€'+annualTotal.toFixed(2)],
+        ['12-month total (as customer page)','€'+totAfterDisc.toFixed(2)],
         ['FPA rate','€'+fpaRate.toFixed(4)+'/kWh'],
         ['Profile',prof?esc(prof.name):'flat (÷12)'],
       ].map(([k,v])=>`<div style="background:var(--bg);border:1px solid var(--border);border-radius:2px;padding:8px 10px">
         <div style="font-size:9px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;margin-bottom:3px">${k}</div>
         <div style="font-size:13px;font-weight:500;font-family:var(--mono);color:var(--text)">${v}</div>
       </div>`).join('')}
-    </div>`;
+    </div>${auditCrossCheckBox()}`;
 
-  // Table columns: Period | kWh | Tier breakdown | Energy | Fixed | FPA | Standing | Total
-  const cols=['Period','Months','kWh','Tier breakdown','Energy','Tier fixed','FPA','Standing','Period total'];
+  // Table columns: Period | kWh | Tier breakdown | Energy | Fixed | FPA | Standing | Total | After discounts
+  const cols=['Period','Months','kWh','Tier breakdown','Energy','Tier fixed','FPA','Standing','Period total','After discounts'];
   document.getElementById('audit-hh-thead').innerHTML='<tr>'+cols.map(c=>`<th>${c}</th>`).join('')+'</tr>';
-  document.getElementById('audit-table-title').textContent=`${year} · ${tar.name} · ${annualKwh.toLocaleString()} kWh annual · ${resetLabel} reset`;
+  document.getElementById('audit-table-title').textContent=`${windowLabel} · ${tar.name} · ${annualKwh.toLocaleString()} kWh annual · ${resetLabel} reset`;
 
   document.getElementById('audit-hh-body').innerHTML=periods.map(p=>{
     const tierStr=p.tierDetail.map(td=>
@@ -3746,10 +3846,11 @@ function runAuditVariable(tar, annualKwh, year){
       <td style="color:#b45309">${'€'+p.fpaCost.toFixed(4)}</td>
       <td style="color:var(--text3)">${'€'+p.standingCost.toFixed(4)}</td>
       <td style="color:var(--accent);font-weight:600">${'€'+p.periodTotal.toFixed(4)}</td>
+      <td style="font-weight:600">${'€'+p.afterDisc.toFixed(4)}</td>
     </tr>`;
   }).join('')
   +`<tr style="background:var(--bg3);font-weight:600;border-top:2px solid var(--border2)">
-    <td colspan="2">ANNUAL TOTAL</td>
+    <td colspan="2">12-MONTH TOTAL</td>
     <td style="color:var(--green)">${totKwh.toFixed(2)}</td>
     <td></td>
     <td>€${totEnergy.toFixed(4)}</td>
@@ -3757,15 +3858,16 @@ function runAuditVariable(tar, annualKwh, year){
     <td style="color:#b45309">€${totFpa.toFixed(4)}</td>
     <td style="color:var(--text3)">€${totStanding.toFixed(4)}</td>
     <td style="color:var(--accent)">€${annualTotal.toFixed(4)}</td>
+    <td>€${totAfterDisc.toFixed(4)}</td>
   </tr>`;
 
   // CSV
-  const csvHeader='Period,Months,kWh,Tier detail,Energy,Tier fixed,FPA,Standing,Period total\n';
+  const csvHeader='Period,Months,kWh,Tier detail,Energy,Tier fixed,FPA,Standing,Period total,After discounts\n';
   const csvRows=periods.map(p=>
-    `"${p.ps+1}–${p.pe}","${p.monthNames}",${p.periodKwh.toFixed(4)},"${p.tierDetail.map(td=>td.label+':'+td.kwh.toFixed(2)+'kWh@€'+td.rate).join('; ')}",${p.energyCost.toFixed(4)},${p.fixedCost.toFixed(4)},${p.fpaCost.toFixed(4)},${p.standingCost.toFixed(4)},${p.periodTotal.toFixed(4)}`
+    `"${p.ps+1}–${p.pe}","${p.monthNames}",${p.periodKwh.toFixed(4)},"${p.tierDetail.map(td=>td.label+':'+td.kwh.toFixed(2)+'kWh@€'+td.rate).join('; ')}",${p.energyCost.toFixed(4)},${p.fixedCost.toFixed(4)},${p.fpaCost.toFixed(4)},${p.standingCost.toFixed(4)},${p.periodTotal.toFixed(4)},${p.afterDisc.toFixed(4)}`
   ).join('\n');
-  window._auditCSV=csvHeader+csvRows+`\nTOTAL,,${totKwh.toFixed(4)},,${totEnergy.toFixed(4)},${totFixed.toFixed(4)},${totFpa.toFixed(4)},${totStanding.toFixed(4)},${annualTotal.toFixed(4)}`;
-  window._auditFilename=`audit_variable_${tar.name.replace(/\s+/g,'_')}_${year}.csv`;
+  window._auditCSV=csvHeader+csvRows+`\nTOTAL,,${totKwh.toFixed(4)},,${totEnergy.toFixed(4)},${totFixed.toFixed(4)},${totFpa.toFixed(4)},${totStanding.toFixed(4)},${annualTotal.toFixed(4)},${totAfterDisc.toFixed(4)}`;
+  window._auditFilename=`audit_variable_${tar.name.replace(/\s+/g,'_')}_${win[0].year}-${String(win[0].mi+1).padStart(2,'0')}.csv`;
 
   document.getElementById('audit-download-btn').style.display='';
   document.getElementById('audit-download-btn').onclick=()=>{
@@ -3774,100 +3876,99 @@ function runAuditVariable(tar, annualKwh, year){
   };
   document.getElementById('audit-results').style.display='';
   document.getElementById('audit-results').scrollIntoView({behavior:'smooth'});
+  auditCrossCheck(tar,annualKwh,null,totAfterDisc);
 }
 
 function runAudit(){
   const id=document.getElementById('audit-tariff-sel').value;
   const annualKwh=parseFloat(document.getElementById('audit-kwh').value)||0;
-  const mi=parseInt(document.getElementById('audit-month').value);
+  // Window position: 0 = first month after switching (see auditWindow)
+  const pos=parseInt(document.getElementById('audit-month').value)||0;
   if(!id||annualKwh<=0){alert('Please select a tariff and enter consumption.');return;}
 
   const tar=tariffs.find(x=>x.id===id);
   if(!tar){alert('Tariff not found.');return;}
 
-  const year=new Date().getFullYear();
+  const win=auditWindow();
+  const {year,mi}=win[pos];
 
-  // ── Variable tariff: full-year billing period audit ──
+  // ── Variable tariff: full 12-month billing period audit ──
   if(tar.pricing==='Variable'){
-    runAuditVariable(tar, annualKwh, year);
+    runAuditVariable(tar, annualKwh, win);
     return;
   }
 
-  const dc=getDayCountsAdmin(year);
+  const dc=auditWindowDayCounts(win);
   const prof=profiles.find(p=>p.id===tar.profileId);
   const reg=getRegulated();
   const fpaRate=tar.fpaSource==='custom'?tar.fpaCustom:tar.fpaSource==='none'?0:
     (tar.voltage==='LV'?reg.fpaLV:tar.voltage==='MV'?reg.fpaMV:reg.fpaHV);
   const floor=tar.pricing==='Dynamic'?(tar.rates.damFloor||0):0;
   const MONTHS_FULL=['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const isLeap=year%4===0&&(year%100!==0||year%400===0);
-  const dims=[31,isLeap?29:28,31,30,31,30,31,31,30,31,30,31];
+  const dim=new Date(year,mi+1,0).getDate();
+  const windowDays=win.reduce((a,w)=>a+new Date(w.year,w.mi+1,0).getDate(),0);
 
-  // Compute annual HHFF total
-  let annualHHFF=0;
-  if(prof){
-    for(let m=0;m<12;m++){
-      const pm=prof.months[m]; if(!pm) continue;
-      for(let s=0;s<48;s++)
-        annualHHFF+=(pm.W[s]||0)*dc[m].working+(pm.NW[s]||0)*dc[m].nonWorking;
-    }
+  if(tar.pricing==='Dynamic'&&!prof){
+    alert('This Dynamic tariff has no load profile, so the customer page leaves it out of the comparison.');
+    return;
   }
 
-  // Cyprus holidays for WD/NWD classification
-  const holidays=getCyprusHolidaysAdmin(year);
+  // Annual HHFF total over the 12-month window
+  const annualHHFF=prof?auditAnnualHHFF(prof,win,dc):0;
+  // Without a usable profile, Fixed/ToU use a flat month (annual ÷ 12) and,
+  // for ToU, a peak-hours ÷ 24 split — no half-hourly table.
+  const flat=tar.pricing!=='Dynamic'&&(!prof||annualHHFF<=0);
 
-  // Get ToU rates for this month
+  // Get ToU rates for this month (season by calendar month)
   const r=tar.rates;
-  const isHigh=tar.pricing==='ToU'?(mi+1)>=r.hiStart&&(mi+1)<=r.hiEnd:false;
+  // Season and peak window may wrap (Nov->Feb, 22:00->06:00) — engine.py _in_season/_in_peak
+  const hs=r.hiStart||0,he=r.hiEnd||0,mo=mi+1;
+  const isHigh=tar.pricing==='ToU'?(hs<=he?(mo>=hs&&mo<=he):(he!==0&&(mo>=hs||mo<=he))):false;
   const ps=isHigh?r.hiPeakStart:r.loPeakStart;
   const pe=isHigh?r.hiPeakEnd:r.loPeakEnd;
   const peakRate=isHigh?r.hiPeakRate:r.loPeakRate;
   const offRate=isHigh?r.hiOffRate:r.loOffRate;
+  const isPeakSlot=s=>ps<=pe?(s/2>=ps&&s/2<pe):(s/2>=ps||s/2<pe);   // slot start in hours, e.g. 16.5
 
-  // DAM daily data for this month
-  const dailyData=damDailyData&&damDailyData[mi]?damDailyData[mi]:[];
-  const damSlotAvg=damBySlot&&damBySlot[mi]?damBySlot[mi]:new Array(48).fill(null);
   const damAvg=damMonthly[mi];
 
   // Profile HHFF for this month
   const pm=prof?prof.months[mi]:null;
-  const wd=dc[mi].working, nwd=dc[mi].nonWorking;
 
   // Build one row per day per slot
   let rows=[];
   let totKwhWD=0,totKwhNWD=0,totEnergy=0,totFpa=0,totSlot=0;
+  let damMissing=false;
 
-  for(let d=1;d<=dims[mi];d++){
+  if(flat){
+    const mKwh=annualKwh/12;
+    let energy=0;
+    if(tar.pricing==='Fixed') energy=mKwh*tar.rates.rate;
+    else{
+      const pf=(ps<=pe?Math.min(24,pe-ps):24-ps+pe)/24;
+      energy=mKwh*pf*peakRate+mKwh*(1-pf)*offRate;
+    }
+    totKwhWD=mKwh; totEnergy=energy; totFpa=mKwh*fpaRate; totSlot=totEnergy+totFpa;
+  } else for(let d=1;d<=dim;d++){
     const dateStr=`${year}-${String(mi+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const dateKey=dateStr.replace(/-/g,'');
-    const dow=new Date(year,mi,d).getDay();
-    const isNonWork=dow===0||dow===6||holidays.has(dateKey);
+    const isNonWork=isNonWorkingAdmin(year,mi,d);
     const dayType=isNonWork?'NWD':'WD';
 
-    // Find DAM data for this specific date
-    const dayDam=dailyData.find(x=>x.dateStr===dateStr);
-
     for(let s=0;s<48;s++){
-      const endMin=(s+1)*30;
-      const eh=Math.floor(endMin/60)%24, em=endMin%60;
       const smm=s*30, sh=Math.floor(smm/60), smmm=smm%60;
       const timeLabel=`${String(sh).padStart(2,'0')}:${String(smmm).padStart(2,'0')}`;
 
       // HHFF for this slot and day type
-      const hhff=pm?(isNonWork?(pm.NW[s]||0):(pm.W[s]||0)):0;
+      const hhff=pm?(isNonWork?((pm.NW||[])[s]||0):((pm.W||[])[s]||0)):0;
 
-      // kWh for this slot on this day
-      let kWhSlot=0;
-      if(prof&&annualHHFF>0){
-        kWhSlot=annualKwh*(hhff*1)/annualHHFF; // 1 day
+      // kWh for this slot on this day (all slots of the window add up to annualKwh)
+      const kWhSlot=annualHHFF>0?annualKwh*hhff/annualHHFF:annualKwh/(windowDays*48);
+
+      let damRaw=null,damSource='';
+      if(tar.pricing==='Dynamic'){
+        const dp=auditDamPrice(year,mi,d,s);
+        if(dp){damRaw=dp.price;damSource=dp.source;} else damMissing=true;
       }
-
-      // DAM price: try daily data first, then slot avg, then monthly avg
-      let damRaw=null;
-      if(dayDam&&dayDam.slots[s]!==null) damRaw=dayDam.slots[s];
-      else if(damSlotAvg[s]!==null) damRaw=damSlotAvg[s];
-      else damRaw=damAvg;
-
       const damEff=tar.pricing==='Dynamic'&&damRaw!==null?Math.max(damRaw,floor):damRaw;
 
       // Costs
@@ -3876,9 +3977,7 @@ function runAudit(){
         energyCost=kWhSlot*tar.rates.rate;
         fpaCost=kWhSlot*fpaRate;
       } else if(tar.pricing==='ToU'){
-        const slotH=Math.floor(s*30/60);
-        const rate=(slotH>=ps&&slotH<pe)?peakRate:offRate;
-        energyCost=kWhSlot*rate;
+        energyCost=kWhSlot*(isPeakSlot(s)?peakRate:offRate);
         fpaCost=kWhSlot*fpaRate;
       } else if(tar.pricing==='Dynamic'&&damEff!==null){
         const mult=parseFloat(tar.rates.mult)||1;
@@ -3891,37 +3990,45 @@ function runAudit(){
       if(isNonWork) totKwhNWD+=kWhSlot; else totKwhWD+=kWhSlot;
       totEnergy+=energyCost; totFpa+=fpaCost; totSlot+=slotTotal;
 
-      rows.push({d,dateStr,dayType,s,timeLabel,hhff,kWhSlot,damRaw,damEff,energyCost,fpaCost,slotTotal});
+      rows.push({d,dateStr,dayType,s,timeLabel,hhff,kWhSlot,damRaw,damSource,damEff,energyCost,fpaCost,slotTotal});
     }
   }
 
-  const monthTotal=totSlot+(parseFloat(tar.standing)||0);
+  // Discounts for this window month, as the customer page applies them by default
+  const df=auditDiscountFactors(tar,pos+1);
+  const standing=parseFloat(tar.standing)||0;
+  const monthTotalFull=totSlot+standing;
+  const monthTotal=(totEnergy+totFpa)*df.energyFactor+standing*df.standingFactor;
+  const discPct=f=>f<1?`−${((1-f)*100).toFixed(1)}%`:'none';
 
   // Render summary
   document.getElementById('audit-summary').innerHTML=`
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px">
       ${[
-        ['Month',MONTHS_FULL[mi]+' '+year],
-        ['Working days',dc[mi].working],
-        ['Non-working days',dc[mi].nonWorking],
-        ['Total days',dims[mi]],
-        ['Annual HHFF total',annualHHFF.toFixed(4)],
+        ['Month',`${MONTHS_FULL[mi]} ${year} (month ${pos+1} of 12)`],
+        ['Working days',dc[pos].working],
+        ['Non-working days',dc[pos].nonWorking],
+        ['Total days',dim],
+        ['Annual HHFF total (12-month window)',annualHHFF.toFixed(4)],
         ['Month kWh (WD)',totKwhWD.toFixed(4)],
         ['Month kWh (NWD)',totKwhNWD.toFixed(4)],
         ['Month kWh total',(totKwhWD+totKwhNWD).toFixed(4)],
         ['Energy cost','€'+totEnergy.toFixed(4)],
         ['FPA cost','€'+totFpa.toFixed(4)],
-        ['Standing charge','€'+(parseFloat(tar.standing)||0).toFixed(2)],
-        ['Month total','€'+monthTotal.toFixed(4)],
-        ['DAM avg (month)',damAvg!==null?'€'+damAvg.toFixed(6):'-'],
+        ['Standing charge','€'+standing.toFixed(2)],
+        ['Total before discounts','€'+monthTotalFull.toFixed(4)],
+        ['Energy discount (this month)',discPct(df.energyFactor)],
+        ['Standing discount (this month)',discPct(df.standingFactor)],
+        ['Month total (as customer page)',damMissing?'excluded — DAM missing':'€'+monthTotal.toFixed(4)],
+        ['DAM avg (month)',damAvg!=null?'€'+damAvg.toFixed(6):'-'],
         ['FPA rate','€'+fpaRate.toFixed(4)+'/kWh'],
         ['Floor price',floor>0?'€'+floor.toFixed(4):'-'],
-        ['Rows in table',rows.length.toLocaleString()],
+        ['Rows in table',flat?'none (no profile: flat ÷12)':rows.length.toLocaleString()],
       ].map(([k,v])=>`<div style="background:var(--bg);border:1px solid var(--border);border-radius:2px;padding:8px 10px">
         <div style="font-size:9px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;margin-bottom:3px">${k}</div>
         <div style="font-size:13px;font-weight:500;font-family:var(--mono);color:var(--text)">${v}</div>
       </div>`).join('')}
-    </div>`;
+    </div>${auditCrossCheckBox()}`;
 
   // ── Dynamic table structure based on pricing type ──
   const isDynamic=tar.pricing==='Dynamic';
@@ -3929,7 +4036,7 @@ function runAudit(){
 
   // Column definitions per pricing type
   const cols=isDynamic
-    ?['Date','Day','Time','HHFF','kWh','DAM raw (€/kWh)','DAM eff. (€/kWh)','Energy cost','FPA cost','Slot total']
+    ?['Date','Day','Time','HHFF','kWh','DAM raw (€/kWh)','DAM source','DAM eff. (€/kWh)','Energy cost','FPA cost','Slot total']
     :isToU
     ?['Date','Day','Time','HHFF','kWh','Rate type','Rate (€/kWh)','Energy cost','FPA cost','Slot total']
     :['Date','Day','Time','HHFF','kWh','Rate (€/kWh)','FPA (€/kWh)','Energy cost','FPA cost','Slot total'];
@@ -3940,35 +4047,29 @@ function runAudit(){
     '<tr>'+cols.map(c=>`<th>${c}</th>`).join('')+'</tr>';
 
   document.getElementById('audit-table-title').textContent=
-    `${MONTHS_FULL[mi]} ${year} · ${tar.name} · ${annualKwh.toLocaleString()} kWh annual · ${rows.length.toLocaleString()} rows`;
+    `${MONTHS_FULL[mi]} ${year} (month ${pos+1} of 12) · ${tar.name} · ${annualKwh.toLocaleString()} kWh annual · ${rows.length.toLocaleString()} rows`;
 
-  // ToU rate info per slot
-  const isHigh_tou=isToU&&(mi+1)>=r.hiStart&&(mi+1)<=r.hiEnd;
-  const ps_tou=isHigh_tou?r.hiPeakStart:r.loPeakStart;
-  const pe_tou=isHigh_tou?r.hiPeakEnd:r.loPeakEnd;
-  const peakR=isHigh_tou?r.hiPeakRate:r.loPeakRate;
-  const offR=isHigh_tou?r.hiOffRate:r.loOffRate;
 
   // Build CSV
   let csvHeader=cols.join(',')+',DayType\n';
   const csvRows=rows.map(row=>{
     const base=`${row.dateStr},${new Date(year,mi,row.d).toLocaleDateString('en-GB',{weekday:'short'})},${row.timeLabel},${row.hhff.toFixed(6)},${row.kWhSlot.toFixed(6)},`;
     if(isDynamic){
-      return base+`${row.damRaw!==null?row.damRaw.toFixed(6):''},${row.damEff!==null?row.damEff.toFixed(6):''},${row.energyCost.toFixed(6)},${row.fpaCost.toFixed(6)},${row.slotTotal.toFixed(6)},${row.dayType}`;
+      return base+`${row.damRaw!==null?row.damRaw.toFixed(6):''},${row.damSource},${row.damEff!==null?row.damEff.toFixed(6):''},${row.energyCost.toFixed(6)},${row.fpaCost.toFixed(6)},${row.slotTotal.toFixed(6)},${row.dayType}`;
     } else if(isToU){
-      const slotH=Math.floor(row.s*30/60);
-      const isPeak=slotH>=ps_tou&&slotH<pe_tou;
-      const rate=isPeak?peakR:offR;
+      const isPeak=isPeakSlot(row.s);
+      const rate=isPeak?peakRate:offRate;
       return base+`${isPeak?'Peak':'Off-peak'},${rate.toFixed(6)},${row.energyCost.toFixed(6)},${row.fpaCost.toFixed(6)},${row.slotTotal.toFixed(6)},${row.dayType}`;
     } else {
       return base+`${tar.rates.rate.toFixed(6)},${fpaRate.toFixed(6)},${row.energyCost.toFixed(6)},${row.fpaCost.toFixed(6)},${row.slotTotal.toFixed(6)},${row.dayType}`;
     }
   }).join('\n');
-  const csvTotals=`TOTAL,,,,,,,${totEnergy.toFixed(6)},${totFpa.toFixed(6)},${totSlot.toFixed(6)},`;
+  const csvTotals=`TOTAL,,,,,,${isDynamic?',':''}${totEnergy.toFixed(6)},${totFpa.toFixed(6)},${totSlot.toFixed(6)},`+
+    `\nSTANDING,${standing.toFixed(6)}\nTOTAL BEFORE DISCOUNTS,${monthTotalFull.toFixed(6)}\nMONTH TOTAL (AS CUSTOMER PAGE),${monthTotal.toFixed(6)}`;
   const csvFull=csvHeader+csvRows+'\n'+csvTotals;
 
   window._auditCSV=csvFull;
-  window._auditFilename=`audit_${tar.name.replace(/\s+/g,'_')}_${MONTHS_FULL[mi]}_${year}.csv`;
+  window._auditFilename=`audit_${tar.name.replace(/\s+/g,'_')}_${year}-${String(mi+1).padStart(2,'0')}.csv`;
 
   document.getElementById('audit-download-btn').style.display='';
   document.getElementById('audit-download-btn').onclick=()=>{
@@ -3994,13 +4095,13 @@ function runAudit(){
     if(isDynamic){
       specificCols=`
         <td>${row.damRaw!==null?row.damRaw.toFixed(5):'-'}</td>
+        <td style="color:${row.damSource==='actual'?'var(--text3)':'#b45309'}">${row.damSource||'-'}</td>
         <td>${row.damEff!==null?row.damEff.toFixed(5):'-'}</td>`;
     } else if(isToU){
-      const slotH=Math.floor(row.s*30/60);
-      const isPeak=slotH>=ps_tou&&slotH<pe_tou;
+      const isPeak=isPeakSlot(row.s);
       specificCols=`
         <td style="color:${isPeak?'#b45309':'var(--text3)'}">${isPeak?'Peak':'Off-peak'}</td>
-        <td style="color:${isPeak?'#b45309':'var(--text2)'}">${(isPeak?peakR:offR).toFixed(5)}</td>`;
+        <td style="color:${isPeak?'#b45309':'var(--text2)'}">${(isPeak?peakRate:offRate).toFixed(5)}</td>`;
     } else {
       specificCols=`
         <td>${tar.rates.rate.toFixed(5)}</td>
