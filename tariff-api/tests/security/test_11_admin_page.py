@@ -253,6 +253,7 @@ def test_admin_regulated_refusal_is_shown_on_the_field(make_app, page):
     page.fill("#reg-lv", "9")
     page.fill("#reg-mdm", "1500")
     page.click("[data-action=saveRegulated]")
+    page.click("#reg-change-overlay [data-action=confirmRegChange]")
     page.wait_for_selector("#reg-lv.field-invalid", timeout=10000)
     assert _field_msg(page, "#reg-lv") == "This cannot be more than 5."
     assert _field_msg(page, "#reg-mdm") == "This cannot be more than 1000."
@@ -261,8 +262,55 @@ def test_admin_regulated_refusal_is_shown_on_the_field(make_app, page):
     page.fill("#reg-lv", "0.04")
     page.fill("#reg-mdm", "0.9")
     page.click("[data-action=saveRegulated]")
+    page.click("#reg-change-overlay [data-action=confirmRegChange]")
     _until(page, lambda: app.sql("SELECT lv, mdm FROM regulated") == [(0.04, 0.9)], "valid values saved")
     assert page.locator("#pane-regulated .field-invalid").count() == 0
+    _clean(page)
+
+
+def test_admin_regulated_changes_are_checked_before_saving(make_app, page):
+    # Seed: grid LV 0.045 > MV 0.038 > HV 0.030; FPA 0.06 / 0.055 / 0.05; PSO 0.005.
+    app = make_app()
+    before = app.sql("SELECT lv, mv, hv, fpaLV, fpaMV, fpaHV, pso FROM regulated")
+    _sign_in(page, app)
+    _pane(page, "regulated")
+    # Grid usage out of voltage order is refused on the page, no window
+    page.fill("#reg-mv", "0.05")
+    page.click("[data-action=saveRegulated]")
+    page.wait_for_selector("#reg-mv.field-invalid", timeout=5000)
+    assert _field_msg(page, "#reg-mv") == "Grid usage must fall with voltage: LV > MV > HV."
+    assert not page.is_visible("#reg-change-overlay")
+    # A changed value asks first, with the % change; Cancel saves nothing
+    page.fill("#reg-mv", "0.0399")
+    page.fill("#reg-pso", "0.004")
+    page.click("[data-action=saveRegulated]")
+    page.wait_for_selector("#reg-change-overlay", state="visible")
+    text = page.inner_text("#reg-change-list")
+    assert "The MV grid usage value is now 5.0% higher than the previous one (0.038 → 0.0399)." in text
+    assert "The PSO value is now 20.0% lower than the previous one (0.005 → 0.004)." in text
+    assert "Is this correct?" in page.inner_text("#reg-change-overlay")
+    page.click("#reg-change-overlay [data-action=cancelRegChange]")
+    page.wait_for_selector("#reg-change-overlay", state="hidden")
+    assert page.inner_text("#reg-save-status") == "Not saved."
+    assert app.sql("SELECT lv, mv, hv, fpaLV, fpaMV, fpaHV, pso FROM regulated") == before
+    # Confirm saves; the new values become the "previous" ones
+    page.click("[data-action=saveRegulated]")
+    page.click("#reg-change-overlay [data-action=confirmRegChange]")
+    _until(page, lambda: app.sql("SELECT mv, pso FROM regulated") == [(0.0399, 0.004)], "confirmed values saved")
+    # The 0.4735-for-0.04735 typo: flagged both as a big jump and as out of order
+    page.fill("#reg-fpa-mv", "0.55")
+    page.click("[data-action=saveRegulated]")
+    page.wait_for_selector("#reg-change-overlay", state="visible")
+    text = page.inner_text("#reg-change-list")
+    assert "The MV FPA value is now 900.0% higher than the previous one (0.055 → 0.55)." in text
+    assert "not in the usual order LV > MV > HV" in text
+    page.click("#reg-change-overlay [data-action=cancelRegChange]")
+    assert app.sql("SELECT fpaMV FROM regulated") == [(0.055,)]
+    # Unchanged values save without asking
+    page.fill("#reg-fpa-mv", "0.055")
+    page.click("[data-action=saveRegulated]")
+    _until(page, lambda: page.inner_text("#reg-save-status") == "Saved ✓", "saved without asking")
+    assert not page.is_visible("#reg-change-overlay")
     _clean(page)
 
 
@@ -435,8 +483,9 @@ def test_admin_dam_regulated_audit_notices_reports_changelog(make_app, page):
     # Regulated charges: live preview, save, history chart
     _pane(page, "regulated")
     page.fill("#reg-preview-kwh", "4000")
-    page.fill("#reg-lv", "0.0251")
+    page.fill("#reg-lv", "0.0451")
     page.click("[data-action=saveRegulated]")
+    page.click("#reg-change-overlay [data-action=confirmRegChange]")
     _until(page, lambda: page.inner_text("#reg-save-status") != "", "regulated saved")
     page.click("[data-action=openRegHistory][data-arg=grid]")
     page.wait_for_selector("#reg-history-overlay", state="visible")

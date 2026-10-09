@@ -153,6 +153,16 @@ def test_absurd_regulated_charges_are_refused_and_change_nothing(app, admin, fie
     assert calc.status_code == 200 and calc.json() == calc_before
 
 
+@pytest.mark.parametrize("change", [{"mv": 0.05}, {"hv": 0.038}, {"lv": 0.03}], ids=str)
+def test_grid_usage_out_of_voltage_order_is_refused(admin, change):
+    # Seed: LV 0.045 > MV 0.038 > HV 0.030. Grid usage must fall with voltage.
+    before = admin.get("/api/admin/regulated").json()
+    body = {k: before[k] for k in ("lv", "mv", "hv", "fpaLV", "fpaMV", "fpaHV", "pso", "res", "mdm")}
+    r = admin.put("/api/admin/regulated", json={**body, **change})
+    assert r.status_code == 422 and "grid usage must be lower" in r.text
+    assert admin.get("/api/admin/regulated").json() == before
+
+
 def test_valid_regulated_charges_are_accepted(admin):
     before = admin.get("/api/admin/regulated").json()
     body = {k: before[k] for k in ("lv", "mv", "hv", "fpaLV", "fpaMV", "fpaHV", "pso", "res", "mdm")}

@@ -243,6 +243,18 @@ class RegulatedIn(BaseModel):
     res: float = _energy()
     mdm: float = _monthly()     # €/month
 
+    # Grid usage always falls with voltage (LV > MV > HV); a value out of that
+    # order is a typing mistake. FPA is not checked here: when it goes negative
+    # the order flips, so the admin page only asks for confirmation.
+    @field_validator("mv", "hv")
+    @classmethod
+    def _grid_falls_with_voltage(cls, v, info):
+        higher = {"mv": "lv", "hv": "mv"}[info.field_name]
+        above = info.data.get(higher)
+        if above is not None and not v < above:
+            raise ValueError(f"{info.field_name.upper()} grid usage must be lower than {higher.upper()}")
+        return v
+
 
 class SampleInvoiceConfigIn(BaseModel):
     enabled: bool

@@ -302,6 +302,14 @@ Click **Save** after making any changes. Changes are reflected immediately on th
 >
 > MDM is charged **once per invoice, not once a month** — each tariff also has its own **Invoicing frequency** (Monthly or Bimonthly, set in the tariff editor), which determines how many times a year the charge is actually applied (12 for monthly, 6 for bimonthly). Two tariffs with the same MDM value but different invoicing frequency will show different annual totals.
 
+### Checks before saving
+
+To catch typing mistakes (e.g. 0.4735 entered instead of 0.04735):
+
+- **Grid usage must fall with voltage: LV > MV > HV.** If it doesn't, Save is refused and the out-of-order field is highlighted. The server enforces the same rule.
+- **Every changed value is compared with the previous one.** Before saving, a window lists each change, e.g. "The LV grid usage value is now 12.5% higher than the previous one (0.0393 → 0.0442).", and asks **Is this correct?** **Confirm** saves; **Cancel** saves nothing and keeps your entries on the form so you can correct them.
+- **FPA rates out of the usual LV > MV > HV order** are also listed in that window. This is a warning only, not a refusal, because a negative FPA reverses the order.
+
 ---
 
 ## 8. Load Profiles

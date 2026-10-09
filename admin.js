@@ -189,6 +189,16 @@ const LANG = {
     LBL_SUP_REGULATED:'Regulated supplier',
     BTN_SAVE_DETAILS:'Save details',
     REG_CONFIRM_TITLE:'Change regulated status?', BTN_CONFIRM_CHANGE:'Confirm change',
+    REG_CHANGE_TITLE:'Please check these values', REG_CHANGE_QUESTION:'Is this correct?', BTN_CONFIRM:'Confirm',
+    REG_CHANGE_PCT:'The {F} value is now {P}% {D} than the previous one ({OLD} → {NEW}).',
+    REG_CHANGE_HIGHER:'higher', REG_CHANGE_LOWER:'lower',
+    REG_CHANGE_FROM_ZERO:'The {F} value was 0 and is now {NEW}.',
+    REG_FPA_ORDER:'The FPA rates are not in the usual order LV > MV > HV (LV {LV}, MV {MV}, HV {HV}).',
+    REG_NOT_SAVED:'Not saved.',
+    ERR_REG_GRID_ORDER:'Grid usage must fall with voltage: LV > MV > HV.',
+    REG_F_lv:'LV grid usage', REG_F_mv:'MV grid usage', REG_F_hv:'HV grid usage',
+    REG_F_fpaLV:'LV FPA', REG_F_fpaMV:'MV FPA', REG_F_fpaHV:'HV FPA',
+    REG_F_pso:'PSO', REG_F_res:'RES', REG_F_mdm:'MDM',
     // Admin docs modal
     ADOCS_TITLE_PREFIX:'Documents — ',
   },
@@ -380,6 +390,16 @@ const LANG = {
     LBL_SUP_REGULATED:'Ρυθμιζόμενος προμηθευτής',
     BTN_SAVE_DETAILS:'Αποθήκευση στοιχείων',
     REG_CONFIRM_TITLE:'Αλλαγή καθεστώτος ρύθμισης;', BTN_CONFIRM_CHANGE:'Επιβεβαίωση αλλαγής',
+    REG_CHANGE_TITLE:'Παρακαλώ ελέγξτε αυτές τις τιμές', REG_CHANGE_QUESTION:'Είναι σωστό;', BTN_CONFIRM:'Επιβεβαίωση',
+    REG_CHANGE_PCT:'Η τιμή {F} είναι τώρα {P}% {D} από την προηγούμενη ({OLD} → {NEW}).',
+    REG_CHANGE_HIGHER:'υψηλότερη', REG_CHANGE_LOWER:'χαμηλότερη',
+    REG_CHANGE_FROM_ZERO:'Η τιμή {F} ήταν 0 και είναι τώρα {NEW}.',
+    REG_FPA_ORDER:'Οι συντελεστές FPA δεν είναι στη συνήθη σειρά ΧΤ > ΜΤ > ΥΤ (ΧΤ {LV}, ΜΤ {MV}, ΥΤ {HV}).',
+    REG_NOT_SAVED:'Δεν αποθηκεύτηκε.',
+    ERR_REG_GRID_ORDER:'Η χρήση δικτύου πρέπει να μειώνεται με την τάση: ΧΤ > ΜΤ > ΥΤ.',
+    REG_F_lv:'χρήσης δικτύου ΧΤ', REG_F_mv:'χρήσης δικτύου ΜΤ', REG_F_hv:'χρήσης δικτύου ΥΤ',
+    REG_F_fpaLV:'FPA ΧΤ', REG_F_fpaMV:'FPA ΜΤ', REG_F_fpaHV:'FPA ΥΤ',
+    REG_F_pso:'ΥΠΥ', REG_F_res:'ΑΠΕ & ΕΞΕ', REG_F_mdm:'MDM',
     // Admin docs modal
     ADOCS_TITLE_PREFIX:'Έγγραφα — ',
   }
@@ -3247,6 +3267,43 @@ function setRegulated(r){
   setTs('.reg-ts-grid',r.grid_updated_at);
   setTs('.reg-ts-fpa',r.fpa_updated_at);
   setTs('.reg-ts-universal',r.universal_updated_at);
+  _regSaved=getRegulated();
+}
+
+// Values as last loaded/saved, so a new entry can be compared with the previous one.
+let _regSaved=null;
+// One line per changed value, plus a note if FPA is out of its usual LV > MV > HV order
+// (only a note: a negative FPA reverses that order, so it can't be a hard rule).
+function _regChangeLines(body){
+  const lines=[];
+  const fmt=v=>String(+v.toFixed(6));
+  if(_regSaved) Object.keys(_REG_FIELDS).forEach(k=>{
+    const was=_regSaved[k], now=body[k];
+    if(Math.abs(now-was)<1e-12) return;
+    const F=T('REG_F_'+k);
+    if(was===0){lines.push(T('REG_CHANGE_FROM_ZERO').replace('{F}',F).replace('{NEW}',fmt(now)));return;}
+    const pct=(now-was)/Math.abs(was)*100;
+    lines.push(T('REG_CHANGE_PCT').replace('{F}',F)
+      .replace('{P}',Math.abs(pct)<0.05?Math.abs(pct).toPrecision(1):Math.abs(pct).toFixed(1))
+      .replace('{D}',T(pct>0?'REG_CHANGE_HIGHER':'REG_CHANGE_LOWER'))
+      .replace('{OLD}',fmt(was)).replace('{NEW}',fmt(now)));
+  });
+  const fpaChanged=['fpaLV','fpaMV','fpaHV'].some(k=>!_regSaved||Math.abs(body[k]-_regSaved[k])>=1e-12);
+  if(fpaChanged&&!(body.fpaLV>body.fpaMV&&body.fpaMV>body.fpaHV))
+    lines.push(T('REG_FPA_ORDER').replace('{LV}',fmt(body.fpaLV)).replace('{MV}',fmt(body.fpaMV)).replace('{HV}',fmt(body.fpaHV)));
+  return lines;
+}
+let _regChangeResolve=null;
+function _askRegChange(lines){
+  const ul=document.getElementById('reg-change-list');
+  ul.replaceChildren(...lines.map(t=>{const li=document.createElement('li');li.textContent=t;return li;}));
+  document.getElementById('reg-change-overlay').style.display='flex';
+  return new Promise(res=>{_regChangeResolve=res;});
+}
+function _closeRegChange(ok){
+  document.getElementById('reg-change-overlay').style.display='none';
+  const res=_regChangeResolve;_regChangeResolve=null;
+  if(res) res(ok);
 }
 
 // Server field → box on the Regulated tariffs page, for placing a refusal on its field.
@@ -3255,6 +3312,13 @@ async function saveRegulated(){
   const body=getRegulated();
   const st=document.getElementById('reg-save-status');
   document.querySelectorAll('#pane-regulated .field-invalid').forEach(el=>{el.classList.remove('field-invalid');if(el._errMsg){el._errMsg.remove();el._errMsg=null;}});
+  // Grid usage always falls with voltage (the server enforces the same rule).
+  let bad=0;
+  if(!(body.mv<body.lv)&&_fieldError(document.getElementById('reg-mv'),T('ERR_REG_GRID_ORDER'))) bad++;
+  if(!(body.hv<body.mv)&&_fieldError(document.getElementById('reg-hv'),T('ERR_REG_GRID_ORDER'))) bad++;
+  if(bad){showStatus(st,'err',_tn('ERR_FIELDS_SUMMARY',bad));return;}
+  const lines=_regChangeLines(body);
+  if(lines.length&&!(await _askRegChange(lines))){showStatus(st,'err',T('REG_NOT_SAVED'));return;}
   showStatus(st,'ok','Saving…');
   try {
     const resp=await fetch(_adminApiBase+'/api/admin/regulated',{method:'PUT',headers:authHeaders(),body:JSON.stringify(body)});
@@ -4595,6 +4659,7 @@ const _ACTIONS = {
   openSupModal: el => openSupModal(el.dataset.sup), closeSupModal: () => closeSupModal(),
   removeSupplier: el => removeSupplier(el.dataset.sup), saveSupplierDetails: () => saveSupplierDetails(),
   regulatedCheckboxClick: (el, e) => { if(onRegulatedCheckboxClick(e) === false) e.preventDefault(); },
+  cancelRegChange: () => _closeRegChange(false), confirmRegChange: () => _closeRegChange(true),
   closeRegulatedConfirm: () => closeRegulatedConfirm(), confirmRegulatedToggle: () => confirmRegulatedToggle(),
   // profiles
   parseAndAddProfile: () => parseAndAddProfile(),

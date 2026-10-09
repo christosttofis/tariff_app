@@ -1578,7 +1578,24 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
 </div>
 
 <!-- Regulated-flag change confirmation (step 1 of 2 — checkbox toggle) -->
-<div id="regulated-confirm-overlay" class="sup-detail-modal" style="display:none" data-backdrop-close="closeRegulatedConfirm">
+<div id="reg-change-overlay" class="sup-detail-modal" style="display:none" data-backdrop-close="cancelRegChange">
+  <div class="sup-detail-box" style="max-width:480px">
+    <div class="sup-detail-head">
+      <h2 data-t="REG_CHANGE_TITLE">Please check these values</h2>
+      <button class="btn btn-sm" data-action="cancelRegChange" style="font-size:18px;background:none;border:none;cursor:pointer;color:var(--text3)">✕</button>
+    </div>
+    <div class="sup-detail-body">
+      <ul id="reg-change-list" style="font-size:13px;color:var(--text2);line-height:1.6;padding-left:18px;margin:0 0 10px"></ul>
+      <p style="font-size:13px;font-weight:600" data-t="REG_CHANGE_QUESTION">Is this correct?</p>
+    </div>
+    <div class="sup-detail-foot">
+      <button class="btn" data-action="cancelRegChange" data-t="BTN_CANCEL">Cancel</button>
+      <button class="btn btn-primary" data-action="confirmRegChange" data-t="BTN_CONFIRM">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div id="regulated-confirm-overlay"class="sup-detail-modal" style="display:none" data-backdrop-close="closeRegulatedConfirm">
   <div class="sup-detail-box" style="max-width:440px">
     <div class="sup-detail-head">
       <h2 id="regulated-confirm-title" data-t="REG_CONFIRM_TITLE">Change regulated status?</h2>
