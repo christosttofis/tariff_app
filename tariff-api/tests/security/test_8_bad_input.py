@@ -134,6 +134,33 @@ def test_broken_profiles_are_refused_and_change_nothing(app, admin, label):
     assert app.anon().post("/api/public/calculate", json=CALC).json() == calc_before
 
 
+# ── Regulated charges (admin) ────────────────────────────────────────────────
+# These feed every tariff's cost; Infinity once stored crashed the calculator.
+@pytest.mark.parametrize("field, value", [
+    ("lv", -5), ("mv", 5.01), ("hv", 1e300), ("pso", -0.001), ("res", 6), ("mdm", -1), ("mdm", 1000.01),
+    ("fpaLV", -5.01), ("fpaHV", 99), ("lv", "abc"), ("lv", "NaN"), ("pso", "Infinity"), ("mdm", "-Infinity"),
+], ids=lambda v: str(v))
+def test_absurd_regulated_charges_are_refused_and_change_nothing(app, admin, field, value):
+    before = admin.get("/api/admin/regulated").json()
+    calc_before = app.anon().post("/api/public/calculate", json=CALC).json()
+    body = {k: before[k] for k in ("lv", "mv", "hv", "fpaLV", "fpaMV", "fpaHV", "pso", "res", "mdm")}
+    raw = json.dumps({**body, field: 1.2345}).replace("1.2345", value if value in ("NaN", "Infinity", "-Infinity")
+                                                       else json.dumps(value))
+    r = admin.put("/api/admin/regulated", data=raw, headers={"Content-Type": "application/json"})
+    assert r.status_code == 422
+    assert admin.get("/api/admin/regulated").json() == before
+    calc = app.anon().post("/api/public/calculate", json=CALC)
+    assert calc.status_code == 200 and calc.json() == calc_before
+
+
+def test_valid_regulated_charges_are_accepted(admin):
+    before = admin.get("/api/admin/regulated").json()
+    body = {k: before[k] for k in ("lv", "mv", "hv", "fpaLV", "fpaMV", "fpaHV", "pso", "res", "mdm")}
+    for change in ({"fpaLV": -0.05}, {"lv": 5, "mdm": 1000}, {"pso": 0}):     # negative FPA and the limits are fine
+        assert admin.put("/api/admin/regulated", json={**body, **change}).status_code == 200
+    assert admin.put("/api/admin/regulated", json=body).status_code == 200
+
+
 # ── Nothing crashes the server ───────────────────────────────────────────────
 GARBAGE = ["", "{", "null", "[]", '"text"', "12345", '{"a":' * 200 + "1" + "}" * 200, "\x00\xff"]
 

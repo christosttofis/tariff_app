@@ -3249,14 +3249,26 @@ function setRegulated(r){
   setTs('.reg-ts-universal',r.universal_updated_at);
 }
 
+// Server field → box on the Regulated tariffs page, for placing a refusal on its field.
+const _REG_FIELDS={lv:'reg-lv',mv:'reg-mv',hv:'reg-hv',fpaLV:'reg-fpa-lv',fpaMV:'reg-fpa-mv',fpaHV:'reg-fpa-hv',pso:'reg-pso',res:'reg-res',mdm:'reg-mdm'};
 async function saveRegulated(){
   const body=getRegulated();
   const st=document.getElementById('reg-save-status');
+  document.querySelectorAll('#pane-regulated .field-invalid').forEach(el=>{el.classList.remove('field-invalid');if(el._errMsg){el._errMsg.remove();el._errMsg=null;}});
   showStatus(st,'ok','Saving…');
   try {
     const resp=await fetch(_adminApiBase+'/api/admin/regulated',{method:'PUT',headers:authHeaders(),body:JSON.stringify(body)});
     if(resp.status===401){showLogin('Session expired.');return;}
-    if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(st,'err','Save failed: '+(e.detail||resp.status));return;}
+    if(!resp.ok){
+      const e=await resp.json().catch(()=>({}));
+      let placed=0;
+      if(resp.status===422&&Array.isArray(e.detail)) e.detail.forEach(d=>{
+        const id=_REG_FIELDS[(d.loc||[]).filter(x=>x!=='body')[0]];
+        if(id&&_fieldError(document.getElementById(id),_friendlyMsg(d.type,d.ctx,d.msg))) placed++;
+      });
+      showStatus(st,'err',placed?_tn('ERR_FIELDS_SUMMARY',placed):'Save failed: '+apiErrorText(e.detail,resp.status));
+      return;
+    }
     const saved=await resp.json();
     setRegulated(saved);
     markClean('regulated');

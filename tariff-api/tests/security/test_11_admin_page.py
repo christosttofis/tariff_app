@@ -245,6 +245,27 @@ def test_admin_editor_places_server_errors_on_the_field(make_app, page):
     _clean(page)
 
 
+def test_admin_regulated_refusal_is_shown_on_the_field(make_app, page):
+    app = make_app()
+    before = app.sql("SELECT lv, mdm FROM regulated")
+    _sign_in(page, app)
+    _pane(page, "regulated")
+    page.fill("#reg-lv", "9")
+    page.fill("#reg-mdm", "1500")
+    page.click("[data-action=saveRegulated]")
+    page.wait_for_selector("#reg-lv.field-invalid", timeout=10000)
+    assert _field_msg(page, "#reg-lv") == "This cannot be more than 5."
+    assert _field_msg(page, "#reg-mdm") == "This cannot be more than 1000."
+    assert "highlighted fields (2)" in page.inner_text("#reg-save-status")
+    assert app.sql("SELECT lv, mdm FROM regulated") == before, "refused values were stored"
+    page.fill("#reg-lv", "0.04")
+    page.fill("#reg-mdm", "0.9")
+    page.click("[data-action=saveRegulated]")
+    _until(page, lambda: app.sql("SELECT lv, mdm FROM regulated") == [(0.04, 0.9)], "valid values saved")
+    assert page.locator("#pane-regulated .field-invalid").count() == 0
+    _clean(page)
+
+
 def test_admin_suppliers_and_users(make_app, page):
     app = make_app()
     app.sql("UPDATE users SET failed_attempts = 3, locked_until = '2999-01-01T00:00:00+00:00' WHERE email = ?", (VOLT,))

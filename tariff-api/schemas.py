@@ -229,15 +229,19 @@ class UserOtpToggleIn(BaseModel):
 
 
 class RegulatedIn(BaseModel):
-    lv: float = 0.0
-    mv: float = 0.0
-    hv: float = 0.0
-    fpaLV: float = 0.0
-    fpaMV: float = 0.0
-    fpaHV: float = 0.0
-    pso: float = 0.0
-    res: float = 0.0
-    mdm: float = 0.0
+    # These feed every tariff's cost in the public calculator. Without limits, a
+    # negative or huge value showed absurd totals, NaN was silently dropped, and
+    # Infinity was stored and then crashed both the calculator and this admin
+    # page (SECURITY_REMEDIATION_CHECKLIST.md, Round 19).
+    lv: float = _energy()       # network charges, €/kWh
+    mv: float = _energy()
+    hv: float = _energy()
+    fpaLV: float = _energy(lo=-TARIFF_MAX_ENERGY_RATE)   # fuel adjustment can be negative
+    fpaMV: float = _energy(lo=-TARIFF_MAX_ENERGY_RATE)
+    fpaHV: float = _energy(lo=-TARIFF_MAX_ENERGY_RATE)
+    pso: float = _energy()
+    res: float = _energy()
+    mdm: float = _monthly()     # €/month
 
 
 class SampleInvoiceConfigIn(BaseModel):

@@ -266,6 +266,28 @@ Generic scanners can't know this app's rules (e.g. "Acme must not touch Delta's 
 - [x] **Tests:** `test_7` checks that the API refuses such IDs (supplier, admin, profile, public report). It also plants one directly in the database, as if it predated the rule, and confirms that the customer, supplier and admin pages run nothing.
 - [x] **Follow-up, closed 2026-10-07:** `admin.html` (profiles, messages, schedules, reports, tariffs) and `supplier.html` (message acknowledge) used to put IDs into handlers. Both conversions removed the pattern: IDs are now escaped `data-arg` attributes, and no page contains inline code (`test_9`).
 
+## Round 19 — Regulated charges had no limits (2026-10-09)
+
+- [x] **Finding (Medium; admin-only, office/VPN), found while adding the admin number-box rule.**
+  - **Cause:** `PUT /api/admin/regulated` (`RegulatedIn`) accepted any number for the network, FPA, PSO, RES and MDM charges, which feed every tariff's cost in the public calculator. Tariffs and profiles already had limits.
+  - **Proven on a throwaway copy:**
+    - LV network charge `-5` → the public calculator showed regulated charges of **-€19,950**;
+    - `1e300` → an absurd total;
+    - `NaN` → that charge silently left out;
+    - PSO `Infinity` → **stored, after which the public calculator and the admin's own Regulated page both returned HTTP 500**, recoverable only by editing the database.
+  - **Reach:** NaN/Infinity need a direct API call by a signed-in admin from the office or VPN, and the admin form could send negative or huge values. So the realistic causes are a typo, a page bug, or a compromised admin account taking the public calculator down.
+- [x] **Fix:** `RegulatedIn` uses the same limits as tariffs (`schemas._energy`/`_monthly`, which also refuse NaN/Infinity):
+  - network, PSO and RES: 0 to 5 €/kWh;
+  - FPA: -5 to 5 €/kWh (fuel adjustment can be negative);
+  - MDM: 0 to 1,000 €/month.
+
+  A read-only check of the real database found the current values well within these limits (e.g. LV 0.0393, MDM 0.94).
+- [x] **Admin page:** a refused save outlines each wrong box with its message (e.g. "This cannot be more than 5."). It used to show the raw reply ("[object Object]").
+- [x] **Tests:**
+  - `test_8`: 13 refused cases (negative, too large, text, NaN, ±Infinity, per field), each leaving the stored values and the public calculator unchanged; also valid edge values, including a negative FPA.
+  - `test_11`: the page shows a refusal on its fields and stores nothing.
+  - Full suite: 188 passed.
+
 ## Open items — must be handled before go-live
 
 These are deployment/production tasks, tracked in full in `AZURE_DEPLOYMENT_CHECKLIST.md` and project memory.
