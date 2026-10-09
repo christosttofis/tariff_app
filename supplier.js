@@ -285,8 +285,6 @@ function renderPage(){
 // ── Auth ──────────────────────────────────────────────────────────────────────
 const _base = window.location.protocol === 'file:' ? 'http://localhost:8000' : '';
 
-function getRole(){  return sessionStorage.getItem('cera_sup_role');  }
-
 // Session lives in an httpOnly cookie (set by the server) — the browser
 // attaches it to same-origin fetches automatically, so there is no token
 // for JS to read or send explicitly. _sessionActive just tracks whether

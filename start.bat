@@ -46,8 +46,8 @@ call .venv\Scripts\activate.bat
 :: ── 5. Install / update dependencies (only on first-time setup) ──
 if "!NEED_INSTALL!"=="1" (
     echo [INFO] Installing dependencies...
-    pip install -q --upgrade pip --trusted-host pypi.org --trusted-host files.pythonhosted.org
-    pip install -q -r requirements.txt --trusted-host pypi.org --trusted-host files.pythonhosted.org
+    python -m pip install -q --upgrade pip
+    python -m pip install -q -r requirements.txt
     if errorlevel 1 (
         echo [WARNING] Could not install dependencies ^(no internet connection?^).
         echo           Continuing anyway - the server may fail to start if
@@ -65,11 +65,11 @@ echo ============================================================
 echo  Server starting at http://localhost:8000
 echo  Customer: http://localhost:8000/customer.html
 echo  Admin:    http://localhost:8000/admin.html
-echo  Admin:    http://localhost:8000/supplier.html
+echo  Supplier: http://localhost:8000/supplier.html
 echo  API docs: http://localhost:8000/docs
 echo  Press Ctrl+C to stop.
 echo ============================================================
 echo.
-python -m uvicorn main:app --host 0.0.0.0 --port 8000
+python -m uvicorn main:app --host 127.0.0.1 --port 8000
 
 pause

@@ -1691,8 +1691,6 @@ function updateFpaSource(){
   const preview=document.getElementById('fpa-global-preview');
   if(preview) preview.textContent='€'+globalRate.toFixed(4);
 }
-function closeEditorIfBg(e){if(e.target.id==='editor-overlay')closeEditor();}
-
 /* ── Discount management ── */
 function addDiscount(type){
   const container=document.getElementById(type+'-discounts');

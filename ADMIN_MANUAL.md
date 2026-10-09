@@ -709,7 +709,8 @@ This restores into a separate, throwaway database (`tariff_app_test`) rather tha
 
 ### The server window shows errors on startup
 - Check that Python 3.12 or higher is installed
-- On CERA's corporate network, dependency installation may fail — the `start.bat` script includes the necessary trusted-host flags, but if issues persist contact IT
+- If first-time dependency installation fails with an SSL/certificate error (possible on a corporate network that inspects HTTPS traffic), contact IT. `start.bat` no longer skips certificate checks (`--trusted-host` was removed on 2026-10-09; installation from this PC worked without it).
+- `start.bat` starts the server for this PC only (`127.0.0.1`); other computers on the network cannot open it.
 - Check that the `.env` file exists inside the `tariff-api/` folder and contains the required values
 
 ### An admin sees "Website unavailable"

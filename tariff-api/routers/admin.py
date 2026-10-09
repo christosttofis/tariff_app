@@ -15,7 +15,6 @@ import calendar
 import json
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Any
 
 import email_utils
 
