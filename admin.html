@@ -770,6 +770,7 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
       <textarea id="dam-raw" style="display:none"></textarea>
       <div class="btn-row" style="margin-top:8px">
         <button class="btn btn-primary" data-action="saveDamData" data-t="BTN_SAVE_DAM">💾 Save DAM data</button>
+        <button class="btn" id="dam-fetch-btn" style="display:none" data-action="fetchDamFromTsoc" data-t="BTN_FETCH_TSOC" title="Adds the days after the last stored day, up to tomorrow. Nothing goes live until you Save.">🌐 Fetch from TSOC</button>
         <button class="btn" data-action="downloadDamCsv" data-t="BTN_DAM_CSV" title="All prices on screen, in €/MWh. Can be corrected and uploaded again with unit €/MWh.">⬇ Download CSV (re-uploadable)</button>
         <button class="btn btn-ghost" data-action="clearDAM" data-t="BTN_CLEAR_DAM">Clear</button>
       </div>

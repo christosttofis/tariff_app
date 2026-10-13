@@ -101,8 +101,8 @@ const LANG = {
     CARD_FORMAT:'Format', CARD_PASTE_DATA:'Paste data',
     LBL_DATA_YEAR:'Data year', LBL_PRICE_UNIT:'Price unit',
     DZ_TITLE:'Drop CSV files here', DZ_SUB:'or click to browse — multiple files supported', BTN_PARSE:'⚡ Parse', BTN_CLEAR_DAM:'Clear', BTN_SAVE_DAM:'💾 Save DAM data',
-    COV_NEW:'New — not saved yet', DAM_MISSING:'missing', 
-    BTN_DAM_CSV:'⬇ Download CSV (re-uploadable)', BTN_DAM_RESTORE:'Restore', BTN_OPEN_DAM:'Open DAM prices',
+    COV_NEW:'New — not saved yet', DAM_MISSING:'missing', DAM_CLICK_DAY:'Show the prices for this day',
+    BTN_FETCH_TSOC:'🌐 Fetch from TSOC', BTN_DAM_CSV:'⬇ Download CSV (re-uploadable)', BTN_DAM_RESTORE:'Restore', BTN_OPEN_DAM:'Open DAM prices',
     CARD_DAM_HISTORY:'Saved versions (backups)', CARD_DAM_LOG:'Change log',
     DAM_HISTORY_HINT:'Every save is kept. Restore makes an earlier version live again; the current one stays in this list.',
     TH_DAM_VERSION:'Version', TH_DAM_SOURCE:'Source', TH_DAM_RANGE:'Dates', TH_DAM_ROWS:'Half-hours',
@@ -110,9 +110,12 @@ const LANG = {
     DAM_ACT_SAVED_UPLOAD:'Saved (CSV upload)', DAM_ACT_SAVED_TSOC:'Saved (TSOC fetch)', DAM_ACT_ROLLBACK:'Restored version',
     DAM_ACT_FETCH_OK:'Fetched (not saved yet)', DAM_ACT_FETCH_CANCELLED:'Fetch cancelled', DAM_ACT_STALE:'Reminder emailed',
     DAM_LIVE:'live', DAM_SYSTEM:'system', DAM_NO_VERSIONS:'No saved versions yet. The current data is backed up automatically on the next save.', DAM_NO_LOG:'No changes recorded yet.',
-    
-    DAM_HALF_HOURS:'half-hours', 
+    DAM_FETCHING:'Fetching from TSOC… this can take up to a minute.', DAM_FETCH_FAILED:'Fetch failed:',
+    DAM_FETCH_CANCELLED:'Fetch cancelled — nothing was changed. Fill the missing data with a CSV upload, or try again later.',
+    DAM_FETCH_REASONS:'Why the fetch was cancelled:', DAM_FETCH_PREVIEW:'Preview — not live until you click Save:',
+    DAM_UP_TO_DATE:'Already up to date.', DAM_HALF_HOURS:'half-hours', DAM_NOT_PUBLISHED:'not published by TSOC yet (normally after ~14:00)',
     DAM_NO_DATA:'No DAM data to download.',
+    DAM_CONFIRM_FETCH_UNSAVED:'The DAM data on screen has unsaved changes. Fetching starts from the saved data and discards them. Continue?',
     DAM_CONFIRM_DROP:'This will remove {N} day(s) that are in the saved data ({FROM} to {TO}).\n\nThe current data stays available as a backup version. Save anyway?',
     DAM_CONFIRM_RESTORE:'Make version {V} ({FROM} to {TO}) live again?\n\nThe current data is kept as a version and can be restored later.',
     DAM_RESTORED:'Version {V} restored ✓ — now live as version {N}.',
@@ -321,8 +324,8 @@ const LANG = {
     CARD_FORMAT:'Μορφή', CARD_PASTE_DATA:'Επικόλληση δεδομένων',
     LBL_DATA_YEAR:'Έτος δεδομένων', LBL_PRICE_UNIT:'Μονάδα τιμής',
     DZ_TITLE:'Σύρτε αρχεία CSV εδώ', DZ_SUB:'ή κάντε κλικ για αναζήτηση — υποστηρίζονται πολλαπλά αρχεία', BTN_PARSE:'⚡ Ανάλυση', BTN_CLEAR_DAM:'Εκκαθάριση', BTN_SAVE_DAM:'💾 Αποθήκευση δεδομένων ΠΗΑ',
-    COV_NEW:'Νέα — δεν έχει αποθηκευτεί', DAM_MISSING:'λείπει', 
-    BTN_DAM_CSV:'⬇ Λήψη CSV (για επαναφόρτωση)', BTN_DAM_RESTORE:'Επαναφορά', BTN_OPEN_DAM:'Άνοιγμα τιμών ΠΗΑ',
+    COV_NEW:'Νέα — δεν έχει αποθηκευτεί', DAM_MISSING:'λείπει', DAM_CLICK_DAY:'Εμφάνιση τιμών της ημέρας',
+    BTN_FETCH_TSOC:'🌐 Ανάκτηση από ΔΣΜΚ', BTN_DAM_CSV:'⬇ Λήψη CSV (για επαναφόρτωση)', BTN_DAM_RESTORE:'Επαναφορά', BTN_OPEN_DAM:'Άνοιγμα τιμών ΠΗΑ',
     CARD_DAM_HISTORY:'Αποθηκευμένες εκδόσεις (αντίγραφα ασφαλείας)', CARD_DAM_LOG:'Αρχείο αλλαγών',
     DAM_HISTORY_HINT:'Κάθε αποθήκευση διατηρείται. Η επαναφορά κάνει ενεργή μια παλαιότερη έκδοση· η τρέχουσα παραμένει στη λίστα.',
     TH_DAM_VERSION:'Έκδοση', TH_DAM_SOURCE:'Προέλευση', TH_DAM_RANGE:'Ημερομηνίες', TH_DAM_ROWS:'Ημίωρα',
@@ -330,9 +333,12 @@ const LANG = {
     DAM_ACT_SAVED_UPLOAD:'Αποθήκευση (φόρτωση CSV)', DAM_ACT_SAVED_TSOC:'Αποθήκευση (ανάκτηση ΔΣΜΚ)', DAM_ACT_ROLLBACK:'Επαναφορά έκδοσης',
     DAM_ACT_FETCH_OK:'Ανάκτηση (χωρίς αποθήκευση)', DAM_ACT_FETCH_CANCELLED:'Ακύρωση ανάκτησης', DAM_ACT_STALE:'Στάλθηκε υπενθύμιση',
     DAM_LIVE:'ενεργή', DAM_SYSTEM:'σύστημα', DAM_NO_VERSIONS:'Δεν υπάρχουν ακόμη εκδόσεις. Τα τρέχοντα δεδομένα θα αποθηκευτούν αυτόματα ως αντίγραφο στην επόμενη αποθήκευση.', DAM_NO_LOG:'Δεν έχουν καταγραφεί αλλαγές.',
-    
-    DAM_HALF_HOURS:'ημίωρα', 
+    DAM_FETCHING:'Ανάκτηση από ΔΣΜΚ… μπορεί να διαρκέσει έως ένα λεπτό.', DAM_FETCH_FAILED:'Η ανάκτηση απέτυχε:',
+    DAM_FETCH_CANCELLED:'Η ανάκτηση ακυρώθηκε — δεν άλλαξε τίποτα. Συμπληρώστε τα δεδομένα που λείπουν με φόρτωση CSV ή δοκιμάστε αργότερα.',
+    DAM_FETCH_REASONS:'Γιατί ακυρώθηκε η ανάκτηση:', DAM_FETCH_PREVIEW:'Προεπισκόπηση — δεν ισχύει μέχρι να πατήσετε Αποθήκευση:',
+    DAM_UP_TO_DATE:'Τα δεδομένα είναι ήδη ενημερωμένα.', DAM_HALF_HOURS:'ημίωρα', DAM_NOT_PUBLISHED:'δεν έχει δημοσιευτεί ακόμη από τον ΔΣΜΚ (συνήθως μετά τις ~14:00)',
     DAM_NO_DATA:'Δεν υπάρχουν δεδομένα ΠΗΑ για λήψη.',
+    DAM_CONFIRM_FETCH_UNSAVED:'Τα δεδομένα ΠΗΑ στην οθόνη έχουν μη αποθηκευμένες αλλαγές. Η ανάκτηση ξεκινά από τα αποθηκευμένα δεδομένα και τις απορρίπτει. Συνέχεια;',
     DAM_CONFIRM_DROP:'Θα αφαιρεθούν {N} ημέρα(ες) που υπάρχουν στα αποθηκευμένα δεδομένα ({FROM} έως {TO}).\n\nΤα τρέχοντα δεδομένα παραμένουν ως αντίγραφο ασφαλείας. Αποθήκευση;',
     DAM_CONFIRM_RESTORE:'Να γίνει ξανά ενεργή η έκδοση {V} ({FROM} έως {TO});\n\nΤα τρέχοντα δεδομένα διατηρούνται ως έκδοση και μπορούν να επανέλθουν.',
     DAM_RESTORED:'Η έκδοση {V} επανήλθε ✓ — ενεργή ως έκδοση {N}.',
@@ -3314,7 +3320,7 @@ async function saveDamData(){
   } catch(e){showStatus(st,'err','Save failed: '+e.message);}
 }
 
-/* ── DAM: CSV download, versions and change log ── */
+/* ── DAM: TSOC fetch, CSV download, versions and change log ── */
 let damPendingSource='upload';   // where the data on screen came from: 'upload' | 'tsoc'
 let damSavedDates=new Set();     // dates in the stored (live) dataset
 
@@ -3336,6 +3342,59 @@ function _damHideReport(){
   const box=document.getElementById('dam-fetch-report');
   box.style.display='none'; box.replaceChildren();
 }
+// Fetched text is shown with textContent only (it comes from another website).
+function _damShowReport(isErr,title,lines){
+  const box=document.getElementById('dam-fetch-report');
+  box.className='dam-fetch-report'+(isErr?' err':'');
+  const head=document.createElement('div');
+  head.style.fontWeight='600';
+  head.textContent=title;
+  const ul=document.createElement('ul');
+  lines.forEach(l=>{
+    const li=document.createElement('li');
+    li.textContent=typeof l==='string'?l:l.text;
+    if(l.date){ li.dataset.action='damShowDay'; li.dataset.arg=l.date; li.title=T('DAM_CLICK_DAY'); }
+    ul.appendChild(li);
+  });
+  box.replaceChildren(head,...(lines.length?[ul]:[]));
+  box.style.display='';
+}
+
+async function fetchDamFromTsoc(){
+  if(_unsaved.has('dam')&&!confirm(T('DAM_CONFIRM_FETCH_UNSAVED'))) return;
+  const st=document.getElementById('dam-status');
+  const btn=document.getElementById('dam-fetch-btn');
+  btn.disabled=true;
+  _damHideReport();
+  showStatus(st,'ok',T('DAM_FETCHING'));
+  try{
+    const resp=await fetch(_adminApiBase+'/api/admin/dam/fetch-tsoc',{method:'POST',headers:authHeaders()});
+    if(resp.status===401){showLogin('Session expired.');return;}
+    const r=await resp.json().catch(()=>({}));
+    if(!resp.ok){showStatus(st,'err',T('DAM_FETCH_FAILED')+' '+apiErrorText(r.detail,resp.status));return;}
+    const rep=r.report||{};
+    if(!r.ok){
+      showStatus(st,'err',T('DAM_FETCH_CANCELLED'));
+      _damShowReport(true,T('DAM_FETCH_REASONS'),(r.reasons||[]).slice(0,100));
+    }else if(!r.payload){
+      showStatus(st,'ok',r.message||T('DAM_UP_TO_DATE'));
+    }else{
+      _damApplyPayload(r.payload);
+      damPendingSource='tsoc';
+      markUnsaved('dam');
+      showStatus(st,'warn',r.message);
+      const lines=Object.entries(rep.addedByDay||{}).map(([d,n])=>({text:`${d}: +${n} ${T('DAM_HALF_HOURS')}`,date:d}));
+      (rep.notYetPublished||[]).forEach(d=>lines.push(`${d}: ${T('DAM_NOT_PUBLISHED')}`));
+      _damShowReport(false,T('DAM_FETCH_PREVIEW'),lines);
+    }
+    loadDamHistory();
+  }catch(e){
+    showStatus(st,'err',T('DAM_FETCH_FAILED')+' '+e.message);
+  }finally{
+    btn.disabled=false;
+  }
+}
+
 // Same format the upload box reads (unit €/MWh): "YYYY-MM-DD HH:MM,price".
 function damToCsv(daily){
   const rows=[];
@@ -4919,6 +4978,7 @@ async function loadConfig(){
     if(sampleInvCb) sampleInvCb.checked=!!cfg.sampleInvoiceEnabled;
     if(cfg.damDailyData) damDailyData=cfg.damDailyData;
     damSavedDates=new Set(_damDates(damDailyData));
+    document.getElementById('dam-fetch-btn').style.display=cfg.tsocFetchEnabled?'':'none';
     if(cfg.changelog) changelog=cfg.changelog;
     if(cfg.reports) reports=cfg.reports;
     if(cfg.docTariffIds) docTariffIds=new Set(cfg.docTariffIds);
@@ -5088,7 +5148,7 @@ const _ACTIONS = {
   damPickFiles: () => document.getElementById('dam-file-input').click(),
   damLoadFromInput: el => damLoadFiles(el.files),
   saveDamData: () => saveDamData(), clearDAM: () => clearDAM(), exportDAM: el => exportDAM(el.dataset.arg),
-  downloadDamCsv: () => downloadDamCsv(),
+  fetchDamFromTsoc: () => fetchDamFromTsoc(), downloadDamCsv: () => downloadDamCsv(),
   damDownloadVersion: el => damDownloadVersion(el.dataset.arg), damRestoreVersion: el => damRestoreVersion(el.dataset.arg),
   damBackToMonths: () => damBackToMonths(), damNavWeek: el => damNavWeek(+el.dataset.arg),
   damOpenMonth: el => damOpenMonth(+el.dataset.arg, +el.dataset.arg2),

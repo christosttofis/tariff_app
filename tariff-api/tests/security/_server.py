@@ -10,7 +10,9 @@ In-memory test overrides, so the tests measure the app rather than their own set
     so local credentials and the real database can't leak into a test run;
   - uploaded PDFs go to a temp folder (TEST_UPLOAD_DIR), not tariff-api/uploads;
   - the per-IP rate limit is raised (TEST_RATE_LIMIT), since every test request
-    comes from 127.0.0.1. The rate-limit test starts a server with the real value.
+    comes from 127.0.0.1. The rate-limit test starts a server with the real value;
+  - "Fetch from TSOC" talks to a fake TSOC (tests/tsoc_stub.py, mode from
+    TEST_TSOC_MODE, default "ok"), never the real website.
 
 Usage: python _server.py <port>
 """
@@ -31,6 +33,11 @@ from routers import shared  # noqa: E402
 
 shared._UPLOAD_DIR = Path(os.environ["TEST_UPLOAD_DIR"])
 main._RATE_LIMIT_MAX_REQUESTS = int(os.environ.get("TEST_RATE_LIMIT", str(10 ** 9)))
+
+sys.path.insert(0, str(API_DIR / "tests"))
+import tsoc_stub  # noqa: E402
+
+tsoc_stub.install(os.environ.get("TEST_TSOC_MODE", "ok"))
 
 import uvicorn  # noqa: E402
 

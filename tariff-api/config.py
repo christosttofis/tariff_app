@@ -88,6 +88,12 @@ TARIFF_BASE_URL = os.getenv("TARIFF_BASE_URL", "http://localhost:8000").rstrip("
 # (including every admin endpoint's shape) to anyone, unauthenticated.
 TARIFF_ENABLE_DOCS = os.getenv("TARIFF_ENABLE_DOCS", "1") == "1"
 
+# ── "Fetch from TSOC" for DAM prices ─────────────────────────────────────────
+# On by default. Set TARIFF_TSOC_FETCH=off to hide the button and refuse the
+# endpoint without a code change (e.g. if TSOC blocks the server). Manual CSV
+# upload of DAM prices is unaffected.
+TARIFF_TSOC_FETCH = os.getenv("TARIFF_TSOC_FETCH", "on").strip().lower() not in ("off", "0", "false", "no")
+
 # ── Tariff input sanity limits ───────────────────────────────────────────────
 # Upper bounds enforced on every tariff saved (supplier portal, admin
 # editor). They exist to reject typos and malformed data before it can

@@ -13,10 +13,13 @@ Auth rules
 
 import calendar
 import json
+import logging
 import secrets
+import threading
 from datetime import datetime, timedelta, timezone
 
 import dam_data
+import dam_tsoc
 import email_utils
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
@@ -24,7 +27,7 @@ from sqlalchemy.orm import Session
 
 import models
 from auth import CurrentUser, hash_password, require_admin, resolve_supplier_name
-from config import TARIFF_BASE_URL
+from config import TARIFF_BASE_URL, TARIFF_TSOC_FETCH
 from database import get_db
 from schemas import (
     CreateUserIn, DamIn, MessageArchiveIn, MessageIn, NoticesIn, ProfileIn, RegulatedIn,
@@ -40,6 +43,8 @@ from routers.shared import (
     _add_changelog, _apply_tariff_body, _assert_profile_exists, _diff_fields, _document_dicts, _document_response,
     _message_targets, _new_tariff, _now, _save_pdf_upload, _uid,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
@@ -138,6 +143,7 @@ def get_admin_config(
         "regulated":  _regulated_to_dict(regulated),
         "notices":    _notices_to_dict(notices),
         "sampleInvoiceEnabled": bool(sample_invoice_cfg.enabled) if sample_invoice_cfg else False,
+        "tsocFetchEnabled": TARIFF_TSOC_FETCH,
         **_dam_to_dict(dam),
         "changelog": [
             {"id": c.id, "tariffId": c.tariffId, "tariffName": c.tariffName,
@@ -980,6 +986,35 @@ def _replace_dam(db: Session, payload: dict, *, source: str, actor: str, action:
         "rowCount": payload["damRowCount"],
     }, version_id=version.id)
     return version
+
+
+# Only one TSOC fetch at a time (it makes several slow requests to TSOC).
+_tsoc_fetch_lock = threading.Lock()
+
+
+@router.post("/dam/fetch-tsoc", summary="Fetch new DAM prices from TSOC as a preview (admin only; saves nothing)")
+def fetch_dam_from_tsoc(db: Session = Depends(get_db), user: CurrentUser = Depends(require_admin)):
+    if not TARIFF_TSOC_FETCH:
+        raise HTTPException(404, "Fetching from TSOC is switched off on this server (TARIFF_TSOC_FETCH).")
+    if not _tsoc_fetch_lock.acquire(blocking=False):
+        raise HTTPException(409, "A TSOC fetch is already running. Try again in a minute.")
+    try:
+        stored = _dam_to_dict(db.query(models.DamData).first())["damDailyData"]
+        result = dam_tsoc.fetch_preview(stored)
+    finally:
+        _tsoc_fetch_lock.release()
+    report = result["report"]
+    if result["ok"]:
+        added = report["addedByDay"]
+        _log_dam(db, "fetch_ok", user.email, result["message"],
+                 {"addedByDay": added, "notYetPublished": report["notYetPublished"], "requests": report["requests"]})
+    else:
+        _log_dam(db, "fetch_cancelled", user.email, "Fetch cancelled: " + result["reasons"][0][:300],
+                 {"reasons": result["reasons"][:200], "requested": report["requested"],
+                  "requests": report["requests"]})
+    db.commit()
+    logger.info("TSOC DAM fetch by %s: %s", user.email, "ok" if result["ok"] else "cancelled")
+    return result
 
 
 @router.get("/dam/status", summary="DAM data freshness and last change (admin only)")

@@ -139,8 +139,9 @@ for p in ("/api/admin/regulated", "/api/admin/notices", "/api/admin/sample-invoi
     body = js(A("GET", p))
     if isinstance(body, dict):
         A("PUT", p, json=body)
-# DAM prices: status, change log, versions (the PUT round-trip above created
-# them), download one, restore one.
+# DAM prices: fetch preview (fake TSOC on the CI server), status, change log,
+# versions (the PUT round-trip above created them), download one, restore one.
+A("POST", "/api/admin/dam/fetch-tsoc")
 A("GET", "/api/admin/dam/status")
 A("GET", "/api/admin/dam/log?limit=50")
 dam_versions = js(A("GET", "/api/admin/dam/versions"), [])
