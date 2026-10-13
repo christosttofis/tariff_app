@@ -391,6 +391,13 @@ Dropping/pasting a file only parses it into a preview (monthly averages, coverag
 
 > DAM data represents historical or forecast prices and should be updated periodically to reflect current market conditions. The year of the data is recorded and displayed to consumers on the calculator.
 
+### Switching off or removing "Fetch from TSOC"
+
+If fetching DAM prices from TSOC stops working (for example, TSOC blocks the server) or is no longer wanted, manual CSV upload keeps working either way.
+
+- **To switch it off** (no code change): set `TARIFF_TSOC_FETCH=off` in `tariff-api/.env` (or in the Azure app settings) and restart the server. The **🌐 Fetch from TSOC** button disappears. Set it back to `on` to restore it.
+- **To remove the fetch for good**, run `git revert 6c041bc`. This removes only the TSOC fetch; backups and restore, the change log, the data checks, the dashboard card and the 15-day reminder stay.
+
 ---
 
 ## 10. Notices & Disclaimers
