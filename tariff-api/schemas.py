@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import math
 import re
+from datetime import date
 from typing import Annotated, Any, Literal
 
 from email_validator import EmailNotValidError, validate_email
@@ -330,12 +332,95 @@ class ScheduledNotificationEnabledIn(BaseModel):
     enabled: bool
 
 
+# DAM prices are stored in €/kWh. Anything above 10 €/kWh (10,000 €/MWh) or
+# below -1 €/kWh is not a market price - most likely a file uploaded with the
+# wrong unit selected. 7,400 days is 20 years of history.
+DAM_PRICE_MIN, DAM_PRICE_MAX = -1.0, 10.0
+DAM_MAX_DAYS = 7400
+_DAM_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_DAM_DAY_KEYS = {"dateStr", "month", "dow", "slots"}
+
+
+def _dam_price_ok(v) -> bool:
+    return v is None or (isinstance(v, (int, float)) and not isinstance(v, bool)
+                         and math.isfinite(v) and DAM_PRICE_MIN <= v <= DAM_PRICE_MAX)
+
+
+def _dam_problems(m: "DamIn") -> list[str]:
+    """Every way the dataset differs from what the admin page / TSOC fetch build
+    (admin.js parseDAM, dam_tsoc.build_dam_payload). Stops early on a flood."""
+    out: list[str] = []
+    bad_price = (f"must be numbers from {DAM_PRICE_MIN:g} to {DAM_PRICE_MAX:g} €/kWh "
+                 "(was the right price unit selected?)")
+
+    if len(m.damMonthly) != 12:
+        out.append("damMonthly must have 12 months.")
+    elif not all(_dam_price_ok(v) for v in m.damMonthly):
+        out.append("damMonthly: monthly averages " + bad_price)
+
+    if len(m.damBySlot) not in (0, 12):
+        out.append("damBySlot must have 12 months.")
+    else:
+        for mi, month in enumerate(m.damBySlot):
+            if not isinstance(month, list) or len(month) != 48:
+                out.append(f"damBySlot month {mi + 1} must have 48 half-hours.")
+            elif not all(_dam_price_ok(v) for v in month):
+                out.append(f"damBySlot month {mi + 1}: half-hour averages " + bad_price)
+
+    if len(m.damDailyData) not in (0, 12):
+        out.append("damDailyData must have 12 months.")
+        return out
+    seen: set[str] = set()
+    for mi, month in enumerate(m.damDailyData):
+        if not isinstance(month, list):
+            out.append(f"damDailyData month {mi + 1} must be a list of days.")
+            continue
+        for day in month:
+            if len(out) >= 10:
+                return out
+            if not isinstance(day, dict) or not set(day) <= _DAM_DAY_KEYS or not {"dateStr", "slots"} <= set(day):
+                out.append(f"damDailyData month {mi + 1}: each day needs dateStr and slots only.")
+                continue
+            ds = day["dateStr"]
+            try:
+                d = date.fromisoformat(ds) if isinstance(ds, str) and _DAM_DATE_RE.match(ds) else None
+            except ValueError:
+                d = None
+            if d is None:
+                out.append(f"damDailyData month {mi + 1}: {str(ds)[:20]!r} is not a date.")
+                continue
+            if d.month != mi + 1 or day.get("month", mi) != mi:
+                out.append(f"{ds} is filed under the wrong month.")
+            if ds in seen:
+                out.append(f"{ds} appears twice.")
+            seen.add(ds)
+            dow = day.get("dow", 0)
+            if not isinstance(dow, int) or isinstance(dow, bool) or not 0 <= dow <= 6:
+                out.append(f"{ds}: dow must be 0-6.")
+            slots = day["slots"]
+            if not isinstance(slots, list) or len(slots) != 48:
+                out.append(f"{ds}: must have 48 half-hours.")
+            elif not all(_dam_price_ok(v) for v in slots):
+                out.append(f"{ds}: prices " + bad_price)
+    if len(seen) > DAM_MAX_DAYS:
+        out.append(f"Too many days ({len(seen)}); at most {DAM_MAX_DAYS}.")
+    return out
+
+
 class DamIn(BaseModel):
     damMonthly: list[Any]          # [null|float × 12]
     damBySlot: list[Any] = []      # [[float × 48] × 12]
-    damDailyData: list[Any] = []   # [[{dateStr,dow,slots}...] × 12]
-    damRowCount: int = 0
-    damYear: int = 2026
+    damDailyData: list[Any] = []   # [[{dateStr,month,dow,slots}...] × 12]
+    damRowCount: int = Field(0, ge=0, le=DAM_MAX_DAYS * 48 * 4)   # uploads may repeat rows
+    damYear: int = Field(2026, ge=2000, le=2100)
+    source: Literal["upload", "tsoc"] = "upload"   # recorded in the DAM change log
+
+    @model_validator(mode="after")
+    def _check_dataset(self):
+        problems = _dam_problems(self)
+        if problems:
+            raise ValueError(" ".join(problems))
+        return self
 
 
 class PublicCalculateIn(BaseModel):

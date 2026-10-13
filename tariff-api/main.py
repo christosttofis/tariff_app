@@ -42,7 +42,7 @@ from routers import admin as admin_router
 from routers import auth as auth_router
 from routers import public_calc as public_calc_router
 from routers import supplier as supplier_router
-from routers.admin import run_due_scheduled_notifications
+from routers.admin import run_dam_staleness_check, run_due_scheduled_notifications
 from routers.shared import _uid
 from schemas import TariffReportIn
 from serializers import supplier_to_dict, tariff_to_public_summary_dict
@@ -142,6 +142,20 @@ async def rate_limit_middleware(request, call_next):
         status_code=429,
     )
 
+# The DAM save carries the whole price history as JSON (~1 MB a year). Refuse
+# anything far beyond 20 years' worth before it is read into memory; a body
+# without a declared length is refused too, since browsers always send one.
+_DAM_PUT_MAX_BYTES = 30 * 1024 * 1024
+
+
+@app.middleware("http")
+async def dam_body_limit_middleware(request, call_next):
+    if request.method == "PUT" and request.url.path == "/api/admin/dam":
+        length = request.headers.get("content-length")
+        if length is None or not length.isdigit() or int(length) > _DAM_PUT_MAX_BYTES:
+            return JSONResponse({"detail": "DAM data too large (or size not given)."}, status_code=413)
+    return await call_next(request)
+
 # Frontend is normally served same-origin by this app (relative fetch calls), so this
 # only matters for cross-origin access — restrict to the actual deployment URL rather
 # than "*". Set TARIFF_BASE_URL per-environment; it's already used for email links.
@@ -230,10 +244,11 @@ async def _scheduled_notifications_loop():
             try:
                 run_due_scheduled_notifications(db)
 
-                # Password expiry only needs checking once per day.
+                # Password expiry and DAM data age only need checking once per day.
                 today = datetime.now(timezone.utc).date().isoformat()
                 if today != _last_password_check_date:
                     run_password_expiry_check(db)
+                    run_dam_staleness_check(db)
                     _last_password_check_date = today
             finally:
                 db.close()

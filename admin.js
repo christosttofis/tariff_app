@@ -101,6 +101,25 @@ const LANG = {
     CARD_FORMAT:'Format', CARD_PASTE_DATA:'Paste data',
     LBL_DATA_YEAR:'Data year', LBL_PRICE_UNIT:'Price unit',
     DZ_TITLE:'Drop CSV files here', DZ_SUB:'or click to browse — multiple files supported', BTN_PARSE:'⚡ Parse', BTN_CLEAR_DAM:'Clear', BTN_SAVE_DAM:'💾 Save DAM data',
+    COV_NEW:'New — not saved yet', DAM_MISSING:'missing', 
+    BTN_DAM_CSV:'⬇ Download CSV (re-uploadable)', BTN_DAM_RESTORE:'Restore', BTN_OPEN_DAM:'Open DAM prices',
+    CARD_DAM_HISTORY:'Saved versions (backups)', CARD_DAM_LOG:'Change log',
+    DAM_HISTORY_HINT:'Every save is kept. Restore makes an earlier version live again; the current one stays in this list.',
+    TH_DAM_VERSION:'Version', TH_DAM_SOURCE:'Source', TH_DAM_RANGE:'Dates', TH_DAM_ROWS:'Half-hours',
+    DAM_SRC_INITIAL:'Before versioning', DAM_SRC_UPLOAD:'CSV upload', DAM_SRC_TSOC:'TSOC fetch', DAM_SRC_ROLLBACK:'Restored',
+    DAM_ACT_SAVED_UPLOAD:'Saved (CSV upload)', DAM_ACT_SAVED_TSOC:'Saved (TSOC fetch)', DAM_ACT_ROLLBACK:'Restored version',
+    DAM_ACT_FETCH_OK:'Fetched (not saved yet)', DAM_ACT_FETCH_CANCELLED:'Fetch cancelled', DAM_ACT_STALE:'Reminder emailed',
+    DAM_LIVE:'live', DAM_SYSTEM:'system', DAM_NO_VERSIONS:'No saved versions yet. The current data is backed up automatically on the next save.', DAM_NO_LOG:'No changes recorded yet.',
+    
+    DAM_HALF_HOURS:'half-hours', 
+    DAM_NO_DATA:'No DAM data to download.',
+    DAM_CONFIRM_DROP:'This will remove {N} day(s) that are in the saved data ({FROM} to {TO}).\n\nThe current data stays available as a backup version. Save anyway?',
+    DAM_CONFIRM_RESTORE:'Make version {V} ({FROM} to {TO}) live again?\n\nThe current data is kept as a version and can be restored later.',
+    DAM_RESTORED:'Version {V} restored ✓ — now live as version {N}.',
+    DASH_DAM_TITLE:'DAM prices', DASH_DAM_UNTIL:'Prices up to', DASH_DAM_SAVED:'Last change', DASH_DAM_COVERAGE:'Days stored',
+    DASH_DAM_NONE:'No data', DASH_DAM_DAYS_OLD:'days old', DASH_DAM_STALE:'more than {N} days old — fetch or upload',
+    DASH_DAM_ATTENTION:'DAM prices end on {D} ({N} days ago). Dynamic tariffs use older data.',
+    DASH_DAM_ATTENTION_NONE:'No DAM prices are stored. Dynamic tariffs cannot be priced properly.',
     CARD_COV_TITLE:'Data coverage', COV_FULL:'Full', COV_PARTIAL:'Partial', COV_NONE:'No data', COV_BACK:'Back',
     CARD_MONTHLY_AVG:'Monthly averages (€/kWh)',
     BTN_EXP_DAILY:'⬇ Export daily CSV', BTN_EXP_SLOT:'⬇ Export slot averages', BTN_EXP_MONTHLY:'⬇ Export monthly averages',
@@ -302,6 +321,25 @@ const LANG = {
     CARD_FORMAT:'Μορφή', CARD_PASTE_DATA:'Επικόλληση δεδομένων',
     LBL_DATA_YEAR:'Έτος δεδομένων', LBL_PRICE_UNIT:'Μονάδα τιμής',
     DZ_TITLE:'Σύρτε αρχεία CSV εδώ', DZ_SUB:'ή κάντε κλικ για αναζήτηση — υποστηρίζονται πολλαπλά αρχεία', BTN_PARSE:'⚡ Ανάλυση', BTN_CLEAR_DAM:'Εκκαθάριση', BTN_SAVE_DAM:'💾 Αποθήκευση δεδομένων ΠΗΑ',
+    COV_NEW:'Νέα — δεν έχει αποθηκευτεί', DAM_MISSING:'λείπει', 
+    BTN_DAM_CSV:'⬇ Λήψη CSV (για επαναφόρτωση)', BTN_DAM_RESTORE:'Επαναφορά', BTN_OPEN_DAM:'Άνοιγμα τιμών ΠΗΑ',
+    CARD_DAM_HISTORY:'Αποθηκευμένες εκδόσεις (αντίγραφα ασφαλείας)', CARD_DAM_LOG:'Αρχείο αλλαγών',
+    DAM_HISTORY_HINT:'Κάθε αποθήκευση διατηρείται. Η επαναφορά κάνει ενεργή μια παλαιότερη έκδοση· η τρέχουσα παραμένει στη λίστα.',
+    TH_DAM_VERSION:'Έκδοση', TH_DAM_SOURCE:'Προέλευση', TH_DAM_RANGE:'Ημερομηνίες', TH_DAM_ROWS:'Ημίωρα',
+    DAM_SRC_INITIAL:'Πριν τις εκδόσεις', DAM_SRC_UPLOAD:'Φόρτωση CSV', DAM_SRC_TSOC:'Ανάκτηση ΔΣΜΚ', DAM_SRC_ROLLBACK:'Επαναφορά',
+    DAM_ACT_SAVED_UPLOAD:'Αποθήκευση (φόρτωση CSV)', DAM_ACT_SAVED_TSOC:'Αποθήκευση (ανάκτηση ΔΣΜΚ)', DAM_ACT_ROLLBACK:'Επαναφορά έκδοσης',
+    DAM_ACT_FETCH_OK:'Ανάκτηση (χωρίς αποθήκευση)', DAM_ACT_FETCH_CANCELLED:'Ακύρωση ανάκτησης', DAM_ACT_STALE:'Στάλθηκε υπενθύμιση',
+    DAM_LIVE:'ενεργή', DAM_SYSTEM:'σύστημα', DAM_NO_VERSIONS:'Δεν υπάρχουν ακόμη εκδόσεις. Τα τρέχοντα δεδομένα θα αποθηκευτούν αυτόματα ως αντίγραφο στην επόμενη αποθήκευση.', DAM_NO_LOG:'Δεν έχουν καταγραφεί αλλαγές.',
+    
+    DAM_HALF_HOURS:'ημίωρα', 
+    DAM_NO_DATA:'Δεν υπάρχουν δεδομένα ΠΗΑ για λήψη.',
+    DAM_CONFIRM_DROP:'Θα αφαιρεθούν {N} ημέρα(ες) που υπάρχουν στα αποθηκευμένα δεδομένα ({FROM} έως {TO}).\n\nΤα τρέχοντα δεδομένα παραμένουν ως αντίγραφο ασφαλείας. Αποθήκευση;',
+    DAM_CONFIRM_RESTORE:'Να γίνει ξανά ενεργή η έκδοση {V} ({FROM} έως {TO});\n\nΤα τρέχοντα δεδομένα διατηρούνται ως έκδοση και μπορούν να επανέλθουν.',
+    DAM_RESTORED:'Η έκδοση {V} επανήλθε ✓ — ενεργή ως έκδοση {N}.',
+    DASH_DAM_TITLE:'Τιμές ΠΗΑ', DASH_DAM_UNTIL:'Τιμές έως', DASH_DAM_SAVED:'Τελευταία αλλαγή', DASH_DAM_COVERAGE:'Αποθηκευμένες ημέρες',
+    DASH_DAM_NONE:'Χωρίς δεδομένα', DASH_DAM_DAYS_OLD:'ημέρες πριν', DASH_DAM_STALE:'παλαιότερες από {N} ημέρες — ανάκτηση ή φόρτωση',
+    DASH_DAM_ATTENTION:'Οι τιμές ΠΗΑ φτάνουν έως {D} ({N} ημέρες πριν). Οι δυναμικές χρεώσεις χρησιμοποιούν παλαιότερα δεδομένα.',
+    DASH_DAM_ATTENTION_NONE:'Δεν υπάρχουν αποθηκευμένες τιμές ΠΗΑ. Οι δυναμικές χρεώσεις δεν μπορούν να υπολογιστούν σωστά.',
     CARD_COV_TITLE:'Κάλυψη δεδομένων', COV_FULL:'Πλήρης', COV_PARTIAL:'Μερική', COV_NONE:'Κανένα δεδομένο', COV_BACK:'Πίσω',
     CARD_MONTHLY_AVG:'Μηνιαίοι μέσοι όροι (€/kWh)',
     BTN_EXP_DAILY:'⬇ Εξαγωγή ημερήσιο CSV', BTN_EXP_SLOT:'⬇ Εξαγωγή μέσους ανά slot', BTN_EXP_MONTHLY:'⬇ Εξαγωγή μηνιαίους μέσους',
@@ -2854,6 +2892,8 @@ function parseDAM(){
   damMonthly=monthBuckets.map(b=>b.length?b.reduce((a,x)=>a+x,0)/b.length:null);
   damBySlot=slotBuckets.map(month=>month.map(s=>s.length?s.reduce((a,x)=>a+x,0)/s.length:null));
   damRowCount=parsed;
+  damPendingSource='upload';
+  _damHideReport();
 
   // Build sorted daily arrays per month
   damDailyData=Array.from({length:12},()=>[]);
@@ -2905,7 +2945,8 @@ function renderDamCoverage(){
     const maxSlots=Math.max(...slotCounts,1);
     const thresh=Math.max(1,Math.round(maxSlots*0.9));
     const fullDays=slotCounts.filter(n=>n>=thresh).length;
-    const cls=fullDays===expDays&&e.days.length===expDays?'dcal-full':'dcal-part';
+    const cls=(fullDays===expDays&&e.days.length===expDays?'dcal-full':'dcal-part')
+      +(e.days.some(d=>!damSavedDates.has(d.dateStr))?' dcal-new':'');
     return `<div class="dcal-mon ${cls}" data-action="damOpenMonth" data-arg="${e.mi}" data-arg2="${e.year}" title="${MONTHS_SHORT[e.mi]} ${e.year}: ${e.days.length}/${expDays} days">
       <div style="font-size:11px;font-weight:600">${MONTHS_SHORT[e.mi]}</div>
       <div style="font-size:9px;margin-top:1px;opacity:.85">${e.year}</div>
@@ -2933,14 +2974,62 @@ function damOpenMonth(mi,year){
   for(let day=1;day<=expDays;day++){
     const ds=`${year}-${String(mi+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const sc=slotCount[ds]||0;
-    const cls=sc===0?'dcal-none':sc>=thresh?'dcal-full':'dcal-part';
-    const tip=sc===0?'No data':`${sc}/${maxSlots} slots`;
-    html+=`<div class="dcal-cell ${cls}" title="${ds}: ${tip}">${day}</div>`;
+    const cls=sc===0?'dcal-none':(sc>=thresh?'dcal-full':'dcal-part')+' has-data'+(damSavedDates.has(ds)?'':' dcal-new');
+    const tip=sc===0?'No data':`${sc}/48 half-hours`;
+    html+=sc===0?`<div class="dcal-cell ${cls}" title="${ds}: ${tip}">${day}</div>`
+      :`<div class="dcal-cell ${cls}" data-action="damShowDay" data-arg="${ds}" title="${ds}: ${tip}">${day}</div>`;
   }
   document.getElementById('dam-cal-day-grid').innerHTML=html;
   document.getElementById('dam-cal-day-title').textContent=`${MONTHS_SHORT[mi]} ${year}`;
   document.getElementById('dam-cal-month-view').style.display='none';
   document.getElementById('dam-cal-day-view').style.display='';
+  document.getElementById('dam-day-detail').style.display='none';
+}
+
+// One day's 48 half-hourly prices, to check them (e.g. a TSOC fetch) before saving.
+function damShowDay(ds){
+  const mi=parseInt(ds.slice(5,7),10)-1, year=parseInt(ds.slice(0,4),10);
+  if(document.getElementById('dam-cal-day-view').style.display==='none'
+     ||document.getElementById('dam-cal-day-title').textContent!==`${MONTHS_SHORT[mi]} ${year}`){
+    damOpenMonth(mi,year);
+  }
+  const day=(damDailyData[mi]||[]).find(d=>d.dateStr===ds);
+  const box=document.getElementById('dam-day-detail');
+  document.querySelectorAll('#dam-cal-day-grid .dcal-sel').forEach(c=>c.classList.remove('dcal-sel'));
+  const cell=document.querySelector(`#dam-cal-day-grid [data-arg="${ds}"]`);
+  if(cell) cell.classList.add('dcal-sel');
+  if(!day){box.style.display='none';return;}
+  const vals=day.slots.filter(v=>v!==null).map(v=>v*1000);
+  const head=document.createElement('div');
+  head.className='dam-day-head';
+  const title=document.createElement('strong');
+  title.textContent=new Date(ds+'T12:00:00').toLocaleDateString(undefined,{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  head.appendChild(title);
+  const info=document.createElement('span');
+  info.textContent=`${vals.length}/48 ${T('DAM_HALF_HOURS')} · €/MWh`+(vals.length
+    ?` · min ${Math.min(...vals).toFixed(2)} · max ${Math.max(...vals).toFixed(2)} · avg ${(vals.reduce((a,x)=>a+x,0)/vals.length).toFixed(2)}`:'');
+  head.appendChild(info);
+  if(!damSavedDates.has(ds)){
+    const nw=document.createElement('span');
+    nw.className='dam-day-new';
+    nw.textContent='● '+T('COV_NEW');
+    head.appendChild(nw);
+  }
+  const grid=document.createElement('div');
+  grid.className='dam-day-slots';
+  day.slots.forEach((p,s)=>{
+    const c=document.createElement('div');
+    c.className='dam-day-slot'+(p===null?' missing':'');
+    const t=document.createElement('span');
+    t.textContent=`${String(Math.floor(s/2)).padStart(2,'0')}:${s%2?'30':'00'}`;
+    const v=document.createElement('span');
+    v.textContent=p===null?T('DAM_MISSING'):(p*1000).toFixed(2);
+    c.append(t,v);
+    grid.appendChild(c);
+  });
+  box.replaceChildren(head,grid);
+  box.style.display='';
+  box.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
 function damBackToMonths(){
@@ -2958,7 +3047,7 @@ function renderDamViewer(){
   tabsEl.innerHTML=MONTHS_SHORT.map((m,i)=>{
     const hasData=damDailyData[i]&&damDailyData[i].length>0;
     const cls='dam-month-tab'+(hasData?' has-data':' no-data')+(i===damViewerState.month&&hasData?' active':'');
-    return `<button class="${cls}" ${hasData?`onclick="selectDamMonth(${i})"`:'disabled'}>${m}</button>`;
+    return `<button class="${cls}" ${hasData?`data-action="selectDamMonth" data-arg="${i}"`:'disabled'}>${m}</button>`;
   }).join('');
 
   // Find first month with data if current has none
@@ -3199,18 +3288,210 @@ function clearDAM(){
   damMonthly=new Array(12).fill(null);damBySlot=[];
   damDailyData=Array.from({length:12},()=>[]);
   if(damWeekChart){damWeekChart.destroy();damWeekChart=null;}
+  _damHideReport();
 }
 async function saveDamData(){
   const st=document.getElementById('dam-status');
+  // A file holding only part of the history would replace all of it: ask first.
+  const now=new Set(_damDates(damDailyData));
+  const dropped=[...damSavedDates].filter(d=>!now.has(d)).sort();
+  if(dropped.length&&!confirm(T('DAM_CONFIRM_DROP').replace('{N}',dropped.length)
+      .replace('{FROM}',dropped[0]).replace('{TO}',dropped[dropped.length-1]))) return;
   showStatus(st,'ok','Saving…');
   try{
-    const body={damMonthly,damBySlot,damDailyData,damRowCount,damYear:fv('dam-year')};
+    const body={damMonthly,damBySlot,damDailyData,damRowCount,damYear:fv('dam-year'),source:damPendingSource};
     const resp=await fetch(_adminApiBase+'/api/admin/dam',{method:'PUT',headers:authHeaders(),body:JSON.stringify(body)});
     if(resp.status===401){showLogin('Session expired.');return;}
-    if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(st,'err','Save failed: '+(e.detail||resp.status));return;}
-    showStatus(st,'ok','Saved ✓ — DAM data now live.');
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(st,'err','Save failed: '+apiErrorText(e.detail,resp.status));return;}
+    const r=await resp.json().catch(()=>({}));
+    showStatus(st,'ok',`Saved ✓ — DAM data now live (version ${r.versionId}).`);
+    damSavedDates=now;
+    damPendingSource='upload';
     markClean('dam');
+    renderDamCoverage();
+    loadDamHistory();
+    buildDamStatus();
   } catch(e){showStatus(st,'err','Save failed: '+e.message);}
+}
+
+/* ── DAM: CSV download, versions and change log ── */
+let damPendingSource='upload';   // where the data on screen came from: 'upload' | 'tsoc'
+let damSavedDates=new Set();     // dates in the stored (live) dataset
+
+function _damDates(daily){
+  const out=new Set();
+  (daily||[]).forEach(m=>(m||[]).forEach(d=>{ if(d&&d.slots&&d.slots.some(v=>v!==null)) out.add(d.dateStr); }));
+  return [...out].sort();
+}
+function _damApplyPayload(p){
+  damMonthly=p.damMonthly||new Array(12).fill(null);
+  damBySlot=p.damBySlot||[];
+  damDailyData=p.damDailyData||Array.from({length:12},()=>[]);
+  damRowCount=p.damRowCount||0;
+  renderMonthGrid();
+  renderDamCoverage();
+  renderDamViewer();
+}
+function _damHideReport(){
+  const box=document.getElementById('dam-fetch-report');
+  box.style.display='none'; box.replaceChildren();
+}
+// Same format the upload box reads (unit €/MWh): "YYYY-MM-DD HH:MM,price".
+function damToCsv(daily){
+  const rows=[];
+  (daily||[]).forEach(m=>(m||[]).forEach(d=>(d.slots||[]).forEach((p,s)=>{
+    if(p===null||p===undefined) return;
+    let v=(p*1000).toFixed(6).replace(/\.?0+$/,'');
+    if(v==='-0') v='0';
+    rows.push(`${d.dateStr} ${String(Math.floor(s/2)).padStart(2,'0')}:${s%2?'30':'00'},${v}`);
+  })));
+  rows.sort();
+  return 'timestamp,price_eur_mwh\n'+rows.join('\n')+(rows.length?'\n':'');
+}
+function _damSaveFile(csv,name){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
+  a.download=name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+function downloadDamCsv(){
+  const dates=_damDates(damDailyData);
+  if(!dates.length){alert(T('DAM_NO_DATA'));return;}
+  _damSaveFile(damToCsv(damDailyData),`dam_prices_${dates[0]}_to_${dates[dates.length-1]}.csv`);
+}
+async function damDownloadVersion(id){
+  const resp=await fetch(_adminApiBase+'/api/admin/dam/versions/'+encodeURIComponent(id),{headers:authHeaders()});
+  if(resp.status===401){showLogin('Session expired.');return;}
+  if(!resp.ok){alert('Download failed: '+resp.status);return;}
+  const v=await resp.json();
+  _damSaveFile(damToCsv(v.payload.damDailyData),`dam_prices_version_${v.id}_${v.firstDate||''}_to_${v.lastDate||''}.csv`);
+}
+async function damRestoreVersion(id){
+  const v=_damVersions.find(x=>String(x.id)===String(id));
+  if(!v) return;
+  const msg=T('DAM_CONFIRM_RESTORE').replace('{V}',v.id).replace('{FROM}',v.firstDate||'—').replace('{TO}',v.lastDate||'—');
+  if(!confirm(msg)) return;
+  const st=document.getElementById('dam-status');
+  const resp=await fetch(_adminApiBase+`/api/admin/dam/versions/${encodeURIComponent(id)}/restore`,{method:'POST',headers:authHeaders()});
+  if(resp.status===401){showLogin('Session expired.');return;}
+  const r=await resp.json().catch(()=>({}));
+  if(!resp.ok){showStatus(st,'err','Restore failed: '+apiErrorText(r.detail,resp.status));return;}
+  await reloadDamFromServer();
+  _damHideReport();
+  showStatus(st,'ok',T('DAM_RESTORED').replace('{V}',r.restoredFrom).replace('{N}',r.versionId));
+}
+async function reloadDamFromServer(){
+  const resp=await fetch(_adminApiBase+'/api/admin/dam',{headers:authHeaders()});
+  if(!resp.ok) return;
+  const p=await resp.json();
+  if(p.damYear) document.getElementById('dam-year').value=p.damYear;
+  damSavedDates=new Set(_damDates(p.damDailyData));
+  _damApplyPayload(p);
+  damPendingSource='upload';
+  markClean('dam');
+  loadDamHistory();
+  buildDamStatus();
+}
+
+let _damVersions=[];
+const _DAM_SOURCES={initial:'DAM_SRC_INITIAL',upload:'DAM_SRC_UPLOAD',tsoc:'DAM_SRC_TSOC',rollback:'DAM_SRC_ROLLBACK'};
+const _DAM_ACTIONS={saved_upload:'DAM_ACT_SAVED_UPLOAD',saved_tsoc:'DAM_ACT_SAVED_TSOC',rollback:'DAM_ACT_ROLLBACK',
+  fetch_ok:'DAM_ACT_FETCH_OK',fetch_cancelled:'DAM_ACT_FETCH_CANCELLED',stale_alert_sent:'DAM_ACT_STALE'};
+function _fmtTs(iso){
+  if(!iso) return '—';
+  return new Date(iso).toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+function _td(text){ const td=document.createElement('td'); td.textContent=text; return td; }
+function _damBtn(label,action,id){
+  const b=document.createElement('button');
+  b.className='btn btn-sm';
+  b.textContent=label;
+  b.dataset.action=action;
+  b.dataset.arg=id;
+  return b;
+}
+async function loadDamHistory(){
+  try{
+    const [vr,lr]=await Promise.all([
+      fetch(_adminApiBase+'/api/admin/dam/versions',{headers:authHeaders()}),
+      fetch(_adminApiBase+'/api/admin/dam/log?limit=200',{headers:authHeaders()}),
+    ]);
+    if(!vr.ok||!lr.ok) return;
+    _damVersions=await vr.json();
+    const log=await lr.json();
+    const vt=document.getElementById('dam-versions-tbody');
+    if(!_damVersions.length){
+      const tr=document.createElement('tr'); const td=_td(T('DAM_NO_VERSIONS')); td.colSpan=7; tr.appendChild(td);
+      vt.replaceChildren(tr);
+    }else{
+      vt.replaceChildren(..._damVersions.map((v,i)=>{
+        const tr=document.createElement('tr');
+        const src=T(_DAM_SOURCES[v.source]||v.source)+(v.restoredFrom?` (v${v.restoredFrom})`:'');
+        tr.append(_td('v'+v.id+(i===0?' · '+T('DAM_LIVE'):'')),_td(_fmtTs(v.createdAt)),_td(v.createdBy||'—'),_td(src),
+          _td(v.firstDate?`${v.firstDate} → ${v.lastDate} (${v.dayCount})`:'—'),_td(String(v.rowCount||0)));
+        const act=document.createElement('td');
+        act.style.whiteSpace='nowrap';
+        act.appendChild(_damBtn('⬇ CSV','damDownloadVersion',v.id));
+        if(i>0){ act.append(' '); act.appendChild(_damBtn('↩ '+T('BTN_DAM_RESTORE'),'damRestoreVersion',v.id)); }
+        tr.appendChild(act);
+        return tr;
+      }));
+    }
+    const lt=document.getElementById('dam-log-tbody');
+    if(!log.length){
+      const tr=document.createElement('tr'); const td=_td(T('DAM_NO_LOG')); td.colSpan=4; tr.appendChild(td);
+      lt.replaceChildren(tr);
+    }else{
+      lt.replaceChildren(...log.map(l=>{
+        const tr=document.createElement('tr');
+        const what=_td(l.summary||'');
+        const reasons=(l.details&&l.details.reasons)||[];
+        if(reasons.length>1){
+          const ul=document.createElement('ul');
+          ul.style.margin='4px 0 0 16px';
+          reasons.slice(0,50).forEach(x=>{ const li=document.createElement('li'); li.textContent=x; ul.appendChild(li); });
+          what.appendChild(ul);
+        }
+        const act=_td(T(_DAM_ACTIONS[l.action]||l.action));
+        if(l.action==='fetch_cancelled'||l.action==='stale_alert_sent') act.style.color='var(--red)';
+        tr.append(_td(_fmtTs(l.ts)),_td(l.actor||T('DAM_SYSTEM')),act,what);
+        return tr;
+      }));
+    }
+  }catch(e){ console.warn('DAM history:',e); }
+}
+
+// Dashboard card, "needs attention" line and the menu marker.
+async function buildDamStatus(){
+  try{
+    const resp=await fetch(_adminApiBase+'/api/admin/dam/status',{headers:authHeaders()});
+    if(!resp.ok) return;
+    const s=await resp.json();
+    const until=document.getElementById('dash-dam-until');
+    if(!s.lastDate){
+      until.textContent=T('DASH_DAM_NONE');
+    }else{
+      until.textContent=`${s.lastDate} (${s.ageDays} ${T('DASH_DAM_DAYS_OLD')})`;
+    }
+    if(s.stale){
+      const warn=document.createElement('span');
+      warn.className='dash-expired';
+      warn.textContent=' ('+T('DASH_DAM_STALE').replace('{N}',s.staleAfterDays)+')';
+      until.appendChild(warn);
+    }
+    const lv=s.lastVersion;
+    document.getElementById('dash-dam-saved').textContent=lv
+      ?`${_fmtTs(lv.createdAt)} · ${lv.createdBy||T('DAM_SYSTEM')} · ${T(_DAM_SOURCES[lv.source]||lv.source)}`:'—';
+    document.getElementById('dash-dam-days').textContent=s.dayCount?`${s.dayCount} (${s.firstDate} → ${s.lastDate})`:'0';
+    const att=document.getElementById('dash-dam-attention');
+    att.style.display=s.stale?'':'none';
+    document.getElementById('dash-dam-attention-text').textContent=s.lastDate
+      ?T('DASH_DAM_ATTENTION').replace('{D}',s.lastDate).replace('{N}',s.ageDays)
+      :T('DASH_DAM_ATTENTION_NONE');
+    document.getElementById('nav-dam-bubble').style.display=s.stale?'':'none';
+  }catch(e){ console.warn('DAM status:',e); }
 }
 
 /* ── Regulated tariffs ── */
@@ -4183,6 +4464,7 @@ async function buildDashboard(){
     pendEl.replaceChildren(...rows);
   }
 
+  buildDamStatus();
   // Regulated/FPA freshness + unusual activity aren't part of the bulk config load — fetch separately
   try{
     const [regResp,usersResp,loginResp]=await Promise.all([
@@ -4636,6 +4918,7 @@ async function loadConfig(){
     const sampleInvCb=document.getElementById('sample-invoice-enabled');
     if(sampleInvCb) sampleInvCb.checked=!!cfg.sampleInvoiceEnabled;
     if(cfg.damDailyData) damDailyData=cfg.damDailyData;
+    damSavedDates=new Set(_damDates(damDailyData));
     if(cfg.changelog) changelog=cfg.changelog;
     if(cfg.reports) reports=cfg.reports;
     if(cfg.docTariffIds) docTariffIds=new Set(cfg.docTariffIds);
@@ -4651,6 +4934,7 @@ async function loadConfig(){
   if(damDailyData.some(m=>m.length>0)) renderDamCoverage();
   buildDashboard();
   updateReportsBubble();
+  loadDamHistory();
 }
 
 // On page load: the session lives in an httpOnly cookie we can't read from
@@ -4804,8 +5088,11 @@ const _ACTIONS = {
   damPickFiles: () => document.getElementById('dam-file-input').click(),
   damLoadFromInput: el => damLoadFiles(el.files),
   saveDamData: () => saveDamData(), clearDAM: () => clearDAM(), exportDAM: el => exportDAM(el.dataset.arg),
+  downloadDamCsv: () => downloadDamCsv(),
+  damDownloadVersion: el => damDownloadVersion(el.dataset.arg), damRestoreVersion: el => damRestoreVersion(el.dataset.arg),
   damBackToMonths: () => damBackToMonths(), damNavWeek: el => damNavWeek(+el.dataset.arg),
   damOpenMonth: el => damOpenMonth(+el.dataset.arg, +el.dataset.arg2),
+  selectDamMonth: el => selectDamMonth(+el.dataset.arg), damShowDay: el => damShowDay(el.dataset.arg),
   // regulated, audit, notices, sample invoice, changelog, reports
   updateRegPreview: () => updateRegPreview(), saveRegulated: () => saveRegulated(),
   openRegHistory: el => openRegHistory(el.dataset.arg), closeRegHistory: () => closeRegHistory(),

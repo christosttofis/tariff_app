@@ -16,9 +16,10 @@ import json
 import secrets
 from datetime import datetime, timedelta, timezone
 
+import dam_data
 import email_utils
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
 import models
@@ -915,12 +916,135 @@ def get_dam(db: Session = Depends(get_db), user: CurrentUser = Depends(require_a
 
 @router.put("/dam", summary="Replace DAM price data (admin only)")
 def update_dam(body: DamIn, db: Session = Depends(get_db), user: CurrentUser = Depends(require_admin)):
-    db.merge(models.DamData(id=1,
-        damMonthly=json.dumps(body.damMonthly), damBySlot=json.dumps(body.damBySlot),
-        damDailyData=json.dumps(body.damDailyData),
-        damRowCount=body.damRowCount, damYear=body.damYear))
+    payload = {"damMonthly": body.damMonthly, "damBySlot": body.damBySlot, "damDailyData": body.damDailyData,
+               "damRowCount": body.damRowCount, "damYear": body.damYear}
+    version = _replace_dam(db, payload, source=body.source, actor=user.email,
+                           action="saved_tsoc" if body.source == "tsoc" else "saved_upload")
     db.commit()
-    return {"ok": True, "damYear": body.damYear, "damRowCount": body.damRowCount}
+    return {"ok": True, "damYear": body.damYear, "damRowCount": body.damRowCount, "versionId": version.id}
+
+
+# Data changes (save, rollback) all go through _replace_dam: the previous dataset
+# stays in dam_versions and every change is written to dam_change_log.
+
+def _version_meta(v: models.DamVersion) -> dict:
+    return {"id": v.id, "createdAt": v.created_at, "createdBy": v.created_by, "source": v.source,
+            "restoredFrom": v.restored_from, "firstDate": v.first_date, "lastDate": v.last_date,
+            "dayCount": v.day_count, "rowCount": v.row_count}
+
+
+def _new_version(db: Session, payload: dict, *, source: str, actor: str | None,
+                 restored_from: int | None = None) -> models.DamVersion:
+    fresh = dam_data.freshness(payload.get("damDailyData"))
+    v = models.DamVersion(created_at=_now(), created_by=actor, source=source, restored_from=restored_from,
+                          first_date=fresh["firstDate"], last_date=fresh["lastDate"],
+                          day_count=fresh["dayCount"], row_count=payload.get("damRowCount") or 0,
+                          payload=json.dumps(payload))
+    db.add(v)
+    db.flush()
+    return v
+
+
+def _ensure_initial_version(db: Session, current: models.DamData | None) -> None:
+    """Back up the dataset stored before versioning existed, once, before it is first replaced."""
+    if db.query(models.DamVersion.id).first() is None and current is not None:
+        _new_version(db, _dam_to_dict(current), source="initial", actor=None)
+
+
+def _log_dam(db: Session, action: str, actor: str | None, summary: str, details: dict | None = None,
+             version_id: int | None = None) -> None:
+    db.add(models.DamChangeLog(ts=_now(), actor=actor, action=action, version_id=version_id,
+                               summary=summary, details=json.dumps(details or {})))
+
+
+def _replace_dam(db: Session, payload: dict, *, source: str, actor: str, action: str,
+                 restored_from: int | None = None) -> models.DamVersion:
+    current = db.query(models.DamData).first()
+    _ensure_initial_version(db, current)
+    before = set(dam_data.dataset_dates(_dam_to_dict(current)["damDailyData"]))
+    after = set(dam_data.dataset_dates(payload["damDailyData"]))
+    db.merge(models.DamData(id=1,
+        damMonthly=json.dumps(payload["damMonthly"]), damBySlot=json.dumps(payload["damBySlot"]),
+        damDailyData=json.dumps(payload["damDailyData"]),
+        damRowCount=payload["damRowCount"], damYear=payload["damYear"], stale_notified_at=None))
+    version = _new_version(db, payload, source=source, actor=actor, restored_from=restored_from)
+    added, removed = sorted(after - before), sorted(before - after)
+    rng = lambda ds: f"{ds[0]} to {ds[-1]}" if ds else "none"  # noqa: E731
+    summary = (f"Version {version.id}: {len(after)} days ({rng(sorted(after))}); "
+               f"{len(added)} day(s) added, {len(removed)} removed")
+    if restored_from:
+        summary = f"Rolled back to version {restored_from}. " + summary
+    _log_dam(db, action, actor, summary, {
+        "daysAdded": len(added), "addedRange": rng(added), "daysRemoved": len(removed),
+        "removedRange": rng(removed), "before": rng(sorted(before)), "after": rng(sorted(after)),
+        "rowCount": payload["damRowCount"],
+    }, version_id=version.id)
+    return version
+
+
+@router.get("/dam/status", summary="DAM data freshness and last change (admin only)")
+def get_dam_status(db: Session = Depends(get_db), user: CurrentUser = Depends(require_admin)):
+    status = dam_data.freshness(_dam_to_dict(db.query(models.DamData).first())["damDailyData"])
+    last = db.query(models.DamVersion).order_by(models.DamVersion.id.desc()).first()
+    return {**status, "staleAfterDays": dam_data.STALE_AFTER_DAYS,
+            "lastVersion": _version_meta(last) if last else None}
+
+
+@router.get("/dam/log", summary="DAM change log, newest first (admin only)")
+def get_dam_log(limit: int = Query(100, ge=1, le=1000), db: Session = Depends(get_db),
+                user: CurrentUser = Depends(require_admin)):
+    rows = db.query(models.DamChangeLog).order_by(models.DamChangeLog.id.desc()).limit(limit).all()
+    return [{"id": r.id, "ts": r.ts, "actor": r.actor, "action": r.action, "versionId": r.version_id,
+             "summary": r.summary, "details": json.loads(r.details or "{}")} for r in rows]
+
+
+@router.get("/dam/versions", summary="Saved DAM datasets, newest first (admin only)")
+def list_dam_versions(db: Session = Depends(get_db), user: CurrentUser = Depends(require_admin)):
+    rows = db.query(models.DamVersion).order_by(models.DamVersion.id.desc()).all()
+    return [_version_meta(v) for v in rows]
+
+
+@router.get("/dam/versions/{version_id}", summary="One saved DAM dataset with its data (admin only)")
+def get_dam_version(version_id: int, db: Session = Depends(get_db), user: CurrentUser = Depends(require_admin)):
+    v = db.get(models.DamVersion, version_id)
+    if not v:
+        raise HTTPException(404, "Version not found.")
+    return {**_version_meta(v), "payload": json.loads(v.payload)}
+
+
+@router.post("/dam/versions/{version_id}/restore", summary="Make an earlier DAM dataset live again (admin only)")
+def restore_dam_version(version_id: int, db: Session = Depends(get_db), user: CurrentUser = Depends(require_admin)):
+    v = db.get(models.DamVersion, version_id)
+    if not v:
+        raise HTTPException(404, "Version not found.")
+    new = _replace_dam(db, json.loads(v.payload), source="rollback", actor=user.email,
+                       action="rollback", restored_from=v.id)
+    db.commit()
+    return {"ok": True, "versionId": new.id, "restoredFrom": v.id}
+
+
+_DAM_STALE_REMIND_DAYS = 7
+
+
+def run_dam_staleness_check(db: Session) -> None:
+    """Emails the admin when the newest DAM price is more than 15 days old;
+    repeats weekly while it stays old. Called daily from main.py's background loop."""
+    dam = db.query(models.DamData).first()
+    status = dam_data.freshness(_dam_to_dict(dam)["damDailyData"])
+    if not status["stale"] or dam is None:
+        return
+    now = datetime.now(timezone.utc)
+    if dam.stale_notified_at:
+        last = datetime.fromisoformat(dam.stale_notified_at)
+        if now - last < timedelta(days=_DAM_STALE_REMIND_DAYS):
+            return
+    if not email_utils.notify_dam_stale(status["lastDate"], status["ageDays"]):
+        return   # no admin email address configured; the dashboard still shows it
+    dam.stale_notified_at = now.isoformat()
+    age = f"{status['ageDays']} days old" if status["lastDate"] else "no data"
+    _log_dam(db, "stale_alert_sent", None, f"Reminder emailed: newest DAM price {status['lastDate'] or '—'} ({age}).")
+    db.commit()
+
 
 
 # ── Changelog ─────────────────────────────────────────────────────────────────

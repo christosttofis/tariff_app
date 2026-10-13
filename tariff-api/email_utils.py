@@ -358,6 +358,28 @@ def notify_password_expiring(to_email: str, days_left: int, role: str = "supplie
         _html("Λήξη κωδικού πρόσβασης / Password expiring", body))
 
 
+def notify_dam_stale(last_date: str | None, days_old: int | None) -> bool:
+    """Returns False when there is no admin address to send to."""
+    if not ADMIN_TO:
+        return False
+    if last_date:
+        el = f'Η νεότερη τιμή ΠΗΑ είναι της <strong>{_esc(last_date)}</strong> ({_esc(days_old)} ημέρες πριν).'
+        en = f'The newest DAM price is for <strong>{_esc(last_date)}</strong> ({_esc(days_old)} days ago).'
+    else:
+        el, en = 'Δεν υπάρχουν αποθηκευμένες τιμές ΠΗΑ.', 'No DAM prices are stored.'
+    body = (
+        f'<p style="margin:0 0 8px;{_FONT}">{el} Οι δυναμικές χρεώσεις υπολογίζονται με παλαιότερα δεδομένα. '
+        f'Ανακτήστε τις τιμές από τον ΔΣΜΚ ή ανεβάστε αρχείο CSV.</p>'
+        f'<p style="margin:0 0 16px;{_FONT}">{en} Dynamic tariffs are being estimated from older data. '
+        f'Fetch the prices from TSOC or upload a CSV.</p>'
+        + _btn(f"{BASE_URL}/admin.html", "Open Admin Panel")
+    )
+    _send_bg([ADMIN_TO],
+        "[CERA Tariff] Οι τιμές ΠΗΑ χρειάζονται ενημέρωση / DAM prices need updating",
+        _html("Τιμές ΠΗΑ / DAM prices", body))
+    return True
+
+
 def notify_supplier_invite(to_email: str, supplier_name: str, invite_url: str) -> None:
     body = (
         f'<p style="margin:0 0 12px;{_FONT}">You have been invited to manage tariffs for '

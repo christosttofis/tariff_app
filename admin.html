@@ -64,6 +64,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .status.ok{background:rgba(47,111,78,.08);border:1px solid rgba(47,111,78,.25);color:var(--green)}
 .status.err{background:rgba(166,64,58,.08);border:1px solid rgba(166,64,58,.25);color:var(--red)}
 .status.warn{background:rgba(188,108,37,.08);border:1px solid rgba(188,108,37,.25);color:var(--yellow)}
+.dam-fetch-report{margin-top:10px;padding:10px 13px;border-radius:2px;font-size:12px;font-family:var(--mono);border:1px solid var(--border);background:var(--bg3);color:var(--text2)}
+.dam-fetch-report.err{background:rgba(166,64,58,.08);border-color:rgba(166,64,58,.25);color:var(--red)}
+.dam-fetch-report ul{margin:6px 0 0 18px;padding:0}
+.dam-fetch-report li{margin:2px 0}
 .item-row{background:var(--bg3);border:1px solid var(--border);border-radius:2px;padding:12px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .item-row-info{flex:1;min-width:0}
 .item-name{font-size:13px;font-weight:500;color:var(--text)}
@@ -176,7 +180,19 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .dcal-cell.dcal-part{background:#f9a825;color:#3e2800}
 .dcal-cell.dcal-none{background:transparent;color:#9ca3af;border:1px solid #e5e7eb}
 .dcal-cell.dcal-empty{visibility:hidden}
-.dcal-legend{display:flex;gap:12px;margin-top:8px;font-size:10px;color:var(--text2)}
+.dcal-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:8px;font-size:10px;color:var(--text2)}
+.dcal-cell.has-data{cursor:pointer}.dcal-cell.has-data:hover{filter:brightness(.88)}
+.dcal-cell.dcal-new,.dcal-mon.dcal-new{box-shadow:inset 0 0 0 2px #1d4ed8}
+.dcal-cell.dcal-sel{outline:2px solid var(--text);outline-offset:1px}
+.dam-day-detail{margin-top:14px;border-top:1px solid var(--border);padding-top:12px}
+.dam-day-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;font-size:12px;color:var(--text2);margin-bottom:8px}
+.dam-day-head strong{font-size:13px;color:var(--text)}
+.dam-day-new{color:#1d4ed8;font-weight:600}
+.dam-day-slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:3px}
+.dam-day-slot{display:flex;justify-content:space-between;gap:6px;padding:3px 7px;border:1px solid var(--border);border-radius:2px;font-family:var(--mono-data);font-size:11px;background:var(--bg3)}
+.dam-day-slot span:first-child{color:var(--text3)}
+.dam-day-slot.missing{border-color:rgba(166,64,58,.4);color:var(--red);background:rgba(166,64,58,.06)}
+.dam-fetch-report li[data-action]{cursor:pointer;text-decoration:underline dotted}
 .dcal-legend span{display:flex;align-items:center;gap:4px}
 .dcal-ldot{width:8px;height:8px;border-radius:2px;display:inline-block;flex-shrink:0}
 .month-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:7px;margin-top:12px}
@@ -394,7 +410,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
     <div class="nav-item" data-action="showPane" data-arg="login-activity">🔑 <span data-t="NAV_LOGIN_ACTIVITY">Login activity</span></div>
     <div class="nav-item" data-action="showPane" data-arg="messages">🔔 <span data-t="NAV_MESSAGES">Notifications</span></div>
     <div class="nav-section" data-t="NAV_MARKET_DATA">Market data</div>
-    <div class="nav-item" data-action="showPane" data-arg="dam">📈 <span data-t="NAV_DAM">DAM price data</span></div>
+    <div class="nav-item" data-action="showPane" data-arg="dam">📈 <span data-t="NAV_DAM">DAM price data</span><span class="nav-pending-bubble" id="nav-dam-bubble" style="display:none;background:var(--red)">!</span></div>
     <div class="nav-item" data-action="showPane" data-arg="regulated">⚖️ <span data-t="NAV_REGULATED">Regulated tariffs</span></div>
     <div class="nav-section" data-t="NAV_DEPLOY">Deploy</div>
     <div class="nav-item" data-action="showPane" data-arg="audit">🔍 <span data-t="NAV_AUDIT">Audit calculator</span></div>
@@ -422,6 +438,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 
     <div class="card" id="dash-pending-card">
       <div class="card-title" id="dash-pending-title" data-t="DASH_ALL_CAUGHT_UP">All caught up</div>
+      <div class="dash-row" id="dash-dam-attention" style="display:none">
+        <span class="dash-row-main dash-expired" id="dash-dam-attention-text"></span>
+        <button class="btn btn-sm btn-review" data-action="showPane" data-arg="dam" data-t="BTN_OPEN_DAM">Open DAM prices</button>
+      </div>
       <div id="dash-pending-list"></div>
     </div>
 
@@ -430,6 +450,13 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
         <div class="card-title" data-t="DASH_FRESHNESS_TITLE">Regulated charges and FPA</div>
         <div class="dash-row"><span class="dash-row-main" data-t="DASH_REG_UPDATED">Regulated charges last updated</span><span class="dash-row-sub" id="dash-reg-updated">—</span></div>
         <div class="dash-row"><span class="dash-row-main" data-t="DASH_FPA_UPDATED">FPA prices last updated</span><span class="dash-row-sub" id="dash-fpa-updated">—</span></div>
+      </div>
+
+      <div class="card" id="dash-dam-card">
+        <div class="card-title" data-t="DASH_DAM_TITLE">DAM prices</div>
+        <div class="dash-row"><span class="dash-row-main" data-t="DASH_DAM_UNTIL">Prices up to</span><span class="dash-row-sub" id="dash-dam-until">—</span></div>
+        <div class="dash-row"><span class="dash-row-main" data-t="DASH_DAM_SAVED">Last change</span><span class="dash-row-sub" id="dash-dam-saved">—</span></div>
+        <div class="dash-row"><span class="dash-row-main" data-t="DASH_DAM_COVERAGE">Days stored</span><span class="dash-row-sub" id="dash-dam-days">—</span></div>
       </div>
 
       <div class="card" id="dash-unusual-card" style="display:none">
@@ -743,9 +770,11 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
       <textarea id="dam-raw" style="display:none"></textarea>
       <div class="btn-row" style="margin-top:8px">
         <button class="btn btn-primary" data-action="saveDamData" data-t="BTN_SAVE_DAM">💾 Save DAM data</button>
+        <button class="btn" data-action="downloadDamCsv" data-t="BTN_DAM_CSV" title="All prices on screen, in €/MWh. Can be corrected and uploaded again with unit €/MWh.">⬇ Download CSV (re-uploadable)</button>
         <button class="btn btn-ghost" data-action="clearDAM" data-t="BTN_CLEAR_DAM">Clear</button>
       </div>
       <div class="status" id="dam-status"></div>
+      <div id="dam-fetch-report" class="dam-fetch-report" style="display:none"></div>
     </div>
     <div class="card" id="dam-coverage-card" style="display:none">
       <!-- Month view -->
@@ -757,6 +786,7 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
             <span><i class="dcal-ldot" style="background:#43a047"></i><span data-t="COV_FULL">Full</span></span>
             <span><i class="dcal-ldot" style="background:#f9a825"></i><span data-t="COV_PARTIAL">Partial</span></span>
             <span><i class="dcal-ldot" style="background:#e5e7eb"></i><span data-t="COV_NONE">No data</span></span>
+            <span><i class="dcal-ldot" style="background:#fff;box-shadow:inset 0 0 0 2px #1d4ed8"></i><span data-t="COV_NEW">New — not saved yet</span></span>
           </div>
         </div>
       </div>
@@ -772,8 +802,10 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
             <span><i class="dcal-ldot" style="background:#43a047"></i><span data-t="COV_FULL">Full</span></span>
             <span><i class="dcal-ldot" style="background:#f9a825"></i><span data-t="COV_PARTIAL">Partial</span></span>
             <span><i class="dcal-ldot" style="background:#e5e7eb"></i><span data-t="COV_NONE">No data</span></span>
+            <span><i class="dcal-ldot" style="background:#fff;box-shadow:inset 0 0 0 2px #1d4ed8"></i><span data-t="COV_NEW">New — not saved yet</span></span>
           </div>
         </div>
+        <div class="dam-day-detail" id="dam-day-detail" style="display:none"></div>
       </div>
     </div>
 
@@ -801,6 +833,27 @@ TIME,Jan_WD,Jan_NWD,Feb_WD,Feb_NWD,…,Dec_WD,Dec_NWD,
         <canvas id="dam-week-chart" role="img" aria-label="DAM half-hourly prices for selected week"></canvas>
       </div>
       <div class="dam-stats-grid" id="dam-stats-grid"></div>
+    </div>
+
+    <div class="card" id="dam-history-card">
+      <div class="card-title" data-t="CARD_DAM_HISTORY">Saved versions (backups)</div>
+      <p class="hint" data-t="DAM_HISTORY_HINT">Every save is kept. Restore makes an earlier version live again; the current one stays in this list.</p>
+      <div style="overflow-x:auto">
+        <table class="cl-table">
+          <thead><tr>
+            <th data-t="TH_DAM_VERSION">Version</th><th data-t="TH_TIMESTAMP">Timestamp</th><th data-t="TH_ACTOR">Made by</th>
+            <th data-t="TH_DAM_SOURCE">Source</th><th data-t="TH_DAM_RANGE">Dates</th><th data-t="TH_DAM_ROWS">Half-hours</th><th></th>
+          </tr></thead>
+          <tbody id="dam-versions-tbody"></tbody>
+        </table>
+      </div>
+      <div class="card-title" style="margin-top:18px" data-t="CARD_DAM_LOG">Change log</div>
+      <div style="overflow-x:auto;max-height:420px;overflow-y:auto">
+        <table class="cl-table">
+          <thead><tr><th data-t="TH_TIMESTAMP">Timestamp</th><th data-t="TH_ACTOR">Made by</th><th data-t="TH_ACTION">Action</th><th data-t="TH_CHANGES">Changes</th></tr></thead>
+          <tbody id="dam-log-tbody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 

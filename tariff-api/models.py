@@ -172,6 +172,41 @@ class DamData(Base):
     damRowCount = Column(Integer, default=0)
     damYear = Column(Integer, default=2026)
 
+    # When the "DAM data more than 15 days old" email was last sent; cleared on save.
+    stale_notified_at = Column(String, nullable=True)
+
+
+class DamVersion(Base):
+    """Every DAM dataset ever saved (backup / rollback). The newest row is what
+    dam_data holds; older rows are never changed or deleted."""
+    __tablename__ = "dam_versions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    created_at = Column(String, nullable=False)        # ISO-8601
+    created_by = Column(String, nullable=True)         # admin email; null for the automatic initial copy
+    source = Column(String, nullable=False)            # initial | upload | tsoc | rollback
+    restored_from = Column(Integer, nullable=True)     # version id, for source=rollback
+    first_date = Column(String, nullable=True)         # YYYY-MM-DD
+    last_date = Column(String, nullable=True)
+    day_count = Column(Integer, default=0)
+    row_count = Column(Integer, default=0)
+    # JSON {damMonthly, damBySlot, damDailyData, damRowCount, damYear}
+    payload = Column(Text, nullable=False)
+
+
+class DamChangeLog(Base):
+    """Every DAM change and fetch attempt, including cancelled fetches."""
+    __tablename__ = "dam_change_log"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    ts = Column(String, nullable=False)                # ISO-8601
+    actor = Column(String, nullable=True)              # admin email; null for the background check
+    # saved_upload | saved_tsoc | rollback | fetch_ok | fetch_cancelled | stale_alert_sent
+    action = Column(String, nullable=False)
+    version_id = Column(Integer, nullable=True)
+    summary = Column(Text, default="")
+    details = Column(Text, default="{}")               # JSON
+
 
 class Notices(Base):
     """Single-row table (id always 1). HTML rich-text notices shown in calculator."""

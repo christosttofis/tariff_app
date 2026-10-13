@@ -139,6 +139,15 @@ for p in ("/api/admin/regulated", "/api/admin/notices", "/api/admin/sample-invoi
     body = js(A("GET", p))
     if isinstance(body, dict):
         A("PUT", p, json=body)
+# DAM prices: status, change log, versions (the PUT round-trip above created
+# them), download one, restore one.
+A("GET", "/api/admin/dam/status")
+A("GET", "/api/admin/dam/log?limit=50")
+dam_versions = js(A("GET", "/api/admin/dam/versions"), [])
+dvid = first(dam_versions)
+if dvid:
+    A("GET", f"/api/admin/dam/versions/{dvid}")
+    A("POST", f"/api/admin/dam/versions/{dvid}/restore")
 profiles = js(A("GET", "/api/admin/profiles"), [])
 if profiles:
     A("PUT", f"/api/admin/profiles/{profiles[0]['id']}", json=profiles[0])
