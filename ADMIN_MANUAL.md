@@ -82,7 +82,7 @@ The admin panel is divided into sections accessible from the left-hand navigatio
 | **Users** | 👥 | Manage admin and supplier portal accounts |
 | **Regulated** | ⚖️ | Set network, PSO and metering charges |
 | **Profiles** | 📊 | Manage DSO load profiles used for calculations |
-| **DAM Data** | 📈 | Upload day-ahead market price data |
+| **DAM Data** | 📈 | Day-ahead market prices: fetch from TSOC or upload, check, back up, restore |
 | **Notices** | 📝 | Edit the notices and disclaimers shown on the calculator |
 | **Audit Log** | 🕵️ | View full history of all tariff changes |
 
@@ -372,26 +372,120 @@ Navigate to **DAM Data** in the left menu.
 
 DAM data is required to calculate costs for **Dynamic (market-linked)** tariffs. It provides day-ahead electricity market prices used to estimate what a consumer would pay under a dynamic pricing contract.
 
-Two levels of data are derived from what you upload:
+Two levels of data are derived from the half-hourly prices:
 
 | Type | Granularity | Used for |
 |---|---|---|
 | **Monthly averages** | One average price per month (€/kWh) | Annual cost estimate for dynamic tariffs |
 | **Half-hourly slot data** | 48 slots × 12 months | More accurate profile-weighted calculation |
 
-Both are computed automatically from the half-hourly price file you upload — there is no separate manual entry for monthly averages.
+Both are computed automatically from the half-hourly prices. There is no separate manual entry for monthly averages.
 
-### Updating DAM data
+**Keep the whole history.** The calculator prices each future half-hour using the same date one or two years earlier, so older prices are still used. The stored history starts on 1 October 2025, the first day TSOC publishes. Never replace it with a file that holds only recent months (see 9.3).
+
+### 9.1 Keeping the prices up to date
+
+There are two ways to add prices:
+
+- **🌐 Fetch from TSOC** (normal way): adds the missing days automatically. See 9.2.
+- **CSV upload**: for days TSOC cannot provide, corrections, or long gaps. See 9.3.
+
+TSOC publishes the next day's prices in the afternoon, Cyprus time (normally after about 14:00). Fetching once a week, or whenever the dashboard shows a warning (9.8), is enough.
+
+### 9.2 Fetch from TSOC
+
+1. Click **🌐 Fetch from TSOC**. It can take up to a minute.
+2. The tool asks TSOC for every day after the last stored day, up to tomorrow. If tomorrow is not published yet, it is simply left out.
+3. You get a **preview**. The status line says how many half-hours were fetched for which days, and the report below lists each day. Click a day in the report to see its 48 prices (see 9.4). New days have a blue outline in the calendar.
+4. Check the new days, then click **💾 Save DAM data**. Nothing reaches the calculator until you save.
+
+If the data on screen has unsaved changes, Fetch asks first, because it starts again from the saved data.
+
+**If the fetch is cancelled.** Any error or missing data cancels the whole fetch. A red panel lists the reasons, and nothing is changed. What to do:
+
+| Reason shown | What to do |
+|---|---|
+| TSOC/Cloudflare refused the request, TSOC did not answer, or TSOC is too slow | Try again later. If it keeps happening, upload a CSV instead. |
+| A day has fewer than 48 half-hours (e.g. "46 of 48", often the clock-change day, the last Sunday of March) | Fill that day by CSV: **⬇ Download CSV**, add the missing half-hours, upload it (9.3). The next fetch continues after it. |
+| More than 31 days are missing | Fill the gap by CSV first, then fetch. |
+| No prices from TSOC for a day before tomorrow | TSOC has not published it. Try again later. |
+| Wrong day returned, conflicting prices, unreadable row, or a price outside 0–4000 €/MWh | Try again later. If it persists, check the prices on TSOC's website and enter them by CSV. |
+| The page layout may have changed | TSOC changed its website. Use CSV upload and report it, as the fetch needs updating. |
+
+Every fetch, including cancelled ones, is recorded in the change log (9.7).
+
+### 9.3 Uploading a CSV
+
+Format: one price per line, `date time,price` (comma or semicolon), half-hourly or hourly, Cyprus local time, for example:
+
+```
+2026-05-22 00:00,237.5
+2026-05-22 00:30,237.5
+```
 
 1. Set the **Data year** and **Price unit** (€/MWh or €/kWh)
-2. Drag & drop one or more CSV files onto the drop zone (or click it to browse), or paste raw data into the text box — see the expected format shown above
-3. Click **💾 Save DAM data**
+2. Drag & drop one or more CSV files onto the drop zone (or click it to browse)
+3. Check the preview (9.4), then click **💾 Save DAM data**
 
-Dropping/pasting a file only parses it into a preview (monthly averages, coverage calendar, price explorer) in your browser — nothing is saved to the server until you click **💾 Save DAM data**. Click **Clear** to discard the current parse and start over without saving anything.
+Dropping a file only builds a preview in your browser. Nothing is saved to the server until you click **💾 Save DAM data**. Click **Clear** to discard it.
 
-> DAM data represents historical or forecast prices and should be updated periodically to reflect current market conditions. The year of the data is recorded and displayed to consumers on the calculator.
+**An upload replaces all stored prices**, so the file must contain the whole history, not just the new days. The safe way to correct or add prices:
 
-### Switching off or removing "Fetch from TSOC"
+1. Click **⬇ Download CSV (re-uploadable)**. It gives everything currently stored, in €/MWh.
+2. Correct or add lines in a spreadsheet or text editor and save it as CSV.
+3. Upload it with **Price unit: €/MWh** and save.
+
+Safeguards:
+
+- If the file would **remove days** that are already stored, Save asks you to confirm and shows which dates would go. Click **Cancel** unless that is really intended.
+- The server checks the data before saving: 12 months, 48 half-hours per day, real dates, and prices between −1 and 10 €/kWh. A €/MWh file uploaded with **€/kWh** selected gives prices around 100 €/kWh and is refused with "was the right price unit selected?". Select €/MWh and try again.
+- If a wrong file was saved anyway, restore the previous version (9.6).
+
+> The **Data year** is recorded and displayed to consumers on the calculator.
+
+### 9.4 Checking the prices
+
+- **Data coverage** calendar: each month is green (complete), amber (partly filled) or grey (no data). Click a month to see its days, then click a day to see its **48 half-hourly prices** in €/MWh, with the day's minimum, maximum and average. Missing half-hours are shown in red.
+- Days and months with a **blue outline are new and not saved yet**, e.g. after a fetch or a file upload. Check them before saving.
+- **Price explorer**: choose a month with the tabs and step through it week by week on the chart (blue = working day, purple = weekend or holiday). A month tab holds that month for every year stored (October has both 2025 and 2026); to look at one particular day, use the calendar.
+- **Monthly averages** card: the average price per month.
+
+### 9.5 Downloading the prices
+
+- **⬇ Download CSV (re-uploadable)**: every price currently on screen, in €/MWh, in the upload format. If you have fetched or loaded something but not saved it, the download includes it.
+- The buttons on the **Monthly averages** card (daily prices, slot averages, monthly averages) are for analysis in a spreadsheet. They are in €/kWh and cannot be uploaded again.
+- An older saved version can be downloaded from the versions list (9.6).
+
+### 9.6 Saved versions (backups) and restoring
+
+Every save is kept as a **version**: the latest is marked **live**, older ones are backups. The list shows when each was saved, by whom, how (CSV upload, TSOC fetch, Restored), the date range and the number of half-hours.
+
+- **⬇ CSV**: downloads that version in the upload format.
+- **↩ Restore**: makes that version live again, after a confirmation. The current data is kept as a version too, so a restore can itself be undone.
+
+Versions are never deleted.
+
+### 9.7 Change log
+
+Below the versions, the **Change log** lists every DAM event with the time and the person:
+
+- Saved (CSV upload) / Saved (TSOC fetch), with the days added and removed
+- Restored version
+- Fetched (not saved yet), and **Fetch cancelled** with every reason (in red)
+- Reminder emailed (see 9.8)
+
+### 9.8 Dashboard warning and email reminder
+
+The **Dashboard** has a **DAM prices** card showing the last date with prices, how many days ago that was, the last change (when, by whom, how) and the number of days stored.
+
+When the newest price is **more than 15 days old**:
+
+- the card shows it in red, a line appears under "needs attention" with a button to open the DAM page, and the **DAM Data** menu item gets a red **!**;
+- the admin email address (`TARIFF_ADMIN_EMAIL`) receives a reminder, repeated weekly while the prices stay old.
+
+Saving newer prices clears the warning.
+
+### 9.9 Switching off or removing "Fetch from TSOC"
 
 If fetching DAM prices from TSOC stops working (for example, TSOC blocks the server) or is no longer wanted, manual CSV upload keeps working either way.
 
@@ -435,6 +529,8 @@ The audit log records every create, edit, and delete action performed on tariffs
 
 The log is read-only and cannot be modified or deleted. Use it to track the history of any tariff and to investigate disputes with suppliers.
 
+Changes to DAM prices are recorded separately, in the **Change log** on the DAM Data page (see 9.7).
+
 ---
 
 ## 12. Saving changes
@@ -447,7 +543,7 @@ There is no Publish step. Every section of the admin panel saves itself when you
 | Load profiles | **⚡ Parse & save profile** (add or overwrite), **✏ Rename**, **Delete** |
 | Tariffs | **Save** in the tariff editor, **Approve** / **Reject** / **Suspend** / **Restore**, **View → Delete** |
 | Regulated charges | **💾 Save regulated charges** |
-| DAM price data | **💾 Save DAM data** |
+| DAM price data | **💾 Save DAM data** (also after **🌐 Fetch from TSOC**, which is only a preview), **↩ Restore** |
 | Notices | **💾 Save notices** |
 | Sample invoice | its on/off checkbox (saves as soon as you tick or untick it) |
 
@@ -482,6 +578,7 @@ The system automatically sends email notifications for the following events:
 | New user invitation | Supplier (invite link, valid 7 days) |
 | Password reset requested | Requester (reset link, valid 1 hour) |
 | Account locked after failed logins | Affected user |
+| DAM prices more than 15 days old (weekly while they stay old) | CERA admin |
 
 Emails are sent via Microsoft Azure (Mail.Send) using CERA's existing Azure tenant. They are sent from the address configured in the server's `.env` file (`TARIFF_EMAIL_FROM`).
 
