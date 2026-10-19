@@ -7,7 +7,7 @@ Run from inside tariff-api/:
 Then open:
     http://localhost:8000/customer.html   ← customer calculator
     http://localhost:8000/admin.html      ← admin panel
-    http://localhost:8000/docs            ← auto-generated API docs
+    http://localhost:8000/docs            ← auto-generated API docs (only with TARIFF_ENABLE_DOCS=1)
 """
 
 import asyncio

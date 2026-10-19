@@ -25,8 +25,9 @@ import email_utils
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
+import lockout
 import models
-from auth import CurrentUser, hash_password, require_admin, resolve_supplier_name
+from auth import CurrentUser, hash_password, require_admin, reset_token_digest, resolve_supplier_name
 from config import TARIFF_BASE_URL, TARIFF_TSOC_FETCH
 from database import get_db
 from schemas import (
@@ -426,7 +427,7 @@ def create_user(body: CreateUserIn, db: Session = Depends(get_db), user: Current
     token = secrets.token_urlsafe(32)
     expires = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
     db.query(models.PasswordReset).filter(models.PasswordReset.email == email).delete()
-    db.add(models.PasswordReset(token=token, email=email, expires_at=expires))
+    db.add(models.PasswordReset(token=reset_token_digest(token), email=email, expires_at=expires))
     db.commit()
     invite_url = f"{_BASE_URL}/reset-password.html?token={token}&portal=supplier&setup=1"
     email_utils.notify_supplier_invite(email, body.supplier_name, invite_url)
@@ -443,8 +444,7 @@ def set_user_status(user_id: int, body: UserStatusIn, db: Session = Depends(get_
     target.is_active = body.is_active
     # Reactivating an account also clears any lockout so the user can log in immediately
     if body.is_active:
-        target.failed_attempts = 0
-        target.locked_until = None
+        lockout.clear(target, datetime.now(timezone.utc))
     db.commit()
     return {"id": target.id, "is_active": target.is_active}
 
@@ -472,8 +472,8 @@ def unlock_user(user_id: int, db: Session = Depends(get_db), user: CurrentUser =
     target = db.get(models.User, user_id)
     if not target:
         raise HTTPException(404, "User not found.")
-    target.failed_attempts = 0
-    target.locked_until = None
+    # Also lifts per-address blocks: wrong passwords before now stop counting.
+    lockout.clear(target, datetime.now(timezone.utc))
     db.commit()
     return {"id": target.id, "unlocked": True}
 
@@ -488,7 +488,7 @@ def reinvite_user(user_id: int, db: Session = Depends(get_db), user: CurrentUser
     token = secrets.token_urlsafe(32)
     expires = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
     db.query(models.PasswordReset).filter(models.PasswordReset.email == target.email).delete()
-    db.add(models.PasswordReset(token=token, email=target.email, expires_at=expires))
+    db.add(models.PasswordReset(token=reset_token_digest(token), email=target.email, expires_at=expires))
     db.commit()
     invite_url = f"{_BASE_URL}/reset-password.html?token={token}&portal=supplier&setup=1"
     email_utils.notify_supplier_invite(target.email, resolve_supplier_name(db, target) or "", invite_url)

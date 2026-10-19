@@ -299,7 +299,7 @@ def test_supplier_sign_in_with_a_code(make_app, page):
     page.fill("#login-password", PASSWORD)
     page.click("#login-btn")
     page.wait_for_selector("#otp-panel", state="visible")
-    code = app.sql("SELECT code FROM otp_codes WHERE email = ? ORDER BY id DESC", (VOLT,))[0][0]
+    code = app.otp_code(VOLT)
     page.type("#otp-code", code[:3] + "ab" + code[3:])      # letters are stripped as you type
     assert page.input_value("#otp-code") == code
     page.press("#otp-code", "Enter")                         # Enter verifies
@@ -537,7 +537,7 @@ def test_supplier_expired_password_must_be_changed_first(make_app, page):
 # ── reset-password.html ──────────────────────────────────────────────────────
 def _reset_link(app, email=ACME):
     assert app.anon().post("/api/auth/forgot-password", json={"email": email}).status_code == 200
-    token = app.sql("SELECT token FROM password_resets WHERE email = ?", (email,))[0][0]
+    token = app.reset_token(email)
     return f"{app.url}/reset-password.html?token={token}&portal=supplier"
 
 

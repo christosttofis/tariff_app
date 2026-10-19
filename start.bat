@@ -70,6 +70,8 @@ echo  API docs: http://localhost:8000/docs
 echo  Press Ctrl+C to stop.
 echo ============================================================
 echo.
+:: API docs are off by default (config.py); this local-only launcher turns them on.
+if not defined TARIFF_ENABLE_DOCS set TARIFF_ENABLE_DOCS=1
 python -m uvicorn main:app --host 127.0.0.1 --port 8000
 
 pause

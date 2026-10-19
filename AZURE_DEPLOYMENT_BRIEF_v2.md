@@ -179,7 +179,7 @@ The application implements two-factor authentication for all logins. After enter
 Both the admin panel and the supplier portal automatically sign a user out after 15 minutes with no activity (no clicks, key presses, or scrolling). A warning is shown 60 seconds before sign-out, with a "Stay signed in" option to continue the session; incidental activity while that warning is showing does not extend the session on its own. This limits the exposure window if a user leaves an authenticated session unattended, independent of the underlying 8-hour login token.
 
 ### What if credentials are stolen / invalid data is submitted
-- **Stolen credentials:** Without the OTP code delivered to the registered email address, stolen credentials alone are not sufficient to log in. Account lockout applies after 3 consecutive failed attempts (locked for 3 hours). The account holder is notified by email when a lockout occurs.
+- **Stolen credentials:** Without the OTP code delivered to the registered email address, stolen credentials alone are not sufficient to log in. Wrong passwords are limited per address (5, then a 15-minute block) and per account (30 from all addresses within an hour, or 3 wrong sign-in codes, lock the account for 30 minutes), so a stranger can't lock the real user out. The account holder is notified by email when the account is locked.
 - **Invalid or malicious data submissions:** All inputs are validated server-side. Supplier tariff submissions are held in a pending state and must be reviewed and explicitly approved by a CERA admin before they become visible to the public. No supplier-submitted data is published automatically.
 
 ### How user credentials are generated and what policy rules apply
@@ -267,7 +267,7 @@ Azure's PostgreSQL backups protect the database only. They do **not** cover:
 | Encryption in transit | TLS 1.2/1.3 enforced on all connections |
 | Two-factor authentication | Email OTP on every login |
 | Password security | bcrypt hashing — passwords never stored in plain text |
-| Account protection | Lockout after 3 failed attempts, email notification |
+| Account protection | Per-address and per-account lockout, email notification; reset links and sign-in codes stored hashed |
 | Unattended session protection | Auto sign-out after 15 min inactivity, with a 60s warning |
 | Automatic security patching | Managed by Microsoft on App Service platform |
 | Python/runtime updates | One-click version change in Azure Portal |

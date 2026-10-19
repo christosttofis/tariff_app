@@ -8,12 +8,13 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 import email_utils
+import lockout
 import models
 from client_ip import UNAVAILABLE_DETAIL, admin_network_allowed, client_ip_str
 from auth import (
     CurrentUser, check_password_reuse, clear_auth_cookie, create_pending_token, create_token,
-    decode_pending_token, get_current_user, hash_password, record_password_change, resolve_supplier_name,
-    set_auth_cookie, validate_password_strength, verify_password,
+    decode_pending_token, get_current_user, hash_password, otp_digest, otp_matches, record_password_change,
+    reset_token_digest, resolve_supplier_name, set_auth_cookie, validate_password_strength, verify_password,
 )
 from config import TARIFF_BASE_URL
 from database import get_db
@@ -22,9 +23,6 @@ from schemas import _check_email
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 _BASE_URL = TARIFF_BASE_URL
-
-_MAX_ATTEMPTS = 3       # failed logins before lockout
-_LOCKOUT_MINUTES = 180  # how long the lockout lasts
 
 # Checked against for unknown emails, so a sign-in takes the same time whether or not
 # the account exists (otherwise the reply time reveals which emails are registered).
@@ -96,56 +94,43 @@ def login(body: LoginIn, request: Request, response: Response, db: Session = Dep
         _log_login(db, request, email=body.email, user_id=user.id, success=False, reason="network_blocked")
         raise HTTPException(404, UNAVAILABLE_DETAIL)
 
-    # Check lockout before verifying password
+    # Lockouts (see lockout.py) are checked before the password, so a blocked
+    # caller learns nothing from guessing. Blocked attempts are logged but not
+    # counted as wrong passwords.
+    user_id = user.id if user else None
     if user and user.locked_until:
-        locked_until = datetime.fromisoformat(user.locked_until)
-        if now < locked_until:
-            _log_login(db, request, email=body.email, user_id=user.id, success=False, reason="locked")
-            raise HTTPException(
-                429,
-                "Account locked due to too many failed attempts. "
-                "Please try again later or contact your CERA administrator."
-            )
-        # Lockout period has expired — reset automatically
-        user.failed_attempts = 0
+        if lockout.is_locked(user, now):
+            _log_login(db, request, email=body.email, user_id=user_id, success=False, reason="locked")
+            raise HTTPException(429, lockout.LOCKED_MESSAGE)
+        user.failed_attempts = 0        # lock has expired
         user.locked_until = None
         db.commit()
+    if lockout.address_blocked(db, body.email, user, client_ip_str(request), now):
+        _log_login(db, request, email=body.email, user_id=user_id, success=False, reason="address_blocked")
+        raise HTTPException(429, lockout.LOCKED_MESSAGE)
 
     if not verify_password(body.password, user.password_hash if user else _DUMMY_HASH) or not user:
-        # Record failed attempt (only for existing accounts to avoid email enumeration)
-        if user:
-            user.failed_attempts = (user.failed_attempts or 0) + 1
-            if user.failed_attempts >= _MAX_ATTEMPTS:
-                # Lock the account and notify the user — only on the attempt that triggers it
-                user.locked_until = (now + timedelta(minutes=_LOCKOUT_MINUTES)).isoformat()
-                db.commit()
-                email_utils.notify_account_locked(user.email, _LOCKOUT_MINUTES, user.role)
-                _log_login(db, request, email=body.email, user_id=user.id, success=False, reason="locked_out")
-                raise HTTPException(
-                    429,
-                    "Account locked due to too many failed attempts. "
-                    "Please try again later or contact your CERA administrator."
-                )
-            else:
-                db.commit()
-                _log_login(db, request, email=body.email, user_id=user.id, success=False, reason="bad_password")
-                # Same generic message as the unknown-email branch below — do not reveal
-                # attempts-remaining here, since that would let an attacker distinguish
-                # registered emails from unregistered ones (account enumeration).
-                raise HTTPException(401, "Invalid email or password")
-        _log_login(db, request, email=body.email, user_id=None, success=False, reason="unknown_email")
+        # Same reply for a wrong password and an unknown email, and no attempts-remaining
+        # count, so the reply doesn't reveal which emails are registered.
+        _log_login(db, request, email=body.email, user_id=user_id, success=False,
+                   reason="bad_password" if user else "unknown_email")
+        if user and lockout.account_failures(db, body.email, user, now) >= lockout.ACCOUNT_MAX_FAILURES:
+            # Many addresses guessing at once: lock the whole account, tell the owner.
+            lockout.lock(user, now)
+            db.commit()
+            email_utils.notify_account_locked(user.email, lockout.LOCK_MINUTES, user.role)
+            _log_login(db, request, email=body.email, user_id=user_id, success=False, reason="locked_out")
+            raise HTTPException(429, lockout.LOCKED_MESSAGE)
         raise HTTPException(401, "Invalid email or password")
 
     if not user.is_active:
         _log_login(db, request, email=body.email, user_id=user.id, success=False, reason="inactive")
         raise HTTPException(403, "Account is inactive — contact your CERA administrator")
 
-    # Successful password check — clear any previous failed attempts
-    user.failed_attempts = 0
-    user.locked_until = None
-
     # Skip OTP entirely if disabled for this user (e.g. during testing)
     if not (user.otp_enabled if user.otp_enabled is not None else True):
+        lockout.signed_in(user)
+        db.commit()
         _log_login(db, request, email=user.email, user_id=user.id, success=True, reason="password_only")
         set_auth_cookie(response, create_token(user))
         return {
@@ -158,7 +143,8 @@ def login(body: LoginIn, request: Request, response: Response, db: Session = Dep
     code = str(secrets.randbelow(900000) + 100000)
     db.query(models.OtpCode).filter(models.OtpCode.email == user.email).delete()
     expires = (now + timedelta(minutes=10)).isoformat()
-    db.add(models.OtpCode(email=user.email, code=code, expires_at=expires, created_at=now.isoformat()))
+    db.add(models.OtpCode(email=user.email, code=otp_digest(user.email, code), expires_at=expires,
+                          created_at=now.isoformat()))
     db.commit()
 
     email_utils.send_otp_code(user.email, code)
@@ -184,19 +170,14 @@ def verify_otp(body: VerifyOtpIn, request: Request, response: Response, db: Sess
         _log_login(db, request, email=email, user_id=user.id, success=False, reason="network_blocked")
         raise HTTPException(404, UNAVAILABLE_DETAIL)
 
-    # Reuse the same failed_attempts/locked_until fields as password login — a
-    # correct password already resets them to 0 before OTP starts, so guessing
-    # the 6-digit code is bounded by the same lockout, not left uncapped.
+    # Wrong codes count in user.failed_attempts (lockout.py). Only a completed
+    # sign-in or an unlock resets it, not a correct password, so the 6-digit code
+    # can't be guessed a few tries at a time across repeated sign-ins.
     if user.locked_until:
-        locked_until = datetime.fromisoformat(user.locked_until)
-        if now_dt < locked_until:
+        if lockout.is_locked(user, now_dt):
             _log_login(db, request, email=email, user_id=user.id, success=False, reason="locked")
-            raise HTTPException(
-                429,
-                "Account locked due to too many failed attempts. "
-                "Please try again later or contact your CERA administrator."
-            )
-        user.failed_attempts = 0
+            raise HTTPException(429, lockout.LOCKED_MESSAGE)
+        user.failed_attempts = 0        # lock has expired
         user.locked_until = None
         db.commit()
 
@@ -206,19 +187,15 @@ def verify_otp(body: VerifyOtpIn, request: Request, response: Response, db: Sess
         .order_by(models.OtpCode.id.desc())
         .first()
     )
-    if not rec or rec.expires_at < now or rec.code != body.code.strip():
+    if not rec or rec.expires_at < now or not otp_matches(rec.code, email, body.code.strip()):
         user.failed_attempts = (user.failed_attempts or 0) + 1
-        if user.failed_attempts >= _MAX_ATTEMPTS:
-            user.locked_until = (now_dt + timedelta(minutes=_LOCKOUT_MINUTES)).isoformat()
+        if user.failed_attempts >= lockout.OTP_MAX_FAILURES:
+            lockout.lock(user, now_dt)
             db.commit()
-            email_utils.notify_account_locked(user.email, _LOCKOUT_MINUTES, user.role)
+            email_utils.notify_account_locked(user.email, lockout.LOCK_MINUTES, user.role)
             _log_login(db, request, email=email, user_id=user.id, success=False, reason="locked_out")
-            raise HTTPException(
-                429,
-                "Account locked due to too many failed attempts. "
-                "Please try again later or contact your CERA administrator."
-            )
-        remaining = _MAX_ATTEMPTS - user.failed_attempts
+            raise HTTPException(429, lockout.LOCKED_MESSAGE)
+        remaining = lockout.OTP_MAX_FAILURES - user.failed_attempts
         db.commit()
         _log_login(db, request, email=email, user_id=user.id, success=False, reason="bad_otp")
         raise HTTPException(
@@ -228,8 +205,7 @@ def verify_otp(body: VerifyOtpIn, request: Request, response: Response, db: Sess
         )
 
     rec.used = True
-    user.failed_attempts = 0
-    user.locked_until = None
+    lockout.signed_in(user)
     db.commit()
 
     _log_login(db, request, email=user.email, user_id=user.id, success=True, reason="otp_verified")
@@ -284,7 +260,7 @@ def resend_otp(body: ResendOtpIn, request: Request, db: Session = Depends(get_db
     code = str(secrets.randbelow(900000) + 100000)
     db.query(models.OtpCode).filter(models.OtpCode.email == email).delete()
     expires = (now + timedelta(minutes=10)).isoformat()
-    db.add(models.OtpCode(email=email, code=code, expires_at=expires, created_at=now.isoformat()))
+    db.add(models.OtpCode(email=email, code=otp_digest(email, code), expires_at=expires, created_at=now.isoformat()))
     db.commit()
 
     email_utils.send_otp_code(email, code)
@@ -305,7 +281,7 @@ def forgot_password(body: ForgotPasswordIn, db: Session = Depends(get_db)):
         ).delete()
         token = secrets.token_urlsafe(32)
         expires = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
-        db.add(models.PasswordReset(token=token, email=body.email, expires_at=expires))
+        db.add(models.PasswordReset(token=reset_token_digest(token), email=body.email, expires_at=expires))
         db.commit()
         portal = "supplier" if user.role == "supplier" else "admin"
         reset_url = f"{_BASE_URL}/reset-password.html?token={token}&portal={portal}"
@@ -316,7 +292,7 @@ def forgot_password(body: ForgotPasswordIn, db: Session = Depends(get_db)):
 
 @router.post("/reset-password", summary="Set a new password using a reset token")
 def reset_password(body: ResetPasswordIn, db: Session = Depends(get_db)):
-    rec = db.get(models.PasswordReset, body.token)
+    rec = db.get(models.PasswordReset, reset_token_digest(body.token))
     now = datetime.now(timezone.utc).isoformat()
     if not rec or rec.used or rec.expires_at < now:
         raise HTTPException(400, "This reset link is invalid or has expired.")

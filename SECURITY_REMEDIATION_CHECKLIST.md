@@ -307,6 +307,31 @@ The prompt and false-positive rules of `anthropics/claude-code-security-review` 
   - Both new checks failed on the old code (the leak was visible; 2 injected elements on the customer page) and pass after the fix. Full suite: 224 passed.
   - `zap_scan.py`: the supplier's tariff gets a discount with conditions, and after the admin approves it a visitor loads the results, so ZAP scans that field on the public page. The script's dry run completed against a throwaway copy.
 
+## Round 21 — Hardening the three points left out of Round 20 (2026-10-19)
+
+The Round 20 review's false-positive rules left out three lower-risk points. All three are now fixed.
+
+- [x] **Lockout could be used to lock people out (Medium).**
+  - **Cause:** 3 wrong passwords locked the whole account for 3 hours (an earlier default, not a CERA requirement). Anyone who knew a supplier's email could lock them out, again and again.
+  - **Fix (`lockout.py`):** wrong passwords are counted from `login_activity` per email and address.
+    - 5 within 15 minutes block only that address for that email. The owner elsewhere is unaffected, and the owner signing in doesn't give the guessing address fresh tries.
+    - 30 from all addresses within an hour (guessing from many machines) lock the account for 30 minutes and email the owner.
+    - Unknown emails get the same replies and blocks; every block returns one generic message.
+  - **Also found and fixed:** a correct password reset the wrong-code count. Someone who had the password could therefore guess the 6-digit code two at a time indefinitely, signing in again in between. Now only a completed sign-in or an unlock resets it (3 wrong codes → 30-minute lock).
+  - Admin Unlock/Activate and `unlock_user.py` clear everything, including address blocks, via the new `users.lockout_reset_at`.
+  - **Needs on Azure:** `TARIFF_TRUSTED_PROXY_HOPS=1` (already an open item below). Without it every caller looks like the same address.
+- [x] **Reset links and sign-in codes stored readable (Low).**
+  - **Cause:** anyone with a copy of the database (a backup, an export) could use a live reset/invite link or a current sign-in code.
+  - **Fix:** stored as fingerprints only. Reset/invite tokens use SHA-256 (they are 32 random bytes). Sign-in codes use HMAC-SHA256 keyed with the signing secret, because a plain hash of a 6-digit code could be reversed by trying all million. Codes are compared in constant time.
+  - **Migration `f3b8c2d6a417`:** hashes existing tokens in place, so invite links already emailed keep working, and clears sign-in codes (10-minute life). Checked upgrade and downgrade on a throwaway database.
+- [x] **API docs on by default (Low).** `/docs`, `/redoc` and `/openapi.json` are now off unless `TARIFF_ENABLE_DOCS=1`. `start.bat` (local only) and the CI scan switch them on.
+- [x] **Tests:**
+  - `test_4`: one address blocked while the owner still signs in; same replies for made-up emails; own typos forgiven after signing in; 30 guesses from 6 addresses lock the account and email the owner; admin unlock clears account and address blocks; re-signing in doesn't reset wrong codes; stored code is not the code.
+  - `test_6`: stored reset token is not usable as a link; invite links still work and are stored hashed.
+  - `test_9`: no docs when the setting is missing or 0.
+  - All 9 new tests failed on the old code. The test server now writes emails to a file, so tests read codes and links from the email as a user would.
+  - ZAP: no change needed. Its sign-in requests are unchanged, and it runs with the docs explicitly on.
+
 ## Open items — must be handled before go-live
 
 These are deployment/production tasks, tracked in full in `AZURE_DEPLOYMENT_CHECKLIST.md` and project memory.
@@ -314,7 +339,7 @@ These are deployment/production tasks, tracked in full in `AZURE_DEPLOYMENT_CHEC
 - [ ] **HTTPS** — load-bearing, not just good practice: the `Secure` session cookie means login silently fails over plain HTTP on a real domain.
 - [ ] **Production secrets** — set a real random `TARIFF_SECRET_KEY` (never the dev fallback) and real Azure/Graph credentials in Key Vault.
 - [ ] **Admin network restriction settings on Azure** (`TARIFF_ADMIN_ALLOWED_NETWORKS`, `TARIFF_TRUSTED_PROXY_HOPS=1`) with addresses from CERA IT, and a VPN full-tunnel confirmation (Round 14; checklist Step 6a). This replaces the earlier `X-Forwarded-For` trust item, now handled in code.
-- [ ] **Disable API docs in production** — set `TARIFF_ENABLE_DOCS=0` so `/docs`, `/redoc`, `/openapi.json` don't expose the full route surface.
+- [x] **Disable API docs in production**: done in code (Round 21). They are now off unless `TARIFF_ENABLE_DOCS=1`, so nothing needs setting on Azure.
 - [x] ~~Restrict `admin.html` to CERA IPs~~: done in-app (Round 14); covers the admin API too, not just the page.
 - [ ] **Rotate secrets exposed by the static-file issue** (Round 13).
 - [x] **Removed `'unsafe-inline'` from the CSP `script-src`** (ZAP Medium, Round 16), page by page; done 2026-10-07. One strict policy now applies to every page and response.

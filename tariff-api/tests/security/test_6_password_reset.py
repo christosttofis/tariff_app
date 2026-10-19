@@ -8,8 +8,7 @@ NEW = "Fresh-Passw0rd!"
 
 def _request_link(app, email) -> str:
     assert app.anon().post("/api/auth/forgot-password", json={"email": email}).status_code == 200
-    # Email is off in tests, so read the link's token from the database.
-    return app.sql("SELECT token FROM password_resets WHERE email = ?", (email,))[0][0]
+    return app.reset_token(email)          # from the emailed link
 
 
 def _reset(app, token, password=NEW):
@@ -38,7 +37,7 @@ def test_made_up_or_altered_links_are_refused(fresh):
 
 def test_expired_link_is_refused(fresh):
     token = _request_link(fresh, ACME)
-    fresh.sql("UPDATE password_resets SET expires_at = '2000-01-01T00:00:00+00:00' WHERE token = ?", (token,))
+    fresh.sql("UPDATE password_resets SET expires_at = '2000-01-01T00:00:00+00:00' WHERE email = ?", (ACME,))
     assert _reset(fresh, token).status_code == 400
     fresh.login(ACME, PASSWORD)
 
@@ -54,6 +53,28 @@ def test_link_of_a_deactivated_account_is_refused(fresh):
     admin = fresh.login("admin1@demo.local")
     admin.patch(f"/api/admin/users/{fresh.user_id(DELTA)}/status", json={"is_active": False})
     assert _reset(fresh, token).status_code == 400
+
+
+def test_database_copy_holds_no_usable_link(fresh):
+    # Someone with a copy of the database (a backup, an export) finds only a
+    # fingerprint of the token, which doesn't work as a link.
+    token = _request_link(fresh, ACME)
+    stored = fresh.sql("SELECT token FROM password_resets WHERE email = ?", (ACME,))[0][0]
+    assert stored != token and token not in stored
+    assert _reset(fresh, stored).status_code == 400
+    assert _reset(fresh, token).status_code == 200
+
+
+def test_invite_links_work_and_are_stored_hashed(fresh):
+    admin = fresh.login("admin1@demo.local")
+    r = admin.post("/api/admin/users", json={"email": "new.user@example.com", "supplier_name": "Acme Energy"})
+    assert r.status_code == 201
+    token = fresh.reset_token("new.user@example.com")
+    assert token in r.json()["invite_url"]
+    assert fresh.sql("SELECT token FROM password_resets WHERE email = ?", ("new.user@example.com",))[0][0] != token
+    assert _reset(fresh, token).status_code == 200
+    r = fresh.anon().post("/api/auth/login", json={"email": "new.user@example.com", "password": NEW})
+    assert r.status_code == 200 and r.json()["status"] == "otp_required"     # new accounts use 2FA
 
 
 @pytest.mark.parametrize("weak", ["short1!", "nodigits!!", "n0symbols1", "12345678!"], ids=lambda p: p)

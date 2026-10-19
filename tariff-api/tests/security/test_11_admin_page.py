@@ -561,7 +561,7 @@ def test_admin_expired_password_and_code_sign_in(make_app, page):
     page.fill("#login-password", PASSWORD)
     page.click("#login-btn")
     page.wait_for_selector("#otp-panel", state="visible")
-    code = app.sql("SELECT code FROM otp_codes WHERE email = ? ORDER BY id DESC", (ADMIN,))[0][0]
+    code = app.otp_code(ADMIN)
     page.type("#otp-code", code[:3] + "x" + code[3:])
     assert page.input_value("#otp-code") == code
     page.press("#otp-code", "Enter")

@@ -17,6 +17,8 @@ Roles
   supplier — licensed supplier; can only manage their own tariffs
 """
 
+import hashlib
+import hmac
 import re
 from datetime import datetime, timedelta, timezone
 
@@ -121,6 +123,26 @@ def record_password_change(db: Session, user: "models.User", new_plain: str) -> 
     user.must_change_password = False
     user.password_expiry_notified_at = None
     db.commit()
+
+
+# ── Stored codes ──────────────────────────────────────────────────────────────
+# Reset/invite tokens and sign-in codes are stored only as fingerprints, so a
+# copy of the database (a backup, an export) can't be used to take an account
+# over. The email holds the real value; the server hashes what comes back.
+
+def reset_token_digest(token: str) -> str:
+    """Reset/invite tokens are 32 random bytes, so a plain SHA-256 is enough."""
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def otp_digest(email: str, code: str) -> str:
+    """A 6-digit code has only a million values, so a plain hash could be reversed
+    by trying them all. Keyed with the signing secret, the database alone is useless."""
+    return hmac.new(SECRET_KEY.encode(), f"{email}\n{code}".encode(), hashlib.sha256).hexdigest()
+
+
+def otp_matches(stored: str, email: str, code: str) -> bool:
+    return hmac.compare_digest(stored, otp_digest(email, code))
 
 
 # ── Token creation ────────────────────────────────────────────────────────────

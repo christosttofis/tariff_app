@@ -83,10 +83,11 @@ if not (AZURE_TENANT_ID and AZURE_CLIENT_ID and AZURE_CLIENT_SECRET and TARIFF_E
 TARIFF_BASE_URL = os.getenv("TARIFF_BASE_URL", "http://localhost:8000").rstrip("/")
 
 # ── API docs (/docs, /redoc, /openapi.json) ──────────────────────────────────
-# On by default for local dev convenience. Set TARIFF_ENABLE_DOCS=0 in
-# production - these otherwise expose the full route/schema surface
-# (including every admin endpoint's shape) to anyone, unauthenticated.
-TARIFF_ENABLE_DOCS = os.getenv("TARIFF_ENABLE_DOCS", "1") == "1"
+# Off unless TARIFF_ENABLE_DOCS=1: they expose the full route/schema surface
+# (including every admin endpoint's shape) to anyone, unauthenticated, so a
+# server where the setting was forgotten stays closed. start.bat turns them on
+# for local dev.
+TARIFF_ENABLE_DOCS = os.getenv("TARIFF_ENABLE_DOCS", "0") == "1"
 
 # ── "Fetch from TSOC" for DAM prices ─────────────────────────────────────────
 # On by default. Set TARIFF_TSOC_FETCH=off to hide the button and refuse the

@@ -9,6 +9,7 @@ In-memory test overrides, so the tests measure the app rather than their own set
   - tariff-api/.env is never read (load_dotenv is disabled before config imports it),
     so local credentials and the real database can't leak into a test run;
   - uploaded PDFs go to a temp folder (TEST_UPLOAD_DIR), not tariff-api/uploads;
+  - emails are written to TEST_MAIL_FILE instead of being sent (see _capture_mail);
   - the per-IP rate limit is raised (TEST_RATE_LIMIT), since every test request
     comes from 127.0.0.1. The rate-limit test starts a server with the real value;
   - "Fetch from TSOC" talks to a fake TSOC (tests/tsoc_stub.py, mode from
@@ -16,6 +17,7 @@ In-memory test overrides, so the tests measure the app rather than their own set
 
 Usage: python _server.py <port>
 """
+import json
 import os
 import sys
 from pathlib import Path
@@ -29,7 +31,18 @@ import dotenv  # noqa: E402
 dotenv.load_dotenv = lambda *a, **k: False
 
 import main  # noqa: E402
+import email_utils  # noqa: E402
 from routers import shared  # noqa: E402
+
+
+def _capture_mail(to, subject, html):
+    """Write each email to TEST_MAIL_FILE instead of sending it: sign-in codes and
+    reset links are stored hashed, so the tests read them where a user would."""
+    with open(os.environ["TEST_MAIL_FILE"], "a", encoding="utf-8") as f:
+        f.write(json.dumps({"to": [r for r in to if r], "subject": subject, "html": html}) + "\n")
+
+
+email_utils._send_bg = _capture_mail
 
 shared._UPLOAD_DIR = Path(os.environ["TEST_UPLOAD_DIR"])
 main._RATE_LIMIT_MAX_REQUESTS = int(os.environ.get("TEST_RATE_LIMIT", str(10 ** 9)))

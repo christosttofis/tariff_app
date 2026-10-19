@@ -8,10 +8,12 @@ Usage:
 
 import argparse
 import sys
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
 from database import engine
+import lockout
 import models
 
 
@@ -22,12 +24,9 @@ def unlock(email: str) -> None:
             print(f"[ERROR] No account found for: {email}")
             sys.exit(1)
 
-        if not user.locked_until and not user.failed_attempts:
-            print(f"[INFO] Account '{email}' is not locked — nothing to do.")
-            return
-
-        user.failed_attempts = 0
-        user.locked_until = None
+        # Always applied (not only when locked_until is set): it also lifts
+        # per-address blocks, which leave no mark on the user row.
+        lockout.clear(user, datetime.now(timezone.utc))
         db.commit()
         print(f"[OK] Account '{email}' has been unlocked.")
 

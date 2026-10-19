@@ -229,7 +229,7 @@ Also:
 - **Keep Cloudflare on "DNS only" (grey cloud)** (Step 10). Proxying through Cloudflare would add a second proxy hop and change which entry is the real client.
 - **Ask CERA IT to confirm the VPN is full-tunnel**, or to add `tariffs.cera.org.cy` to the routes sent through the VPN. With split-tunnel, an admin's traffic to the site wouldn't come from the VPN address and would be blocked.
 - **Verify once after deployment** (Step 8): sign in as an admin from the office or VPN. Then open `https://<site>/admin.html` from a phone on mobile data: it must show only "Website unavailable". Admin → **Login activity** shows the IP the app saw for each attempt. Attempts from outside are logged as `network_blocked`.
-- The per-account lockout (3 failed password/OTP attempts → 180-minute lock) remains the main defence against password guessing. Sign-ins to admin accounts from outside the allowed networks are refused before the password is even checked, so they can't lock an admin out.
+- The sign-in lockout (`lockout.py`: 5 wrong passwords block that address for 15 minutes; 30 from all addresses within an hour, or 3 wrong sign-in codes, lock the account for 30 minutes) remains the main defence against password guessing. Its per-address rule needs the real client IP, so `TARIFF_TRUSTED_PROXY_HOPS=1` must be set on Azure (Step 6a); otherwise every caller looks like the same address. Sign-ins to admin accounts from outside the allowed networks are refused before the password is even checked, so they can't lock an admin out.
 
 ---
 

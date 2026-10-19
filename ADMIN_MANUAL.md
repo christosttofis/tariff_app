@@ -57,7 +57,7 @@ http://<server-address>/admin.html
 
 You will be presented with a login overlay. Enter your CERA email address and password.
 
-**Verification code (2FA):** After a correct password, most accounts are prompted for a 6-digit verification code sent to your registered email address. Enter the code to complete sign-in. The code is valid for 10 minutes; if you don't receive it, you can request a new one after 2 minutes using the resend link. **Entering the wrong code 3 times locks your account for 3 hours**, the same as entering the wrong password 3 times — see [Section 14.1](#141-lockout-policy).
+**Verification code (2FA):** After a correct password, most accounts are prompted for a 6-digit verification code sent to your registered email address. Enter the code to complete sign-in. The code is valid for 10 minutes; if you don't receive it, you can request a new one after 2 minutes using the resend link. **Entering the wrong code 3 times locks your account for 30 minutes** — see [Section 14.1](#141-lockout-policy).
 
 **Session duration:** Your session stays active while you're actively using the panel — it automatically renews itself in the background, so you will not be logged out mid-task purely because time has passed. As a safety limit, a session always ends after **12 hours** even if continuously active, and you'll need to sign in again at that point regardless.
 
@@ -590,12 +590,20 @@ Emails are sent via Microsoft Azure (Mail.Send) using CERA's existing Azure tena
 
 ### 14.1 Lockout policy
 
-To protect against unauthorised access, accounts are automatically locked after **3 consecutive failed attempts** — this covers both a wrong password **and** a wrong 6-digit verification code at the 2FA step (see [Section 2](#2-accessing-the-admin-panel)), since guessing the code without a limit would otherwise be a way around the password check. The lockout lasts **3 hours**.
+Wrong passwords are counted per account **and** per network address, so someone who only knows a user's email can't lock the real person out:
 
-When an account is locked:
+- **5 wrong passwords from one address:** that address can't try that account again for **15 minutes**. The real user, signing in from their own office or home, is not affected. Signing in successfully from that address clears its count.
+- **30 wrong passwords from all addresses within an hour** (many computers guessing at once): the whole account is locked for **30 minutes**.
+- **3 wrong 6-digit verification codes** at the 2FA step (see [Section 2](#2-accessing-the-admin-panel)): the account is locked for **30 minutes**. Only someone with the right password reaches this step, so it's a sign the password is known. Signing in again with the password doesn't reset the count; only a completed sign-in or an unlock does.
+
+The sign-in page shows the same message for all three ("Too many failed sign-in attempts…"), so it doesn't reveal which applied or whether an account exists.
+
+When the whole account is locked:
 - The affected user receives an email notification immediately
 - The email advises them to try again later or contact their CERA administrator
 - A 🔒 Locked badge appears next to the account in the Users panel
+
+An admin **Unlock** (or **Activate**) clears all of these at once, including blocked addresses. In the Login Activity log, blocked attempts appear as `address_blocked` (one address) or `locked` (whole account).
 
 ### 14.2 Idle session timeout
 

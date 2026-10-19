@@ -2,7 +2,7 @@
 
 Only the four pages and the logo are public. Source code, settings (.env),
 the database, uploaded documents and git history must never be downloadable,
-however the path is written.
+however the path is written. The API docs are off unless switched on.
 """
 import re
 from pathlib import Path
@@ -41,6 +41,15 @@ def test_public_pages_are_served(app, path):
 def test_private_files_are_never_served(app, path):
     r = app.anon().get(path)
     assert r.status_code in (400, 404, 405), f"{path} -> {r.status_code}"
+
+
+def test_api_docs_are_off_unless_switched_on(make_app):
+    # They list every endpoint, admin ones included. A server where the setting
+    # was forgotten must not serve them.
+    for setting in (None, "0"):
+        app = make_app({"TARIFF_ENABLE_DOCS": setting})
+        for path in ("/docs", "/redoc", "/openapi.json"):
+            assert app.anon().get(path).status_code == 404, f"{path} served with TARIFF_ENABLE_DOCS={setting!r}"
 
 
 def test_uploaded_documents_are_not_public(app, acme):

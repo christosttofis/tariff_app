@@ -274,7 +274,7 @@ class PasswordReset(Base):
     """Single-use password reset tokens, valid for 1 hour."""
     __tablename__ = "password_resets"
 
-    token = Column(String, primary_key=True)
+    token = Column(String, primary_key=True)        # SHA-256 of the emailed token (auth.reset_token_digest)
     email = Column(String, nullable=False, index=True)
     expires_at = Column(String, nullable=False)  # ISO-8601
     used = Column(Boolean, default=False)
@@ -298,7 +298,7 @@ class OtpCode(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     email = Column(String, nullable=False, index=True)
-    code = Column(String, nullable=False)
+    code = Column(String, nullable=False)           # keyed hash of the emailed code (auth.otp_digest)
     expires_at = Column(String, nullable=False)  # ISO-8601
     created_at = Column(String, nullable=True)   # ISO-8601 — used for resend cooldown
     used = Column(Boolean, default=False)
@@ -358,8 +358,9 @@ class User(Base):
     supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True, index=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(String, nullable=True)      # ISO-8601 string
-    failed_attempts = Column(Integer, default=0)    # consecutive failed logins
+    failed_attempts = Column(Integer, default=0)    # consecutive wrong sign-in codes (lockout.py)
     locked_until = Column(String, nullable=True)    # ISO-8601 — null means not locked
+    lockout_reset_at = Column(String, nullable=True)  # ISO-8601 — wrong passwords before this don't count
     otp_enabled = Column(Boolean, default=True)     # False skips the OTP step at login
     password_changed_at = Column(String, nullable=True)          # ISO-8601 — set on every password set
     must_change_password = Column(Boolean, default=False)        # forces the change-password gate

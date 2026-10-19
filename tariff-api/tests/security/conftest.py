@@ -4,7 +4,8 @@ Every test talks to a throwaway copy of the app over real HTTP, started by
 _server.py on 127.0.0.1 with:
   - a copy of a fake demo database (seed_demo_data.py; demo users, password Demo123!);
   - a random signing key, generated per run;
-  - email/Azure settings empty, so nothing is ever sent;
+  - email/Azure settings empty, so nothing is ever sent; emails are written to a
+    file instead, and read back with `app.otp_code()` / `app.reset_token()`;
   - tariff-api/.env never read, and the real database never touched.
 
 Each test module gets its own fresh server and database (`app` fixture), so
@@ -12,7 +13,9 @@ tests in different files can't affect each other. Tests that need special
 settings (admin network restriction, the real rate limit) or that lock
 accounts start their own short-lived server with `make_app`.
 """
+import json
 import os
+import re
 import secrets
 import shutil
 import socket
@@ -85,15 +88,18 @@ class App:
         shutil.copy(template_db, self.db_path)
         self.upload_dir = workdir / "uploads"
         self.upload_dir.mkdir()
+        self.mail_file = workdir / "mail.jsonl"
         self.secret = secrets.token_hex(32)
         self.port = _free_port()
         self.url = f"http://127.0.0.1:{self.port}"
         full_env = {**os.environ, **_BASE_ENV, **(env or {}),
                     "DATABASE_URL": "sqlite:///" + self.db_path.as_posix(),
                     "TARIFF_SECRET_KEY": self.secret,
-                    "TEST_UPLOAD_DIR": str(self.upload_dir)}
+                    "TEST_UPLOAD_DIR": str(self.upload_dir),
+                    "TEST_MAIL_FILE": str(self.mail_file)}
         if rate_limit is not None:
             full_env["TEST_RATE_LIMIT"] = str(rate_limit)
+        full_env = {k: v for k, v in full_env.items() if v is not None}   # None = setting left out
         self.log_path = workdir / "server.log"
         self._log = open(self.log_path, "w", encoding="utf-8")
         self.proc = subprocess.Popen([sys.executable, str(SERVER), str(self.port)], cwd=API_DIR,
@@ -129,9 +135,26 @@ class App:
         assert c.token, f"login {email}: no session cookie"
         return c
 
+    def mails(self, to: str) -> list[dict]:
+        """Emails the server "sent" to this address, oldest first (_server.py writes
+        them to a file instead of sending them)."""
+        if not self.mail_file.exists():
+            return []
+        lines = self.mail_file.read_text(encoding="utf-8").splitlines()
+        return [m for m in map(json.loads, lines) if to in m["to"]]
+
+    def otp_code(self, email: str) -> str:
+        """The 6-digit code from the newest sign-in-code email (the database holds only a hash)."""
+        html = [m for m in self.mails(email) if "verification code" in m["subject"]][-1]["html"]
+        return re.search(r">(\d{6})</span>", html).group(1)
+
+    def reset_token(self, email: str) -> str:
+        """The token from the newest reset or invite link emailed (the database holds only a hash)."""
+        html = [m for m in self.mails(email) if "reset-password.html?token=" in m["html"]][-1]["html"]
+        return re.search(r"reset-password\.html\?token=([A-Za-z0-9_-]+)", html).group(1)
+
     def sql(self, query: str, params: tuple = ()) -> list:
-        """Read or adjust the throwaway database directly (e.g. to read an OTP code,
-        since email is off). Never used against a real database."""
+        """Read or adjust the throwaway database directly. Never used against a real database."""
         con = sqlite3.connect(self.db_path)
         try:
             rows = con.execute(query, params).fetchall()
