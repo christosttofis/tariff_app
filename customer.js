@@ -1521,7 +1521,7 @@ function renderDiscountToggles(t,r){
     const checked=!window._discountState||!(window._discountState[t.id])||window._discountState[t.id][key]!==false;
     const typeLabel=d.type==='energy'?T('DISC_ENERGY_LABEL'):T('DISC_STANDING_LABEL');
     const durLabel=d.durationMonths?T('DISC_DURATION_FIRST',{N:d.durationMonths}):'<strong>'+T('DISC_DURATION_PERM')+'</strong>';
-    const condLabel=d.conditions?' — '+d.conditions:'';
+    const condLabel=d.conditions?' — '+esc(d.conditions):'';   // supplier-typed free text
     return '<label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;cursor:pointer">'
       +'<input type="checkbox" '+(checked?'checked':'')
       +' data-tariff="'+esc(t.id)+'" data-idx="'+di+'"'

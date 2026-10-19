@@ -11,7 +11,6 @@ Then open:
 """
 
 import asyncio
-import json
 import logging
 import math
 import time
@@ -342,8 +341,10 @@ def get_public_config(db: Session = Depends(get_db)):
     tariffs   = db.query(models.Tariff).filter(models.Tariff.status == "approved").all()
     notices   = db.query(models.Notices).first()
     sample_invoice_cfg = db.query(models.SampleInvoiceConfig).first()
-    changelog = db.query(models.Changelog).order_by(models.Changelog.ts.desc()).all()
 
+    # No changelog here: it is the admin audit trail (staff emails, which
+    # accounts have 2FA off, before/after prices of tariffs never approved),
+    # and the customer page never used it. Admins get it from /api/admin/config.
     return {
         "version": 5,
         "suppliers": [supplier_to_dict(s) for s in suppliers],
@@ -357,15 +358,6 @@ def get_public_config(db: Session = Depends(get_db)):
             "vulnerable_el":  notices.vulnerable_el  or "" if notices else "",
         },
         "sampleInvoiceEnabled": bool(sample_invoice_cfg.enabled) if sample_invoice_cfg else False,
-        "changelog": [
-            {
-                "id": c.id, "tariffId": c.tariffId, "tariffName": c.tariffName,
-                "supplier": c.supplier, "action": c.action,
-                "changes": json.loads(c.changes) if c.changes else [],
-                "ts": c.ts, "actorRole": c.actorRole, "actorEmail": c.actorEmail,
-            }
-            for c in changelog
-        ],
         "savedAt": datetime.now(timezone.utc).isoformat(),
     }
 

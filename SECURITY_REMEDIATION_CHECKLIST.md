@@ -95,7 +95,7 @@ Outside-attacker testing over HTTP against an isolated instance on a throwaway d
 - [x] **MED — supplier could read admin-only reference data → fixed, verified.** `GET /api/admin/dam`, `/api/admin/regulated`, and `/api/admin/regulated/history` used `get_current_user`, so any authenticated supplier could read the full DAM price series and the regulated-charge table/history — while sibling admin GETs correctly required admin. Impact is limited (shared regulator/market reference data, not another supplier's private data or PII), but inconsistent with the endpoints' gating. **Fix:** switched all three to `require_admin`. Verified: supplier → 403, admin → 200, no supplier-portal regression (supplier.html never called these), public calculator still computes.
 - [x] **Reviewer/demo setup was broken → fixed.** Migration `83ce50ff9ed3` used `ALTER COLUMN ... DROP NOT NULL`, which SQLite rejects, so `seed_demo_data.py` (the documented path for the external reviewer to stand up the app) crashed. **Fix:** wrapped in `batch_alter_table` — works on SQLite and PostgreSQL alike (identical DDL on Postgres).
 - [~] **MED — rate-limit trust of `X-Forwarded-For` → documented (deployment fix, not code).** The per-IP limiter keys on `request.client.host`, which behind a proxy comes from `X-Forwarded-For` via uvicorn's proxy-header handling. Rotating that header created unlimited buckets **when the caller is a trusted proxy IP** (as in loopback testing); a remote attacker against a directly-exposed instance can't do this today. A code change to parse XFF would *introduce* the spoof, so the correct fix is deployment config: documented in `AZURE_DEPLOYMENT_CHECKLIST.md` Step 6a — never set `FORWARDED_ALLOW_IPS=*`, ensure the front end overwrites client XFF, and note the per-account lockout (not the IP limiter) is the real brute-force defense.
-- **False positives ruled out during this round** (recorded so they aren't re-investigated): supplier tariff list "leaking Volt" was an automated-check artifact matching the substring in `"voltage"` (scoping is correct); `regulated` "leaking" in public/config was a match inside changelog text (no raw pricing is exposed).
+- **False positives ruled out during this round** (recorded so they aren't re-investigated): supplier tariff list "leaking Volt" was an automated-check artifact matching the substring in `"voltage"` (scoping is correct); `regulated` "leaking" in public/config was a match inside changelog text (no raw pricing is exposed). **Correction 2026-10-19:** that changelog text was itself a leak (audit log with staff emails and unapproved tariffs' prices); see Round 20.
 - **Confirmed still solid:** anon → all admin routes 401; supplier → admin-only reads/writes 403; cross-supplier tariff GET/PUT/PATCH/DELETE denied; supplier self-approve denied; doc-download 404-uniform (Round 8 fix holds); input validation (NaN/Infinity/oversized) all 422 (Round 8 fix holds); no login/forgot-password enumeration; session cookie carries HttpOnly + SameSite + Secure.
 
 ---
@@ -287,6 +287,25 @@ Generic scanners can't know this app's rules (e.g. "Acme must not touch Delta's 
   - `test_8`: 13 refused cases (negative, too large, text, NaN, ±Infinity, per field), each leaving the stored values and the public calculator unchanged; also valid edge values, including a negative FPA.
   - `test_11`: the page shows a refusal on its fields and stores nothing.
   - Full suite: 188 passed.
+
+## Round 20 — Whole-app review with Anthropic's security-review method (2026-10-19)
+
+The prompt and false-positive rules of `anthropics/claude-code-security-review` were applied to the whole codebase, not just a diff. Two findings; everything else (SQL injection, access control, login/OTP/reset, CSRF/CORS, uploads, email escaping, TSOC fetch, CI workflows) was clean.
+
+- [x] **Finding 1 (High): the public config carried the whole audit log.**
+  - **Cause:** `GET /api/public/config` (no sign-in) returned every changelog entry, although `customer.html` never used it.
+  - **Exposed:** before/after rates and discounts of tariffs still pending, rejected or never approved (a competitor could read another supplier's prices before CERA approves them); supplier staff emails (`actorEmail`); and which accounts have 2FA switched off (OTP changes are logged under the user's email).
+  - **Why it was missed:** Round 9's black-box test looked at that text for raw pricing only and recorded it as a false positive (corrected there).
+  - **Fix:** the public config no longer includes the changelog. Admins still get it from `/api/admin/config` and `/api/admin/changelog`.
+- [x] **Finding 2 (Medium): supplier text became markup on the public results page.**
+  - **Cause:** a discount's `conditions` (supplier free text, up to 500 characters) was the one value in `customer.js` `renderDiscountToggles` not passed through `esc()`.
+  - **Impact:** once an admin approved the tariff (the review shows the text plainly, so markup is easy to miss), it became page markup for every visitor who opened the card. The strict CSP stops scripts from running, but inline styles are allowed, so a supplier could hide competitors' results or add a misleading link.
+  - **Fix:** `esc(d.conditions)`.
+- [x] **Tests:**
+  - `test_2`: Delta submits an unapproved tariff and an admin toggles a user's 2FA. The public config must show neither, no sign-in account email, and no changelog. The test checks first that both did reach the admin's log.
+  - `test_7`: the planted text now also goes into a discount condition, and the test checks that it is displayed on the public card as plain text.
+  - Both new checks failed on the old code (the leak was visible; 2 injected elements on the customer page) and pass after the fix. Full suite: 224 passed.
+  - `zap_scan.py`: the supplier's tariff gets a discount with conditions, and after the admin approves it a visitor loads the results, so ZAP scans that field on the public page. The script's dry run completed against a throwaway copy.
 
 ## Open items — must be handled before go-live
 

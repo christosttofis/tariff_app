@@ -25,7 +25,9 @@ def planted(app, admin, acme):
     own = acme.get("/api/supplier/tariffs").json()[0]
     body = {k: v for k, v in own.items() if k not in ("id", "status", "createdAt", "updatedAt", "rejection_reason",
                                                        "hasDocs", "everPublished")}
-    r = acme.post("/api/supplier/tariffs", json={**body, "name": PAYLOAD[:200]})
+    # Discount conditions are free text shown in the public tariff card's offers box.
+    discount = {"type": "energy", "percentage": 5, "durationMonths": None, "conditions": PAYLOAD}
+    r = acme.post("/api/supplier/tariffs", json={**body, "name": PAYLOAD[:200], "discounts": [discount]})
     assert r.status_code == 201, r.text
     tid = r.json()["id"]
     r = acme.post(f"/api/supplier/tariffs/{tid}/documents",
@@ -105,6 +107,8 @@ def test_public_calculator_shows_planted_text_safely(app, planted, browser):
     for header in page.locator(".rank-header").all():       # open every tariff card
         header.click()
         _assert_safe(page, "customer tariff details")
+    assert page.locator(".rank-detail.open :text('XSSPROBE')").count(), \
+        "planted discount conditions not displayed - test would prove nothing"
 
 
 def test_supplier_portal_shows_planted_text_safely(app, planted, browser):

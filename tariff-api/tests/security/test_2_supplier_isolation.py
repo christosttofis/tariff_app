@@ -80,6 +80,24 @@ def test_cannot_approve_own_tariff_by_adding_fields(acme, admin):
     assert all(x["id"] != new["id"] for x in public["results"]), "unapproved tariff is public"
 
 
+def test_public_config_shows_no_audit_log_accounts_or_unpublished_tariffs(app, admin, delta, deltas_tariff):
+    # Delta submits a tariff that is not approved yet, and an admin changes a sign-in
+    # setting: both go into the audit log, which once came with the public config.
+    r = delta.post("/api/supplier/tariffs", json=_body(deltas_tariff, name="Delta unpublished offer"))
+    assert r.status_code == 201
+    user = next(u for u in admin.get("/api/admin/users").json() if u["email"] == DELTA)
+    for value in (not user["otp_enabled"], user["otp_enabled"]):
+        assert admin.patch(f"/api/admin/users/{user['id']}/otp", json={"otp_enabled": value}).status_code == 200
+    logged = str(admin.get("/api/admin/changelog").json())
+    assert "Delta unpublished offer" in logged and DELTA in logged, "nothing logged - test would prove nothing"
+
+    public = app.anon().get("/api/public/config")
+    assert public.status_code == 200 and "changelog" not in public.json()
+    # Sign-in accounts are @demo.local; the suppliers' public contact addresses are not.
+    for private in ("Delta unpublished offer", "@demo.local", "otp_enabled"):
+        assert private not in public.text, f"public config shows {private!r}"
+
+
 def test_supplier_gets_only_profile_names_not_data(acme):
     profiles = acme.get("/api/supplier/profiles").json()
     assert profiles and all(set(p) <= {"id", "name", "desc"} for p in profiles)

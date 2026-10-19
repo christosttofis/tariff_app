@@ -198,7 +198,10 @@ if own:
     new = js(S("POST", "/api/supplier/tariffs", json={**base, "name": base.get("name", "T") + " (ZAP)"}), {})
     new_tid = new.get("id") if isinstance(new, dict) else None
     if new_tid:
-        S("PUT", f"/api/supplier/tariffs/{new_tid}", json={**base, "id": new_tid, "name": base.get("name", "T") + " (ZAP v2)"})
+        # A discount with free-text conditions: shown on the public results page once approved.
+        S("PUT", f"/api/supplier/tariffs/{new_tid}", json={**base, "id": new_tid, "name": base.get("name", "T") + " (ZAP v2)",
+                                                          "discounts": [{"type": "energy", "percentage": 5, "durationMonths": 12,
+                                                                         "conditions": "Direct debit (ZAP)"}]})
         d = js(S("POST", f"/api/supplier/tariffs/{new_tid}/documents",
                  files={"file": ("zap.pdf", b"%PDF-1.4\n% zap scan\n", "application/pdf")}), {})
         doc_id = d.get("id") if isinstance(d, dict) else None
@@ -218,6 +221,9 @@ if new_tid:
         A("POST", f"/api/admin/tariffs/{new_tid}/documents",
           files={"file": ("admin.pdf", b"%PDF-1.4\n% admin\n", "application/pdf")})
     A("PATCH", f"/api/admin/tariffs/{new_tid}/status", json={"status": "approved"})
+    # Visitor again, now that the supplier's discount conditions are public.
+    call("visitor", "GET", "/api/public/config")
+    call("visitor", "POST", "/api/public/calculate", json={"customerType": "domestic", "inputMode": "annual", "annualKwh": 4000})
     t = js(A("GET", f"/api/admin/tariffs/{new_tid}"), {})
     if isinstance(t, dict) and t:
         A("PUT", f"/api/admin/tariffs/{new_tid}", json=t)
