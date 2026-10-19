@@ -288,9 +288,9 @@ Generic scanners can't know this app's rules (e.g. "Acme must not touch Delta's 
   - `test_11`: the page shows a refusal on its fields and stores nothing.
   - Full suite: 188 passed.
 
-## Round 20 — Whole-app review with Anthropic's security-review method (2026-10-19)
+## Round 20 — Manual whole-app security review by Claude (2026-10-19)
 
-The prompt and false-positive rules of `anthropics/claude-code-security-review` were applied to the whole codebase, not just a diff. Two findings; everything else (SQL injection, access control, login/OTP/reset, CSRF/CORS, uploads, email escaping, TSOC fetch, CI workflows) was clean.
+A manual review of the whole codebase by Claude (AI assistant), reading the code directly. It followed the general approach of Anthropic's `claude-code-security-review` tool (vulnerability categories, and dropping theoretical or denial-of-service findings) but did not run that tool or its exact prompt, which only review diffs. Two findings; everything else (SQL injection, access control, login/OTP/reset, CSRF/CORS, uploads, email escaping, TSOC fetch, CI workflows) was clean.
 
 - [x] **Finding 1 (High): the public config carried the whole audit log.**
   - **Cause:** `GET /api/public/config` (no sign-in) returned every changelog entry, although `customer.html` never used it.
