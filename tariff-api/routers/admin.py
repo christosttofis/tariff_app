@@ -924,6 +924,13 @@ def get_dam(db: Session = Depends(get_db), user: CurrentUser = Depends(require_a
 def update_dam(body: DamIn, db: Session = Depends(get_db), user: CurrentUser = Depends(require_admin)):
     payload = {"damMonthly": body.damMonthly, "damBySlot": body.damBySlot, "damDailyData": body.damDailyData,
                "damRowCount": body.damRowCount, "damYear": body.damYear}
+    # Same prices as stored (e.g. Save clicked with nothing new): no version, no log entry.
+    current = db.query(models.DamData).first()
+    if current is not None and (dam_data.stored_slots(_dam_to_dict(current)["damDailyData"])
+                                == dam_data.stored_slots(body.damDailyData)):
+        latest = db.query(models.DamVersion.id).order_by(models.DamVersion.id.desc()).first()
+        return {"ok": True, "unchanged": True, "damYear": current.damYear,
+                "damRowCount": current.damRowCount, "versionId": latest[0] if latest else None}
     version = _replace_dam(db, payload, source=body.source, actor=user.email,
                            action="saved_tsoc" if body.source == "tsoc" else "saved_upload")
     db.commit()

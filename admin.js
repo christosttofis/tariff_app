@@ -2834,7 +2834,7 @@ function renderTariffs(){
 /* ── DAM parser ── */
 // damDailyData[monthIdx] = array of day objects {dateStr, dow, slots:[48 prices]}
 let damDailyData=Array.from({length:12},()=>[]);
-let damViewerState={month:0,week:0};
+let damViewerState={month:0,year:0,week:0};
 let damWeekChart=null;
 
 function damLoadFiles(files){
@@ -2911,6 +2911,25 @@ function parseDAM(){
   renderDamCoverage();
   renderDamViewer();
 }
+// damDailyData is indexed by calendar month only, so one slot can hold the same
+// month of two years (e.g. Oct 2025 and Oct 2026). Split it into a sorted list
+// of {year, mi, days} — one entry per year+month in the data.
+function _damMonthEntries(){
+  const entries=[];
+  damDailyData.forEach((days,mi)=>{
+    if(!days||!days.length) return;
+    const byYear={};
+    days.forEach(d=>{
+      const yr=parseInt(d.dateStr.slice(0,4));
+      if(!byYear[yr]) byYear[yr]=[];
+      byYear[yr].push(d);
+    });
+    Object.entries(byYear).forEach(([yr,yrDays])=>{
+      entries.push({year:parseInt(yr),mi,days:yrDays});
+    });
+  });
+  return entries.sort((a,b)=>a.year!==b.year?a.year-b.year:a.mi-b.mi);
+}
 function renderMonthGrid(){
   const g=document.getElementById('month-grid');g.innerHTML='';
   damMonthly.forEach((v,i)=>{
@@ -2929,23 +2948,7 @@ function renderDamCoverage(){
   document.getElementById('dam-cal-month-view').style.display='';
   document.getElementById('dam-cal-day-view').style.display='none';
 
-  // Build a sorted list of {year, mi, days} — one entry per unique year+month in the data
-  const entries=[];
-  damDailyData.forEach((days,mi)=>{
-    if(!days||!days.length) return;
-    const byYear={};
-    days.forEach(d=>{
-      const yr=parseInt(d.dateStr.slice(0,4));
-      if(!byYear[yr]) byYear[yr]=[];
-      byYear[yr].push(d);
-    });
-    Object.entries(byYear).forEach(([yr,yrDays])=>{
-      entries.push({year:parseInt(yr),mi,days:yrDays});
-    });
-  });
-  entries.sort((a,b)=>a.year!==b.year?a.year-b.year:a.mi-b.mi);
-
-  document.getElementById('dam-cal-mon-grid').innerHTML=entries.map(e=>{
+  document.getElementById('dam-cal-mon-grid').innerHTML=_damMonthEntries().map(e=>{
     const expDays=new Date(e.year,e.mi+1,0).getDate();
     const slotCounts=e.days.map(d=>Array.isArray(d.slots)?d.slots.filter(s=>s!==null).length:0);
     const maxSlots=Math.max(...slotCounts,1);
@@ -3048,36 +3051,37 @@ function renderDamViewer(){
   if(!damDailyData.some(m=>m.length>0)){card.style.display='none';return;}
   card.style.display='';
 
-  // Build month tabs
-  const tabsEl=document.getElementById('dam-month-tabs');
-  tabsEl.innerHTML=MONTHS_SHORT.map((m,i)=>{
-    const hasData=damDailyData[i]&&damDailyData[i].length>0;
-    const cls='dam-month-tab'+(hasData?' has-data':' no-data')+(i===damViewerState.month&&hasData?' active':'');
-    return `<button class="${cls}" ${hasData?`data-action="selectDamMonth" data-arg="${i}"`:'disabled'}>${m}</button>`;
-  }).join('');
-
-  // Find first month with data if current has none
-  if(!damDailyData[damViewerState.month]||!damDailyData[damViewerState.month].length){
-    const first=damDailyData.findIndex(m=>m.length>0);
-    if(first>=0) damViewerState.month=first;
-    else return;
+  // One tab per year+month in the data, oldest first. Keep the selected month
+  // if it still has data, else show the latest.
+  const entries=_damMonthEntries();
+  if(!entries.some(e=>e.mi===damViewerState.month&&e.year===damViewerState.year)){
+    const last=entries[entries.length-1];
+    damViewerState={month:last.mi,year:last.year,week:0};
   }
+  const tabsEl=document.getElementById('dam-month-tabs');
+  tabsEl.innerHTML=entries.map(e=>{
+    const cls='dam-month-tab has-data'+(e.mi===damViewerState.month&&e.year===damViewerState.year?' active':'');
+    return `<button class="${cls}" data-action="selectDamMonth" data-arg="${e.mi}" data-arg2="${e.year}">${MONTHS_SHORT[e.mi]} ${e.year}</button>`;
+  }).join('');
   renderDamWeek();
 }
 
-function selectDamMonth(mi){
-  damViewerState.month=mi;
-  damViewerState.week=0;
-  // Update tab highlights
-  document.querySelectorAll('.dam-month-tab').forEach((t,i)=>{
-    t.classList.toggle('active',i===mi);
+// Days of the selected viewer month (that year only), sorted.
+function _damViewerDays(){
+  const {month,year}=damViewerState;
+  return (damDailyData[month]||[]).filter(d=>parseInt(d.dateStr.slice(0,4))===year);
+}
+
+function selectDamMonth(mi,year){
+  damViewerState={month:mi,year,week:0};
+  document.querySelectorAll('.dam-month-tab').forEach(t=>{
+    t.classList.toggle('active',+t.dataset.arg===mi&&+t.dataset.arg2===year);
   });
   renderDamWeek();
 }
 
 function damNavWeek(dir){
-  const days=damDailyData[damViewerState.month];
-  const totalWeeks=Math.ceil(days.length/7);
+  const totalWeeks=Math.ceil(_damViewerDays().length/7);
   damViewerState.week=Math.max(0,Math.min(totalWeeks-1,damViewerState.week+dir));
   renderDamWeek();
 }
@@ -3085,8 +3089,9 @@ function damNavWeek(dir){
 function renderDamWeek(){
   const mi=damViewerState.month;
   const wi=damViewerState.week;
-  const days=damDailyData[mi];
-  if(!days||!days.length) return;
+  const year=damViewerState.year;
+  const days=_damViewerDays();
+  if(!days.length) return;
 
   const totalWeeks=Math.ceil(days.length/7);
   const weekDays=days.slice(wi*7,wi*7+7);
@@ -3095,7 +3100,7 @@ function renderDamWeek(){
   const firstDay=weekDays[0].dateStr;
   const lastDay=weekDays[weekDays.length-1].dateStr;
   document.getElementById('dam-week-label').textContent=
-    `${MONTHS_SHORT[mi]} · Week ${wi+1} of ${totalWeeks} · ${firstDay} → ${lastDay}`;
+    `${MONTHS_SHORT[mi]} ${year} · Week ${wi+1} of ${totalWeeks} · ${firstDay} → ${lastDay}`;
   document.getElementById('dam-prev-week').disabled=wi===0;
   document.getElementById('dam-next-week').disabled=wi>=totalWeeks-1;
 
@@ -3103,7 +3108,7 @@ function renderDamWeek(){
   const labels=[];
   const prices=[];
   const bgColors=[];
-  const holidays=getCyprusHolidays2026();
+  const holidays=getCyprusHolidaysAdmin(year);
 
   weekDays.forEach(day=>{
     const isWeekend=day.dow===0||day.dow===6;
@@ -3144,7 +3149,7 @@ function renderDamWeek(){
     ${statTile('Week avg',ws.avg.toFixed(2),'€/MWh')}
     ${statTile('Week std dev',ws.std.toFixed(2),'€/MWh')}
     <div style="grid-column:1/-1;font-size:10px;font-family:var(--mono);color:var(--text3);margin-top:6px;margin-bottom:4px;text-transform:uppercase;letter-spacing:.07em">
-      ${MONTHS_SHORT[mi]} full month stats
+      ${MONTHS_SHORT[mi]} ${year} full month stats
     </div>
     ${statTile('Month peak',ms.max.toFixed(2),'€/MWh')}
     ${statTile('Month low',ms.min.toFixed(2),'€/MWh')}
@@ -3213,10 +3218,6 @@ function statTile(label,val,unit){
   </div>`;
 }
 
-// Cyprus holidays helper for DAM viewer (uses the stored DAM year)
-function getCyprusHolidays2026(){
-  return getCyprusHolidaysAdmin(parseInt(document.getElementById('dam-year')?.value)||2026);
-}
 function exportDAM(type){
   if(!damRowCount){alert('No DAM data loaded.');return;}
   const MONTHS_FULL=['January','February','March','April','May','June',
@@ -3310,7 +3311,8 @@ async function saveDamData(){
     if(resp.status===401){showLogin('Session expired.');return;}
     if(!resp.ok){const e=await resp.json().catch(()=>({}));showStatus(st,'err','Save failed: '+apiErrorText(e.detail,resp.status));return;}
     const r=await resp.json().catch(()=>({}));
-    showStatus(st,'ok',`Saved ✓ — DAM data now live (version ${r.versionId}).`);
+    showStatus(st,'ok',r.unchanged?'No changes — the prices on screen are already live. Nothing saved.'
+      :`Saved ✓ — DAM data now live (version ${r.versionId}).`);
     damSavedDates=now;
     damPendingSource='upload';
     markClean('dam');
@@ -4991,7 +4993,7 @@ async function loadConfig(){
   renderProfiles();
   renderTariffs();
   if(damMonthly.some(v=>v!==null)) renderMonthGrid();
-  if(damDailyData.some(m=>m.length>0)) renderDamCoverage();
+  if(damDailyData.some(m=>m.length>0)){ renderDamCoverage(); renderDamViewer(); }
   buildDashboard();
   updateReportsBubble();
   loadDamHistory();
@@ -5152,7 +5154,7 @@ const _ACTIONS = {
   damDownloadVersion: el => damDownloadVersion(el.dataset.arg), damRestoreVersion: el => damRestoreVersion(el.dataset.arg),
   damBackToMonths: () => damBackToMonths(), damNavWeek: el => damNavWeek(+el.dataset.arg),
   damOpenMonth: el => damOpenMonth(+el.dataset.arg, +el.dataset.arg2),
-  selectDamMonth: el => selectDamMonth(+el.dataset.arg), damShowDay: el => damShowDay(el.dataset.arg),
+  selectDamMonth: el => selectDamMonth(+el.dataset.arg, +el.dataset.arg2),damShowDay: el => damShowDay(el.dataset.arg),
   // regulated, audit, notices, sample invoice, changelog, reports
   updateRegPreview: () => updateRegPreview(), saveRegulated: () => saveRegulated(),
   openRegHistory: el => openRegHistory(el.dataset.arg), closeRegHistory: () => closeRegHistory(),

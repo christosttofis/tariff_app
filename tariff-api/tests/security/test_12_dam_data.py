@@ -3,6 +3,7 @@ freshness, and the admin page's DAM tools. (Fetching from TSOC: test_13.)
 """
 import json
 import os
+import re
 import subprocess
 import sys
 from datetime import timedelta
@@ -71,6 +72,16 @@ def test_later_save_adds_days_and_updates_status(admin):
     assert status["lastVersion"]["source"] == "upload"
     log = admin.get("/api/admin/dam/log").json()[0]
     assert log["details"]["daysAdded"] == 3 and log["details"]["daysRemoved"] == 0
+
+
+def test_save_with_no_changes_adds_no_version_or_log(admin):
+    versions = admin.get("/api/admin/dam/versions").json()
+    log = admin.get("/api/admin/dam/log").json()
+    r = admin.put("/api/admin/dam", json={**_payload(*_days_back(5, 0)), "source": "upload"})
+    assert r.status_code == 200, r.text
+    assert r.json()["unchanged"] is True and r.json()["versionId"] == versions[0]["id"]
+    assert admin.get("/api/admin/dam/versions").json() == versions
+    assert admin.get("/api/admin/dam/log").json() == log
 
 
 def test_restore_brings_back_an_earlier_version(app, admin):
@@ -249,6 +260,9 @@ def test_admin_page_check_days_download_save_restore_and_dashboard(make_app, pag
     # Price explorer month tabs respond to clicks (they used inline onclick, which the CSP blocks).
     tabs = page.locator("#dam-month-tabs [data-action=selectDamMonth]")
     assert tabs.count() >= 1
+    # One tab per year+month, so e.g. Oct 2025 and Oct 2026 are separate tabs.
+    labels = tabs.all_inner_texts()
+    assert all(re.fullmatch(r"[A-Z][a-z]{2} \d{4}", t) for t in labels) and len(set(labels)) == len(labels)
     tabs.first.click()
     assert "active" in tabs.first.get_attribute("class")
     with page.expect_download() as dl:
