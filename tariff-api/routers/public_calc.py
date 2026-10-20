@@ -27,7 +27,7 @@ from pricing.filters import filter_matching_tariffs
 from pricing.invoice import build_sample_invoice_data
 from pricing.regulated import get_regulated_rates, get_tariff_fpa, mdm_for_tariff, regulated_breakdown
 from schemas import PublicCalculateIn, PublicSampleInvoiceIn
-from serializers import tariff_to_dict
+from serializers import dam_to_dict, regulated_to_dict, tariff_to_dict
 
 router = APIRouter(prefix="/api/public", tags=["public-calculate"])
 
@@ -55,17 +55,10 @@ def _load_context(db: Session):
         profiles_by_id[p.id] = json.loads(p.months) if p.months else []
         profile_names[p.id] = p.name
     suppliers_regulated = {s.name: bool(s.regulated) for s in db.query(models.Supplier).all()}
-    reg_row = db.query(models.Regulated).first()
-    regulated_rates = get_regulated_rates({
-        "lv": reg_row.lv if reg_row else 0, "mv": reg_row.mv if reg_row else 0, "hv": reg_row.hv if reg_row else 0,
-        "fpaLV": reg_row.fpaLV if reg_row else 0, "fpaMV": reg_row.fpaMV if reg_row else 0, "fpaHV": reg_row.fpaHV if reg_row else 0,
-        "pso": reg_row.pso if reg_row else 0, "res": reg_row.res if reg_row else 0, "mdm": reg_row.mdm if reg_row else 0,
-    })
-    dam = db.query(models.DamData).first()
-    dam_monthly = json.loads(dam.damMonthly) if dam and dam.damMonthly else [None] * 12
-    dam_by_slot = json.loads(dam.damBySlot) if dam and dam.damBySlot else []
-    dam_daily_data = json.loads(dam.damDailyData) if dam and dam.damDailyData else [[] for _ in range(12)]
-    return tariffs, profiles_by_id, profile_names, suppliers_regulated, regulated_rates, dam_monthly, dam_by_slot, dam_daily_data
+    regulated_rates = get_regulated_rates(regulated_to_dict(db.query(models.Regulated).first()))
+    dam = dam_to_dict(db.query(models.DamData).first())
+    return (tariffs, profiles_by_id, profile_names, suppliers_regulated, regulated_rates,
+            dam["damMonthly"], dam["damBySlot"], dam["damDailyData"])
 
 
 def _calc_kwargs(t: dict, profiles_by_id: dict, regulated_rates: dict, *, is_monthly, monthly_kwh_flat, annual_kwh, discount_overrides, offers_enabled, dam_monthly, dam_by_slot, dam_daily_data) -> dict:

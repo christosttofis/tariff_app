@@ -88,7 +88,7 @@ def test_public_config_shows_no_audit_log_accounts_or_unpublished_tariffs(app, a
     user = next(u for u in admin.get("/api/admin/users").json() if u["email"] == DELTA)
     for value in (not user["otp_enabled"], user["otp_enabled"]):
         assert admin.patch(f"/api/admin/users/{user['id']}/otp", json={"otp_enabled": value}).status_code == 200
-    logged = str(admin.get("/api/admin/changelog").json())
+    logged = str(admin.get("/api/admin/config").json()["changelog"])
     assert "Delta unpublished offer" in logged and DELTA in logged, "nothing logged - test would prove nothing"
 
     public = app.anon().get("/api/public/config")

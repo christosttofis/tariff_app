@@ -12,7 +12,7 @@ import lockout
 import models
 from client_ip import UNAVAILABLE_DETAIL, admin_network_allowed, client_ip_str
 from auth import (
-    CurrentUser, check_password_reuse, clear_auth_cookie, create_pending_token, create_token,
+    OTP_EXPIRE_MINUTES, CurrentUser, check_password_reuse, clear_auth_cookie, create_pending_token, create_token,
     decode_pending_token, get_current_user, hash_password, otp_digest, otp_matches, record_password_change,
     reset_token_digest, resolve_supplier_name, set_auth_cookie, validate_password_strength, verify_password,
 )
@@ -40,6 +40,17 @@ def _log_login(db: Session, request: Request, *, email: str, user_id: int | None
         ts=datetime.now(timezone.utc).isoformat(),
     ))
     db.commit()
+
+
+def _send_new_otp(db: Session, email: str, now: datetime) -> None:
+    """Replace any earlier sign-in code for this email with a new 6-digit one,
+    stored only as a keyed hash, and email it. (Sign-in and "resend code".)"""
+    code = str(secrets.randbelow(900000) + 100000)
+    db.query(models.OtpCode).filter(models.OtpCode.email == email).delete()
+    expires = (now + timedelta(minutes=OTP_EXPIRE_MINUTES)).isoformat()
+    db.add(models.OtpCode(email=email, code=otp_digest(email, code), expires_at=expires, created_at=now.isoformat()))
+    db.commit()
+    email_utils.send_otp_code(email, code)
 
 
 class LoginIn(BaseModel):
@@ -139,16 +150,7 @@ def login(body: LoginIn, request: Request, response: Response, db: Session = Dep
             "email": user.email,
         }
 
-    # Generate 6-digit OTP, delete any existing codes for this email, store new one
-    code = str(secrets.randbelow(900000) + 100000)
-    db.query(models.OtpCode).filter(models.OtpCode.email == user.email).delete()
-    expires = (now + timedelta(minutes=10)).isoformat()
-    db.add(models.OtpCode(email=user.email, code=otp_digest(user.email, code), expires_at=expires,
-                          created_at=now.isoformat()))
-    db.commit()
-
-    email_utils.send_otp_code(user.email, code)
-
+    _send_new_otp(db, user.email, now)
     return {
         "status": "otp_required",
         "pending_token": create_pending_token(user.email),
@@ -257,14 +259,7 @@ def resend_otp(body: ResendOtpIn, request: Request, db: Session = Depends(get_db
             wait = int(_OTP_RESEND_COOLDOWN_SECONDS - elapsed)
             raise HTTPException(429, f"Please wait {wait} seconds before requesting a new code.")
 
-    code = str(secrets.randbelow(900000) + 100000)
-    db.query(models.OtpCode).filter(models.OtpCode.email == email).delete()
-    expires = (now + timedelta(minutes=10)).isoformat()
-    db.add(models.OtpCode(email=email, code=otp_digest(email, code), expires_at=expires, created_at=now.isoformat()))
-    db.commit()
-
-    email_utils.send_otp_code(email, code)
-
+    _send_new_otp(db, email, now)
     return {"message": "A new verification code has been sent to your email."}
 
 

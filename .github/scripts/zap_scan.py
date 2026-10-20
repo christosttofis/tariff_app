@@ -127,8 +127,7 @@ cfg = js(A("GET", "/api/admin/config"), {})
 tariffs = js(A("GET", "/api/admin/tariffs"), [])
 for p in ("/api/admin/suppliers", "/api/admin/users", "/api/admin/login-activity", "/api/admin/messages",
           "/api/admin/scheduled-notifications", "/api/admin/profiles", "/api/admin/regulated",
-          "/api/admin/regulated/history", "/api/admin/notices", "/api/admin/sample-invoice", "/api/admin/dam",
-          "/api/admin/changelog"):
+          "/api/admin/regulated/history", "/api/admin/notices", "/api/admin/sample-invoice", "/api/admin/dam"):
     A("GET", p)
 tid = first(tariffs)
 if tid:

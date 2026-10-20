@@ -12,7 +12,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from pricing.daycounts import calc_window, easter_date, get_cyprus_holidays, get_day_counts  # noqa: E402
+from pricing.daycounts import calc_window, easter_date, get_cyprus_holidays, get_window_day_counts  # noqa: E402
 from pricing.engine import monthly_breakdown  # noqa: E402
 
 WINDOW = calc_window(date(2026, 10, 9))   # Nov 2026 - Oct 2027
@@ -41,7 +41,7 @@ def test_cyprus_holidays_2026_movable_dates():
 
 def test_day_counts_cover_every_day():
     for year in (2026, 2027, 2028):
-        dc = get_day_counts(year)
+        dc = get_window_day_counts([(year, mi) for mi in range(12)])
         total = sum(m["working"] + m["nonWorking"] for m in dc)
         assert total == (366 if year == 2028 else 365)
 

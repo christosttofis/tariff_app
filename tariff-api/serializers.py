@@ -125,6 +125,39 @@ def tariff_report_to_dict(r: models.TariffReport) -> dict:
     }
 
 
+def dam_to_dict(d: models.DamData | None) -> dict:
+    """Stored DAM prices (admin pages and the public calculator)."""
+    if not d:
+        return {"damMonthly": [None]*12, "damBySlot": [], "damDailyData": [[] for _ in range(12)], "damRowCount": 0, "damYear": 2026}
+    return {
+        "damMonthly":   json.loads(d.damMonthly)   if d.damMonthly   else [None]*12,
+        "damBySlot":    json.loads(d.damBySlot)    if d.damBySlot    else [],
+        "damDailyData": json.loads(d.damDailyData) if d.damDailyData else [[] for _ in range(12)],
+        "damRowCount":  d.damRowCount,
+        "damYear":      d.damYear,
+    }
+
+
+def regulated_to_dict(r: models.Regulated | None) -> dict:
+    """Regulated charges (admin pages and the public calculator)."""
+    if not r:
+        return {"lv": 0, "mv": 0, "hv": 0, "fpaLV": 0, "fpaMV": 0, "fpaHV": 0, "pso": 0, "res": 0, "mdm": 0,
+                "updated_at": None, "fpa_updated_at": None, "grid_updated_at": None, "universal_updated_at": None}
+    return {"lv": r.lv, "mv": r.mv, "hv": r.hv, "fpaLV": r.fpaLV, "fpaMV": r.fpaMV, "fpaHV": r.fpaHV, "pso": r.pso, "res": r.res, "mdm": r.mdm,
+            "updated_at": r.updated_at, "fpa_updated_at": r.fpa_updated_at,
+            "grid_updated_at": r.grid_updated_at, "universal_updated_at": r.universal_updated_at}
+
+
+def changelog_to_dict(c: models.Changelog) -> dict:
+    """Admin only: includes actorEmail and before/after values of unapproved tariffs."""
+    return {
+        "id": c.id, "tariffId": c.tariffId, "tariffName": c.tariffName,
+        "supplier": c.supplier, "action": c.action,
+        "changes": json.loads(c.changes) if c.changes else [], "ts": c.ts,
+        "actorRole": c.actorRole, "actorEmail": c.actorEmail,
+    }
+
+
 def supplier_to_dict(s: models.Supplier) -> dict:
     return {
         "name": s.name,

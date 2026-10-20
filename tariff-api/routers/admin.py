@@ -36,8 +36,8 @@ from schemas import (
     TariffReportStatusIn, TariffStatusIn, UserOtpToggleIn, UserStatusIn,
 )
 from serializers import (
-    message_to_dict, profile_to_dict, scheduled_notification_to_dict,
-    supplier_to_dict, tariff_report_to_dict, tariff_to_dict,
+    changelog_to_dict, dam_to_dict, message_to_dict, profile_to_dict, scheduled_notification_to_dict,
+    regulated_to_dict, supplier_to_dict, tariff_report_to_dict, tariff_to_dict,
 )
 
 from routers.shared import (
@@ -52,32 +52,11 @@ router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(re
 _VALID_STATUSES = {"draft", "pending", "approved", "rejected", "suspended", "archived"}
 
 
-def _dam_to_dict(d: models.DamData | None) -> dict:
-    if not d:
-        return {"damMonthly": [None]*12, "damBySlot": [], "damDailyData": [[] for _ in range(12)], "damRowCount": 0, "damYear": 2026}
-    return {
-        "damMonthly":   json.loads(d.damMonthly)   if d.damMonthly   else [None]*12,
-        "damBySlot":    json.loads(d.damBySlot)    if d.damBySlot    else [],
-        "damDailyData": json.loads(d.damDailyData) if d.damDailyData else [[] for _ in range(12)],
-        "damRowCount":  d.damRowCount,
-        "damYear":      d.damYear,
-    }
-
-
 def _notices_to_dict(n: models.Notices | None) -> dict:
     empty = {"assumptions_en": "", "assumptions_el": "", "legal_en": "", "legal_el": "", "vulnerable_en": "", "vulnerable_el": ""}
     if not n:
         return empty
     return {k: (getattr(n, k) or "") for k in empty}
-
-
-def _regulated_to_dict(r: models.Regulated | None) -> dict:
-    if not r:
-        return {"lv": 0, "mv": 0, "hv": 0, "fpaLV": 0, "fpaMV": 0, "fpaHV": 0, "pso": 0, "res": 0, "mdm": 0,
-                "updated_at": None, "fpa_updated_at": None, "grid_updated_at": None, "universal_updated_at": None}
-    return {"lv": r.lv, "mv": r.mv, "hv": r.hv, "fpaLV": r.fpaLV, "fpaMV": r.fpaMV, "fpaHV": r.fpaHV, "pso": r.pso, "res": r.res, "mdm": r.mdm,
-            "updated_at": r.updated_at, "fpa_updated_at": r.fpa_updated_at,
-            "grid_updated_at": r.grid_updated_at, "universal_updated_at": r.universal_updated_at}
 
 
 _REGULATED_LABELS = {
@@ -141,18 +120,12 @@ def get_admin_config(
         "suppliers":  [supplier_to_dict(s) for s in suppliers],
         "profiles":   [profile_to_dict(p)  for p in profiles],
         "tariffs":    [tariff_to_dict(t)   for t in tariffs],
-        "regulated":  _regulated_to_dict(regulated),
+        "regulated":  regulated_to_dict(regulated),
         "notices":    _notices_to_dict(notices),
         "sampleInvoiceEnabled": bool(sample_invoice_cfg.enabled) if sample_invoice_cfg else False,
         "tsocFetchEnabled": TARIFF_TSOC_FETCH,
-        **_dam_to_dict(dam),
-        "changelog": [
-            {"id": c.id, "tariffId": c.tariffId, "tariffName": c.tariffName,
-             "supplier": c.supplier, "action": c.action,
-             "changes": json.loads(c.changes) if c.changes else [], "ts": c.ts,
-             "actorRole": c.actorRole, "actorEmail": c.actorEmail}
-            for c in changelog
-        ],
+        **dam_to_dict(dam),
+        "changelog": [changelog_to_dict(c) for c in changelog],
         "docTariffIds": doc_tariff_ids,
         "reports": [tariff_report_to_dict(r) for r in reports],
         "savedAt": _now(),
@@ -385,11 +358,24 @@ def download_document(
 # ── User management (admin only) ──────────────────────────────────────────────
 
 _BASE_URL = TARIFF_BASE_URL
+_INVITE_VALID_DAYS = 7
+
+
+def _send_invite(db: Session, email: str, supplier_name: str) -> str:
+    """Replace any earlier invite/reset link for this email with a new 7-day
+    one (stored only as a hash), commit, email it, and return the link."""
+    token = secrets.token_urlsafe(32)
+    expires = (datetime.now(timezone.utc) + timedelta(days=_INVITE_VALID_DAYS)).isoformat()
+    db.query(models.PasswordReset).filter(models.PasswordReset.email == email).delete()
+    db.add(models.PasswordReset(token=reset_token_digest(token), email=email, expires_at=expires))
+    db.commit()
+    invite_url = f"{_BASE_URL}/reset-password.html?token={token}&portal=supplier&setup=1"
+    email_utils.notify_supplier_invite(email, supplier_name, invite_url)
+    return invite_url
 
 
 @router.get("/users", summary="List all portal users")
 def list_users(db: Session = Depends(get_db), user: CurrentUser = Depends(require_admin)):
-    from datetime import datetime, timezone
     now = datetime.now(timezone.utc)
     return [
         {
@@ -424,13 +410,7 @@ def create_user(body: CreateUserIn, db: Session = Depends(get_db), user: Current
     )
     db.add(new_user)
     db.flush()
-    token = secrets.token_urlsafe(32)
-    expires = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
-    db.query(models.PasswordReset).filter(models.PasswordReset.email == email).delete()
-    db.add(models.PasswordReset(token=reset_token_digest(token), email=email, expires_at=expires))
-    db.commit()
-    invite_url = f"{_BASE_URL}/reset-password.html?token={token}&portal=supplier&setup=1"
-    email_utils.notify_supplier_invite(email, body.supplier_name, invite_url)
+    invite_url = _send_invite(db, email, body.supplier_name)
     return {"id": new_user.id, "email": email, "supplier_name": body.supplier_name, "invite_url": invite_url}
 
 
@@ -485,13 +465,7 @@ def reinvite_user(user_id: int, db: Session = Depends(get_db), user: CurrentUser
         raise HTTPException(404, "User not found.")
     if target.role != "supplier":
         raise HTTPException(400, "Invites can only be sent to supplier accounts.")
-    token = secrets.token_urlsafe(32)
-    expires = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
-    db.query(models.PasswordReset).filter(models.PasswordReset.email == target.email).delete()
-    db.add(models.PasswordReset(token=reset_token_digest(token), email=target.email, expires_at=expires))
-    db.commit()
-    invite_url = f"{_BASE_URL}/reset-password.html?token={token}&portal=supplier&setup=1"
-    email_utils.notify_supplier_invite(target.email, resolve_supplier_name(db, target) or "", invite_url)
+    invite_url = _send_invite(db, target.email, resolve_supplier_name(db, target) or "")
     return {"ok": True, "invite_url": invite_url}
 
 
@@ -816,7 +790,7 @@ def delete_profile(profile_id: str, db: Session = Depends(get_db), user: Current
 
 @router.get("/regulated", summary="Get regulated charge settings (admin only)")
 def get_regulated(db: Session = Depends(get_db), user: CurrentUser = Depends(require_admin)):
-    return _regulated_to_dict(db.query(models.Regulated).first())
+    return regulated_to_dict(db.query(models.Regulated).first())
 
 
 _GRID_FIELDS = {"lv", "mv", "hv"}
@@ -867,7 +841,7 @@ def update_regulated(body: RegulatedIn, db: Session = Depends(get_db), user: Cur
                        tariff_name="Regulated Charges", supplier="CERA", changes=changes, actor=user)
         db.commit()
 
-    return _regulated_to_dict(db.query(models.Regulated).first())
+    return regulated_to_dict(db.query(models.Regulated).first())
 
 
 @router.get("/regulated/history", summary="Full history of regulated-charges snapshots, newest first (admin only)")
@@ -917,7 +891,7 @@ def update_sample_invoice_config(body: SampleInvoiceConfigIn, db: Session = Depe
 
 @router.get("/dam", summary="Get stored DAM price data (admin only)")
 def get_dam(db: Session = Depends(get_db), user: CurrentUser = Depends(require_admin)):
-    return _dam_to_dict(db.query(models.DamData).first())
+    return dam_to_dict(db.query(models.DamData).first())
 
 
 @router.put("/dam", summary="Replace DAM price data (admin only)")
@@ -926,7 +900,7 @@ def update_dam(body: DamIn, db: Session = Depends(get_db), user: CurrentUser = D
                "damRowCount": body.damRowCount, "damYear": body.damYear}
     # Same prices as stored (e.g. Save clicked with nothing new): no version, no log entry.
     current = db.query(models.DamData).first()
-    if current is not None and (dam_data.stored_slots(_dam_to_dict(current)["damDailyData"])
+    if current is not None and (dam_data.stored_slots(dam_to_dict(current)["damDailyData"])
                                 == dam_data.stored_slots(body.damDailyData)):
         latest = db.query(models.DamVersion.id).order_by(models.DamVersion.id.desc()).first()
         return {"ok": True, "unchanged": True, "damYear": current.damYear,
@@ -961,7 +935,7 @@ def _new_version(db: Session, payload: dict, *, source: str, actor: str | None,
 def _ensure_initial_version(db: Session, current: models.DamData | None) -> None:
     """Back up the dataset stored before versioning existed, once, before it is first replaced."""
     if db.query(models.DamVersion.id).first() is None and current is not None:
-        _new_version(db, _dam_to_dict(current), source="initial", actor=None)
+        _new_version(db, dam_to_dict(current), source="initial", actor=None)
 
 
 def _log_dam(db: Session, action: str, actor: str | None, summary: str, details: dict | None = None,
@@ -974,7 +948,7 @@ def _replace_dam(db: Session, payload: dict, *, source: str, actor: str, action:
                  restored_from: int | None = None) -> models.DamVersion:
     current = db.query(models.DamData).first()
     _ensure_initial_version(db, current)
-    before = set(dam_data.dataset_dates(_dam_to_dict(current)["damDailyData"]))
+    before = set(dam_data.dataset_dates(dam_to_dict(current)["damDailyData"]))
     after = set(dam_data.dataset_dates(payload["damDailyData"]))
     db.merge(models.DamData(id=1,
         damMonthly=json.dumps(payload["damMonthly"]), damBySlot=json.dumps(payload["damBySlot"]),
@@ -1006,7 +980,7 @@ def fetch_dam_from_tsoc(db: Session = Depends(get_db), user: CurrentUser = Depen
     if not _tsoc_fetch_lock.acquire(blocking=False):
         raise HTTPException(409, "A TSOC fetch is already running. Try again in a minute.")
     try:
-        stored = _dam_to_dict(db.query(models.DamData).first())["damDailyData"]
+        stored = dam_to_dict(db.query(models.DamData).first())["damDailyData"]
         result = dam_tsoc.fetch_preview(stored)
     finally:
         _tsoc_fetch_lock.release()
@@ -1026,7 +1000,7 @@ def fetch_dam_from_tsoc(db: Session = Depends(get_db), user: CurrentUser = Depen
 
 @router.get("/dam/status", summary="DAM data freshness and last change (admin only)")
 def get_dam_status(db: Session = Depends(get_db), user: CurrentUser = Depends(require_admin)):
-    status = dam_data.freshness(_dam_to_dict(db.query(models.DamData).first())["damDailyData"])
+    status = dam_data.freshness(dam_to_dict(db.query(models.DamData).first())["damDailyData"])
     last = db.query(models.DamVersion).order_by(models.DamVersion.id.desc()).first()
     return {**status, "staleAfterDays": dam_data.STALE_AFTER_DAYS,
             "lastVersion": _version_meta(last) if last else None}
@@ -1072,7 +1046,7 @@ def run_dam_staleness_check(db: Session) -> None:
     """Emails the admin when the newest DAM price is more than 15 days old;
     repeats weekly while it stays old. Called daily from main.py's background loop."""
     dam = db.query(models.DamData).first()
-    status = dam_data.freshness(_dam_to_dict(dam)["damDailyData"])
+    status = dam_data.freshness(dam_to_dict(dam)["damDailyData"])
     if not status["stale"] or dam is None:
         return
     now = datetime.now(timezone.utc)
@@ -1086,21 +1060,6 @@ def run_dam_staleness_check(db: Session) -> None:
     age = f"{status['ageDays']} days old" if status["lastDate"] else "no data"
     _log_dam(db, "stale_alert_sent", None, f"Reminder emailed: newest DAM price {status['lastDate'] or '—'} ({age}).")
     db.commit()
-
-
-
-# ── Changelog ─────────────────────────────────────────────────────────────────
-
-@router.get("/changelog", summary="Full changelog")
-def get_changelog(db: Session = Depends(get_db), user: CurrentUser = Depends(require_admin)):
-    q = db.query(models.Changelog)
-    return [
-        {"id": c.id, "tariffId": c.tariffId, "tariffName": c.tariffName,
-         "supplier": c.supplier, "action": c.action,
-         "changes": json.loads(c.changes) if c.changes else [], "ts": c.ts,
-         "actorRole": c.actorRole, "actorEmail": c.actorEmail}
-        for c in q.order_by(models.Changelog.ts.desc()).all()
-    ]
 
 
 # ── Tariff reports (Article 121(ζ) — customer-reported issues) ─────────────────

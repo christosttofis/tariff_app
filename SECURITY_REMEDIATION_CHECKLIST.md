@@ -296,7 +296,7 @@ A manual review of the whole codebase by Claude (AI assistant), reading the code
   - **Cause:** `GET /api/public/config` (no sign-in) returned every changelog entry, although `customer.html` never used it.
   - **Exposed:** before/after rates and discounts of tariffs still pending, rejected or never approved (a competitor could read another supplier's prices before CERA approves them); supplier staff emails (`actorEmail`); and which accounts have 2FA switched off (OTP changes are logged under the user's email).
   - **Why it was missed:** Round 9's black-box test looked at that text for raw pricing only and recorded it as a false positive (corrected there).
-  - **Fix:** the public config no longer includes the changelog. Admins still get it from `/api/admin/config` and `/api/admin/changelog`.
+  - **Fix:** the public config no longer includes the changelog. Admins still get it from `/api/admin/config`.
 - [x] **Finding 2 (Medium): supplier text became markup on the public results page.**
   - **Cause:** a discount's `conditions` (supplier free text, up to 500 characters) was the one value in `customer.js` `renderDiscountToggles` not passed through `esc()`.
   - **Impact:** once an admin approved the tariff (the review shows the text plainly, so markup is easy to miss), it became page markup for every visitor who opened the card. The strict CSP stops scripts from running, but inline styles are allowed, so a supplier could hide competitors' results or add a misleading link.
@@ -337,6 +337,7 @@ The Round 20 review's false-positive rules left out three lower-risk points. All
 These are deployment/production tasks, tracked in full in `AZURE_DEPLOYMENT_CHECKLIST.md` and project memory.
 
 - [ ] **HTTPS** — load-bearing, not just good practice: the `Secure` session cookie means login silently fails over plain HTTP on a real domain.
+- [ ] **Retire the local database copies after the move to Azure.** The dev database is not encrypted at rest (local PostgreSQL; only disk encryption, if on, protects it), and `tariff-api/scripts/backup_db.ps1` writes plain `pg_dump` files daily to a OneDrive-synced folder. Once the data is on Azure (encrypted at rest, AES-256): disable the Scheduled Task, delete the dump files from the OneDrive folder (and its recycle bin), and remove or wipe the local dev database (`%USERPROFILE%\pgdata_tariff`), so no unencrypted copy of real data is left behind.
 - [ ] **Production secrets** — set a real random `TARIFF_SECRET_KEY` (never the dev fallback) and real Azure/Graph credentials in Key Vault.
 - [ ] **Admin network restriction settings on Azure** (`TARIFF_ADMIN_ALLOWED_NETWORKS`, `TARIFF_TRUSTED_PROXY_HOPS=1`) with addresses from CERA IT, and a VPN full-tunnel confirmation (Round 14; checklist Step 6a). This replaces the earlier `X-Forwarded-For` trust item, now handled in code.
 - [x] **Disable API docs in production**: done in code (Round 21). They are now off unless `TARIFF_ENABLE_DOCS=1`, so nothing needs setting on Azure.

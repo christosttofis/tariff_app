@@ -40,11 +40,6 @@ def get_cyprus_holidays(year: int) -> frozenset[str]:
     return frozenset(holidays)
 
 
-def get_day_counts(year: int) -> list[dict]:
-    """Working/non-working day counts for January-December of `year`."""
-    return get_window_day_counts([(year, mi) for mi in range(12)])
-
-
 def calc_window(today: date) -> list[tuple[int, int]]:
     """The 12 months every cost estimate covers: (year, month index 0-11)
     pairs, starting with the month after `today` — i.e. the customer's first
