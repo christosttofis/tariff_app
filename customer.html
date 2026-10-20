@@ -339,6 +339,15 @@ body{
   .rank-toggle{position:absolute;top:16px;right:16px;padding-top:0}
   .rank-card{position:relative}
   .rank-annual-val{font-size:23px}
+  /* Name, supplier and date can't share one line on a phone — stack them so
+     the tariff name isn't squeezed to nothing; clear the corner ▼ toggle. */
+  .rank-info{padding-right:22px}
+  .rank-name-row{flex-direction:column;align-items:flex-start;gap:2px}
+  .rank-name{white-space:normal}
+  .rank-sup-dash{display:none}
+  /* Long first-column labels (regulated charges, totals) must wrap, or they
+     stretch the Month column and push every number off-screen. */
+  .mo-table td:first-child{white-space:normal;min-width:7em}
 }
 
 /* ── Segmented controls: sliding pill ── */

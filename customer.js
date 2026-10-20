@@ -585,8 +585,7 @@ function setCustomerType(type){
   const vLabel=document.querySelector('#ci-options .ff label');
   if(vLabel) vLabel.textContent=T('LBL_VOLTAGE');
   const pLabel=document.querySelector('[for="sel-pricing"]');
-  const allLabels=document.querySelectorAll('.ff label');
-  allLabels.forEach(l=>{ if(l.textContent.trim()==='Pricing type'||l.textContent.trim()===T('LBL_PRICING')) l.textContent=T('LBL_PRICING'); });
+  if(pLabel) pLabel.textContent=T('LBL_PRICING');
   applyFilters();
 }
 
@@ -1112,6 +1111,12 @@ function renderPage(){
   // Pricing options
   const po=document.getElementById('sel-pricing');
   if(po){ po.options[0].text=T('OPT_ALL'); po.options[1].text=T('OPT_FIXED'); po.options[2].text=T('OPT_TOU'); po.options[3].text=T('OPT_VARIABLE'); po.options[4].text=T('OPT_VARIABLE_TIERED'); }
+  // Field labels
+  const vLbl=document.querySelector('[for="sel-voltage"]');
+  if(vLbl) vLbl.textContent=T('LBL_VOLTAGE');
+  const pLbl=document.querySelector('[for="sel-pricing"]');
+  if(pLbl) pLbl.textContent=T('LBL_PRICING');
+  setText('lbl-load-ent','LBL_LOAD_ENT');
   // Load entitlement labels
   document.getElementById('le-lt').childNodes[1].textContent=' '+T('LE_LT70');
   document.getElementById('le-gt').childNodes[1].textContent=' '+T('LE_GT70');
